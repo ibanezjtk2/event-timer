@@ -5,6 +5,7 @@ mod assets;
 mod engine;
 mod http;
 mod json;
+mod mdns;
 mod net;
 mod server;
 mod store;
@@ -28,6 +29,8 @@ struct Options {
     data: Option<PathBuf>,
     open: bool,
     pin: Option<String>,
+    name: Option<String>,
+    port80: Option<bool>,
 }
 
 fn usage() -> ! {
@@ -40,6 +43,8 @@ Aufruf: event-timer [Optionen]
   --host <ip>      Netzwerkadresse zum Lauschen (Standard 0.0.0.0 = alle)
   --data <datei>   Speicherdatei (Standard: neben dem Programm, sonst Benutzerordner)
   --pin <pin>      Steuerungs-PIN setzen (leer \"\" = PIN entfernen)
+  --name <name>    Netzwerkname: http://<name>.local (Standard event-timer)
+  --port80         zusätzlich Port 80, Adressen dann ohne :2468 (--no-port80 aus)
   --no-browser     Browser beim Start nicht öffnen
   --version        Version anzeigen
 
@@ -56,6 +61,8 @@ fn parse_args() -> Options {
         data: None,
         open: true,
         pin: None,
+        name: None,
+        port80: None,
     };
     if let Some(p) = std::env::var("PORT").ok().and_then(|p| p.parse().ok()) {
         o.port = p;
@@ -74,6 +81,9 @@ fn parse_args() -> Options {
             "--data" => o.data = args.next().map(PathBuf::from),
             "--pin" => o.pin = Some(args.next().unwrap_or_default()),
             "--no-browser" => o.open = false,
+            "--name" => o.name = Some(args.next().unwrap_or_else(|| usage())),
+            "--port80" => o.port80 = Some(true),
+            "--no-port80" => o.port80 = Some(false),
             "--version" | "-V" => {
                 println!("{VERSION}");
                 std::process::exit(0)
@@ -126,12 +136,20 @@ fn main() {
 
     let data_path = opts.data.clone().unwrap_or_else(store::default_path);
     let (state, cfg, load_error) = store::load(&data_path);
-    let app = Arc::new(App::new(state, cfg, data_path));
+    let app = Arc::new(App::new(state, cfg, data_path, opts.host.clone()));
     if let Some(e) = load_error {
         eprintln!("Achtung: Speicherdatei war beschädigt und wurde zurückgesetzt: {e}");
     }
     if let Some(pin) = &opts.pin {
         app.set_pin(pin);
+    }
+    if let Some(name) = &opts.name {
+        if !app.set_name(name) {
+            eprintln!(
+                "Ungültiger Name „{name}“: nur a–z, 0–9 und Bindestrich. Bleibe bei {}.",
+                app.mdns_name()
+            );
+        }
     }
 
     // bind with automatic fallback so we never fight another program for its port
@@ -185,6 +203,20 @@ fn main() {
     }
     app.dirty.store(true, Ordering::SeqCst);
 
+    // short addresses: <name>.local via mDNS, optionally without port (80)
+    let mdns_ok = mdns::spawn(app.clone());
+    app.mdns_ok.store(mdns_ok, Ordering::SeqCst);
+    let want80 = opts
+        .port80
+        .unwrap_or_else(|| app.cfg.lock().unwrap_or_else(|e| e.into_inner()).port80);
+    if want80 {
+        if let Err(e) = server::set_port80(&app, true) {
+            eprintln!("  {e}");
+        }
+    } else if opts.port80 == Some(false) {
+        let _ = server::set_port80(&app, false);
+    }
+
     print_banner(&app, port, opts.port);
     if opts.open {
         net::open_browser(&format!("http://localhost:{port}/control"));
@@ -192,10 +224,7 @@ fn main() {
 
     for stream in listener.incoming() {
         match stream {
-            Ok(s) => {
-                let app = app.clone();
-                std::thread::spawn(move || server::handle_connection(app, s));
-            }
+            Ok(s) => server::spawn_connection(&app, s),
             Err(e) => {
                 eprintln!("Verbindungsfehler: {e}");
                 std::thread::sleep(Duration::from_millis(50));
@@ -223,7 +252,19 @@ fn print_banner(app: &App, port: u16, wanted: u16) {
     if net.addresses.is_empty() {
         println!("  (Kein Netzwerk gefunden – nur lokal erreichbar.)");
     }
-    println!("\n  Displays:            /display  ·  /timer1 … /timer8  ·  /agenda");
+    drop(net);
+    if app.mdns_ok.load(Ordering::SeqCst) {
+        let host = format!("{}.local", app.mdns_name());
+        let base = if app.port80_active() {
+            format!("http://{host}")
+        } else {
+            format!("http://{host}:{port}")
+        };
+        println!("\n  Kurz:                {base}/control");
+        println!("  Displays:            {base}/1 … /8   ·   {base}/uhr   ·   {base}/agenda");
+    } else {
+        println!("\n  Displays:            /1 … /8  ·  /uhr  ·  /agenda");
+    }
     println!("  Daten:               {}", app.data_path.display());
     if app.pin_required() {
         println!("  Steuerung ist per PIN geschützt.");

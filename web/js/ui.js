@@ -63,7 +63,12 @@
     'Ablauf verbinden mit': 'Run of show drives', 'Dauer ändern': 'Change duration',
     'Live-Vorschau': 'Live preview', 'Keine Schnellnachrichten.': 'No quick messages.',
     'Eingebaut': 'Built-in', 'Eigenes': 'Custom', 'Uhrzeit (HH:MM)': 'Time (HH:MM)',
-    'Display öffnen': 'Open display', 'Nur Uhrzeit': 'Clock only', 'Zeigt die Uhrzeit': 'Showing the time of day', 'Blinken beim Überziehen': 'Flash when over time', 'Neues Fenster wurde blockiert – nutze „Bühnenansicht hier“.': 'New window was blocked – use "Stage view here".', 'Start, Pause, Zeit, Nachrichten, Ablauf': 'Start, pause, time, messages, run of show', 'Diese Steuerung': 'This control page', 'Per Rechnername': 'By computer name',
+    'Display öffnen': 'Open display', 'Einfach im Browser eintippen': 'Just type it into the browser',
+    'Displays /1 bis /8, Uhr /uhr, Ablauf /agenda, Steuerung /control': 'Displays /1 to /8, clock /uhr, run of show /agenda, control /control',
+    'Netzwerkname nicht verfügbar – bitte IP-Adresse oder QR-Code nutzen.': 'Network name unavailable – use the IP address or QR code.',
+    'Name im Netzwerk': 'Network name', 'Nur a–z, 0–9 und Bindestrich.': 'Only a–z, 0–9 and hyphens.', 'Gespeichert': 'Saved',
+    'Ohne Portnummer (Port 80)': 'Without port number (port 80)',
+    'Klappt auf iPhone, iPad, Mac, Windows und Linux. Manche Android-Geräte kennen .local-Namen nicht – dann QR-Code oder IP nutzen. Laufen zwei Event Timer im selben Netz, jedem einen eigenen Namen geben.': 'Works on iPhone, iPad, Mac, Windows and Linux. Some Android devices don\'t resolve .local names – use the QR code or IP there. Running two Event Timers on one network? Give each its own name.', 'Nur Uhrzeit': 'Clock only', 'Zeigt die Uhrzeit': 'Showing the time of day', 'Blinken beim Überziehen': 'Flash when over time', 'Neues Fenster wurde blockiert – nutze „Bühnenansicht hier“.': 'New window was blocked – use "Stage view here".', 'Start, Pause, Zeit, Nachrichten, Ablauf': 'Start, pause, time, messages, run of show', 'Diese Steuerung': 'This control page', 'Per Rechnername': 'By computer name',
   };
 
   let lang = 'de';

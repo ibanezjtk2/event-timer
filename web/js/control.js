@@ -240,7 +240,13 @@
     function displayUrl(id, extra) {
       const n = id.slice(1);
       if (tr.mode === 'standalone' || extra) return viewUrl('display', Object.assign({ t: n }, extra || {}));
-      return baseUrl() + '/timer' + n;
+      return baseUrl() + '/' + n;
+    }
+    /** "http://event-timer.local" (+ ":2468" unless port 80 is on), or null without mDNS. */
+    function shortBase() {
+      const m = tr.meta || {};
+      if (tr.mode !== 'server' || !m.mdns || !m.nameHost) return null;
+      return 'http://' + m.nameHost + (m.port80 ? '' : ':' + m.port);
     }
     function openUrl(url) {
       const w = tr.mode === 'standalone' ? tr.openWindow(url) : window.open(url, '_blank');
@@ -546,6 +552,45 @@
         h('button', { class: 'btn', onclick: () => openUrl(url) }, icon('open')));
     }
 
+    function shortAddressSection() {
+      const m = tr.meta || {};
+      const base = shortBase();
+      const wrap = h('div', { class: 'short' });
+      if (base) {
+        const host = base.replace('http://', '');
+        wrap.append(
+          h('div', { class: 'short-hero' },
+            h('small', null, t('Einfach im Browser eintippen')),
+            h('b', { class: 'num' }, host + '/1'),
+            h('span', null, t('Displays /1 bis /8, Uhr /uhr, Ablauf /agenda, Steuerung /control'))),
+          linkLine(base + '/control'));
+      } else {
+        wrap.append(h('p', { class: 'help' }, t('Netzwerkname nicht verfügbar – bitte IP-Adresse oder QR-Code nutzen.')));
+      }
+      const nameIn = h('input', { class: 'input', value: m.name || 'event-timer', maxlength: 40, autocapitalize: 'off', spellcheck: 'false', 'aria-label': t('Name im Netzwerk') });
+      const nameErr = h('span', { class: 'help' });
+      const saveName = () => {
+        const v = nameIn.value.trim().toLowerCase();
+        if (!/^[a-z0-9](?:[a-z0-9-]{0,38}[a-z0-9])?$/.test(v)) { nameErr.textContent = t('Nur a–z, 0–9 und Bindestrich.'); nameIn.focus(); return; }
+        nameErr.textContent = '';
+        tr.setName(v);
+        toast(t('Gespeichert'));
+      };
+      nameIn.addEventListener('keydown', e => { if (e.key === 'Enter') saveName(); });
+      const p80 = h('input', { type: 'checkbox' });
+      p80.checked = Boolean(m.port80);
+      p80.addEventListener('change', () => tr.setPort80(p80.checked));
+      wrap.append(...[
+        h('div', { class: 'row' },
+          h('label', { class: 'field', style: { flex: '1 1 200px' } }, h('span', null, t('Name im Netzwerk')), nameIn),
+          h('button', { class: 'btn', style: { alignSelf: 'end' }, onclick: saveName }, t('Speichern'))),
+        nameErr,
+        h('label', { class: 'switch' }, p80, t('Ohne Portnummer (Port 80)')),
+        m.port80Error ? h('p', { class: 'banner', 'data-tone': 'stop', style: { margin: 0 } }, m.port80Error) : null,
+        h('p', { class: 'help' }, t('Klappt auf iPhone, iPad, Mac, Windows und Linux. Manche Android-Geräte kennen .local-Namen nicht – dann QR-Code oder IP nutzen. Laufen zwei Event Timer im selben Netz, jedem einen eigenen Namen geben.'))].filter(Boolean));
+      return wrap;
+    }
+
     function tabConnect() {
       const s = S();
       const out = [];
@@ -556,6 +601,7 @@
           h('button', { class: 'btn', onclick: () => { drawer.close(); location.hash = 'display?t=' + sel.slice(1) + '&here=1'; } }, icon('full'), t('Bühnenansicht hier'))));
         out.push(h('p', { class: 'help' }, t('Für mehrere Geräte das Event-Timer-Programm auf einem Rechner starten.')));
       } else {
+        out.push(shortAddressSection());
         out.push(h('p', { class: 'help' }, t('Mit dem Handy scannen, um zu steuern oder anzuzeigen.')));
         out.push(h('div', { class: 'qr-grid' },
           qrCard(t('Steuerung'), viewUrl('control')),
@@ -564,7 +610,7 @@
         out.push(linkLine(viewUrl('control')));
         s.timers.forEach(x => out.push(linkLine(displayUrl(x.id))));
         out.push(linkLine(viewUrl('agenda')));
-        out.push(linkLine(viewUrl('clock')));
+        out.push(linkLine(baseUrl() + '/uhr'));
         const m = tr.meta || {};
         if (m.hostname) out.push(h('p', { class: 'help' }, t('Per Rechnername') + ': ', h('b', null, `http://${m.hostname}:${m.port}/control`)));
         out.push(h('p', { class: 'help' }, t('Klappt der Link nicht? Beim ersten Start fragt Windows nach der Firewall – „Private Netzwerke“ erlauben.')));

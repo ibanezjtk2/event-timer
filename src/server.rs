@@ -5,9 +5,9 @@ use crate::http::{self, Request, Response, WsEvent};
 use crate::json::{self, Json};
 use crate::store::{self, ServerCfg};
 use crate::util::{hex, now_ms, query_param, salt, sha1};
-use crate::{assets, net, APP_ID, VERSION};
+use crate::{assets, mdns, net, APP_ID, VERSION};
 use std::io::{BufReader, Write};
-use std::net::{Shutdown, TcpStream};
+use std::net::{Ipv4Addr, Shutdown, TcpListener, TcpStream};
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, AtomicU16, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex, MutexGuard};
@@ -35,6 +35,10 @@ pub struct App {
     pub data_path: PathBuf,
     next_id: AtomicU64,
     pub net: Mutex<NetInfo>,
+    bind_host: String,
+    port80_active: AtomicBool,
+    port80_error: Mutex<Option<String>>,
+    pub mdns_ok: AtomicBool,
 }
 
 /// Poisoned locks are recovered – one panicking connection must never stop the show.
@@ -43,7 +47,7 @@ fn lock<T>(m: &Mutex<T>) -> MutexGuard<'_, T> {
 }
 
 impl App {
-    pub fn new(state: State, cfg: ServerCfg, data_path: PathBuf) -> App {
+    pub fn new(state: State, cfg: ServerCfg, data_path: PathBuf, bind_host: String) -> App {
         App {
             state: Mutex::new(state),
             cfg: Mutex::new(cfg),
@@ -56,7 +60,38 @@ impl App {
                 addresses: net::lan_addresses(),
                 hostname: net::local_hostname(),
             }),
+            bind_host,
+            port80_active: AtomicBool::new(false),
+            port80_error: Mutex::new(None),
+            mdns_ok: AtomicBool::new(false),
         }
+    }
+
+    pub fn mdns_name(&self) -> String {
+        lock(&self.cfg).name.clone()
+    }
+
+    pub fn lan_ipv4(&self) -> Vec<Ipv4Addr> {
+        lock(&self.net)
+            .addresses
+            .iter()
+            .filter_map(|a| a.parse().ok())
+            .collect()
+    }
+
+    pub fn port80_active(&self) -> bool {
+        self.port80_active.load(Ordering::SeqCst)
+    }
+
+    /// Changes the network name ("<name>.local"). Returns false if invalid.
+    pub fn set_name(&self, name: &str) -> bool {
+        let name = name.trim().to_ascii_lowercase();
+        if !mdns::valid_name(&name) {
+            return false;
+        }
+        lock(&self.cfg).name = name;
+        self.dirty.store(true, Ordering::SeqCst);
+        true
     }
 
     pub fn pin_required(&self) -> bool {
@@ -123,6 +158,11 @@ impl App {
             )
             .with("hostname", net.hostname.clone())
             .with("dataPath", self.data_path.display().to_string())
+            .with("name", self.mdns_name())
+            .with("nameHost", format!("{}.local", self.mdns_name()))
+            .with("mdns", self.mdns_ok.load(Ordering::SeqCst))
+            .with("port80", self.port80_active())
+            .with("port80Error", lock(&self.port80_error).clone())
     }
 
     fn can_control(&self, c: &Client) -> bool {
@@ -170,6 +210,61 @@ impl App {
         };
         self.send_state(c, &body);
     }
+}
+
+/// Serves an accepted connection on its own thread.
+pub fn spawn_connection(app: &Arc<App>, stream: TcpStream) {
+    let app = app.clone();
+    std::thread::spawn(move || handle_connection(app, stream));
+}
+
+/// Optional second listener on port 80, so addresses work without ":2468".
+/// Switchable at runtime; the accept loop polls a flag so it can stop.
+pub fn set_port80(app: &Arc<App>, on: bool) -> Result<(), String> {
+    lock(&app.cfg).port80 = on;
+    app.dirty.store(true, Ordering::SeqCst);
+    if !on {
+        app.port80_active.store(false, Ordering::SeqCst);
+        *lock(&app.port80_error) = None;
+        return Ok(());
+    }
+    if app.port80_active() {
+        return Ok(());
+    }
+    let listener = TcpListener::bind((app.bind_host.as_str(), 80))
+        .and_then(|l| l.set_nonblocking(true).map(|_| l));
+    let listener = match listener {
+        Ok(l) => l,
+        Err(e) => {
+            let msg = match e.kind() {
+                std::io::ErrorKind::PermissionDenied => {
+                    "Port 80 braucht unter Linux erweiterte Rechte: sudo setcap cap_net_bind_service=+ep <programm>".to_string()
+                }
+                std::io::ErrorKind::AddrInUse => "Port 80 ist schon von einem anderen Programm belegt.".to_string(),
+                _ => format!("Port 80 nicht verfügbar: {}", e),
+            };
+            *lock(&app.port80_error) = Some(msg.clone());
+            return Err(msg);
+        }
+    };
+    *lock(&app.port80_error) = None;
+    app.port80_active.store(true, Ordering::SeqCst);
+    let app = app.clone();
+    std::thread::spawn(move || {
+        while app.port80_active() {
+            match listener.accept() {
+                Ok((stream, _)) => {
+                    let _ = stream.set_nonblocking(false);
+                    spawn_connection(&app, stream);
+                }
+                Err(e) if e.kind() == std::io::ErrorKind::WouldBlock => {
+                    std::thread::sleep(Duration::from_millis(60))
+                }
+                Err(_) => std::thread::sleep(Duration::from_millis(200)),
+            }
+        }
+    });
+    Ok(())
 }
 
 fn send(c: &Client, text: &str) {
@@ -255,7 +350,7 @@ fn ws_session(
     app.broadcast();
 }
 
-fn handle_ws_message(app: &App, c: &Client, text: &str) {
+fn handle_ws_message(app: &Arc<App>, c: &Client, text: &str) {
     let Ok(msg) = json::parse(text) else { return };
     match msg.get("type").as_str().unwrap_or("") {
         "ping" => {
@@ -314,6 +409,32 @@ fn handle_ws_message(app: &App, c: &Client, text: &str) {
             c.authed.store(true, Ordering::SeqCst);
             app.broadcast();
         }
+        "setName" | "setPort80" => {
+            if !app.can_control(c) {
+                send(
+                    c,
+                    &Json::obj()
+                        .with("type", "error")
+                        .with("code", "auth")
+                        .to_string(),
+                );
+                return;
+            }
+            if msg.get("type").as_str() == Some("setName") {
+                if !app.set_name(msg.get("name").as_str().unwrap_or("")) {
+                    send(
+                        c,
+                        &Json::obj()
+                            .with("type", "error")
+                            .with("code", "name")
+                            .to_string(),
+                    );
+                }
+            } else {
+                let _ = set_port80(app, msg.get("on").truthy());
+            }
+            app.broadcast();
+        }
         _ => {}
     }
 }
@@ -334,15 +455,16 @@ fn http_authorized(app: &App, req: &Request, loopback: bool) -> bool {
 fn is_app_route(path: &str) -> bool {
     matches!(
         path,
-        "/" | "/control" | "/display" | "/agenda" | "/clock" | "/index.html"
-    ) || (path.len() >= 7
-        && (path.starts_with("/timer") || path.starts_with("/timer-"))
-        && path
-            .trim_start_matches("/timer")
-            .trim_start_matches('-')
-            .parse::<u8>()
-            .map(|n| (1..=8).contains(&n))
-            .unwrap_or(false))
+        "/" | "/control" | "/display" | "/agenda" | "/clock" | "/uhr" | "/index.html"
+    ) || (path.len() == 2 && (b'1'..=b'8').contains(&path.as_bytes()[1]))
+        || (path.len() >= 7
+            && (path.starts_with("/timer") || path.starts_with("/timer-"))
+            && path
+                .trim_start_matches("/timer")
+                .trim_start_matches('-')
+                .parse::<u8>()
+                .map(|n| (1..=8).contains(&n))
+                .unwrap_or(false))
 }
 
 fn route(app: &App, req: &Request, loopback: bool) -> Response {
