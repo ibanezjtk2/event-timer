@@ -11,6 +11,7 @@
       const [view, q] = raw.split('?');
       const params = new URLSearchParams(q || '');
       if (['display', 'agenda', 'clock', 'plan'].includes(view)) return { view: 'display', params, layout: view === 'display' ? params.get('layout') : view === 'clock' ? 'time' : view };
+      if (view === 'moderation' || view === 'cues') return { view, params };
       if (!standalone && view === '') return { view: 'home', params };
       return { view: 'control', params };
     }
@@ -20,6 +21,7 @@
     if (short) { params.set('t', short[1]); return { view: 'display', params, layout: params.get('layout') }; }
     if (p === '/display') return { view: 'display', params, layout: params.get('layout') };
     if (p === '/agenda') return { view: 'display', params, layout: 'agenda' };
+    if (p === '/moderation' || p === '/cues') return { view: p.slice(1), params };
     if (p === '/plan') return { view: 'display', params, layout: 'plan' };
     if (p === '/clock' || p === '/uhr') return { view: 'display', params, layout: 'time' };
     if (p === '/control') return { view: 'control', params };
@@ -27,7 +29,7 @@
   }
 
   const first = parseRoute();
-  const tr = root.ETTransport.create(first.view === 'display' ? 'display' : 'control');
+  const tr = root.ETTransport.create(first.view === 'control' || first.view === 'home' ? 'control' : 'display');
   const app = document.getElementById('app');
   let cleanup = null;
 
@@ -38,6 +40,8 @@
     document.documentElement.lang = root.ETUI.lang;
     if (r.view === 'control') { document.title = 'Event Timer – ' + t('Steuerung'); cleanup = root.ETControl.mount(app, tr); }
     else if (r.view === 'display') cleanup = mountDisplay(r);
+    else if (r.view === 'moderation') cleanup = root.ETStage.mountModeration(app, tr, r.params);
+    else if (r.view === 'cues') cleanup = root.ETStage.mountCues(app, tr);
     else mountHome();
   }
 

@@ -251,6 +251,74 @@ dialog.drawer::backdrop { background: rgba(5, 7, 10, .55); }
 .preview-box { width: 100%; aspect-ratio: 16 / 9; border-radius: var(--r-s); overflow: hidden; background: repeating-conic-gradient(#2a3039 0 25%, #20252c 0 50%) 0 0 / 16px 16px; }
 .code { font-family: ui-monospace, "SF Mono", Consolas, monospace; font-size: 12.5px; background: var(--sunken); border: 1px solid var(--line); border-radius: var(--r-s); padding: 8px 10px; overflow-x: auto; white-space: pre; color: #c9d1db; }
 
+/* ----------------------------------------------------------- cues */
+.cue-panel { margin-bottom: 16px; }
+.cue-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.cue-row { display: grid; grid-template-columns: 74px minmax(0, 1fr) auto; gap: 12px; align-items: center; padding: 8px 8px 8px 8px; border-radius: var(--r-s); background: var(--sunken); border: 1px solid transparent; }
+.cue-pill { text-align: center; font-weight: 700; font-size: 15px; border-radius: 6px; padding: 6px 4px; background: var(--raised); color: var(--muted); }
+.cue-what { min-width: 0; display: grid; }
+.cue-what b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cue-what span, .cue-what small { color: var(--muted); font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cue-row[data-status="standby"] { border-color: var(--standby); }
+.cue-row[data-status="standby"] .cue-pill { background: var(--standby); color: #2b1b00; }
+.cue-row[data-status="go"] { border-color: var(--stop); background: #2a1216; }
+.cue-row[data-status="go"] .cue-pill { background: var(--stop); color: #fff; animation: blink 1s steps(2) infinite; }
+.cue-row[data-status="ready"] .cue-pill { background: #1d3a2a; color: var(--go); }
+.cue-empty { color: var(--muted); padding: 8px 4px; }
+.ros-what .ros-cues { color: var(--standby); font-size: 12px; }
+.cue-edit { grid-column: 1 / -1; display: grid; gap: 6px; padding-top: 6px; border-top: 1px solid var(--line); }
+.cue-edit-row { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1.2fr) 70px auto; gap: 6px; align-items: center; }
+.cue-edit-row .input[hidden] { display: block !important; visibility: hidden; }
+
+/* ------------------------------------------------ stage → control room */
+.req-box { display: grid; gap: 8px; padding: 0 18px; }
+.req-box:not(:empty) { padding-top: 12px; }
+.req { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 12px; align-items: center; padding: 10px 12px; border-radius: var(--r-m); background: #3d1218; border: 2px solid var(--stop); animation: req-pulse 1.2s ease-in-out infinite; }
+.req svg { width: 22px; height: 22px; color: #ffc0c6; }
+.req-text { min-width: 0; display: grid; }
+.req-text b { font-size: 17px; overflow-wrap: anywhere; }
+.req-text span { color: #ffc0c6; font-size: 13px; }
+@keyframes req-pulse { 50% { border-color: #7d2a33; } }
+
+/* ------------------------------------------------- /moderation (phone) */
+body[data-view="moderation"], body[data-view="cues"] { background: var(--bg); }
+.mod { max-width: 560px; margin: 0 auto; padding: 12px 16px calc(24px + env(safe-area-inset-bottom)); display: grid; gap: 14px; }
+.mod-head { display: flex; align-items: center; gap: 10px; }
+.mod-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--go); flex: none; }
+.mod-dot[data-status="offline"], .mod-dot[data-status="connecting"] { background: var(--stop); }
+.mod-event { flex: 1; min-width: 0; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mod-now { background: var(--panel); border: 1px solid var(--line); border-radius: var(--r-l); padding: 14px 16px; display: grid; gap: 4px; }
+.mod-title { font-weight: 700; font-size: 18px; }
+.mod-time { font-family: var(--num); font-weight: 700; font-size: clamp(56px, 20vw, 96px); line-height: 1; }
+.mod-time[data-phase="warn"] { color: var(--standby); }
+.mod-time[data-phase="crit"], .mod-time[data-phase="over"] { color: var(--stop); }
+.mod-sub, .mod-next { color: var(--muted); font-size: 14px; }
+.mod-bar { height: 8px; border-radius: 4px; background: var(--sunken); overflow: hidden; margin: 6px 0 2px; }
+.mod-bar i { display: block; height: 100%; width: 0; background: var(--go); }
+.mod-msg { background: #ffd84d; color: #000; font-weight: 700; padding: 12px 14px; border-radius: var(--r-m); font-size: 18px; }
+.mod-h { margin: 6px 0 -4px; font-size: 14px; color: var(--muted); font-weight: 600; }
+.mod-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.mod-btn { appearance: none; border: 1px solid var(--line); background: var(--raised); color: var(--text); border-radius: var(--r-l); padding: 14px 12px; min-height: 72px; font-weight: 600; font-size: 16px; cursor: pointer; text-align: left; }
+.mod-btn:active { background: var(--pvw); color: #001a2b; }
+.mod-mine { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.mod-mine li { display: flex; justify-content: space-between; gap: 10px; padding: 8px 12px; border-radius: var(--r-s); background: var(--sunken); }
+.mod-mine li small { color: var(--muted); white-space: nowrap; }
+.mod-mine li[data-ack="1"] small { color: var(--go); }
+
+/* --------------------------------------------- /cues (second operator) */
+.cues-page { padding: 16px; display: grid; gap: 14px; }
+.cues-head { display: flex; justify-content: space-between; gap: 12px; font-size: 20px; }
+.cues-head span { color: var(--muted); font-family: var(--num); }
+.cues-big { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+.cues-big li { display: grid; grid-template-columns: 120px minmax(0, 1fr) auto; gap: 16px; align-items: center; padding: 14px 16px; border-radius: var(--r-m); background: var(--panel); border: 2px solid var(--line); font-size: clamp(18px, 2.4vw, 28px); }
+.cues-big li span:last-child { color: var(--muted); font-size: .7em; }
+.cues-big .cue-pill { font-size: .9em; padding: 8px 4px; }
+.cues-big li[data-status="standby"] { border-color: var(--standby); }
+.cues-big li[data-status="standby"] .cue-pill { background: var(--standby); color: #2b1b00; }
+.cues-big li[data-status="go"] { border-color: var(--stop); background: #2a1216; }
+.cues-big li[data-status="go"] .cue-pill { background: var(--stop); color: #fff; animation: blink 1s steps(2) infinite; }
+.cues-big li[data-status="ready"] .cue-pill { background: #1d3a2a; color: var(--go); }
+
 /* ------------------------------------------------------------ gate */
 .gate { position: fixed; inset: 0; z-index: 50; display: grid; place-items: center; background: rgba(12, 14, 17, .82); backdrop-filter: blur(6px); padding: 16px; }
 .gate form { background: var(--panel); border: 1px solid var(--line); border-radius: var(--r-l); padding: 22px; width: min(360px, 100%); display: grid; gap: 12px; }
@@ -428,6 +496,10 @@ dialog.drawer::backdrop { background: rgba(5, 7, 10, .55); }
   .ros-summary { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .stat b { font-size: 18px; }
   .ros-edit { grid-template-columns: 1fr 1fr; }
+  .cue-edit-row { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 60px auto; }
+  .cue-edit-row > .input:first-child { grid-column: 1 / -1; }
+  .cues-big li { grid-template-columns: 90px minmax(0, 1fr); }
+  .cues-big li span:last-child { grid-column: 2; }
   .ros-add { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .ros-add .field { grid-column: span 1; }
   .ros-add .ros-add-title, .ros-add .ros-add-speaker, .ros-add .ros-add-dur { grid-column: 1 / -1; }

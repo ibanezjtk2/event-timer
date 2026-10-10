@@ -102,6 +102,31 @@ process.env.TZ = 'Europe/Berlin';
   E.apply(s4, { type: 'agenda.clearAdjust' }, 0);
   E.apply(s4, { type: 'agenda.shift', ms: -15 * 60000 }, 0);
   v = E.scheduleView(s4, at(14, 0));
+  // cues: clock mode (A 13–15, B 15–15:30, C 16–17)
+  const s5 = E.defaultState();
+  E.apply(s5, { type: 'agenda.replace', items: [
+    { title: 'A', start: '13:00', end: '15:00' }, { title: 'B', durationMs: 30 * 60000 }, { title: 'C', start: '16:00', durationMs: 3600000 },
+  ] }, 0);
+  E.apply(s5, { type: 'agenda.settings', mode: 'clock' }, 0);
+  E.apply(s5, { type: 'cue.add', itemId: 's1', text: 'Abmod', ref: 'end', offsetMs: -2 * 60000 }, 0);
+  E.apply(s5, { type: 'cue.add', itemId: 's2', text: 'Kaffee-Musik', ref: 'start', offsetMs: 0 }, 0);
+  E.apply(s5, { type: 'cue.add', itemId: 's3', text: 'Panel-Mikros', ref: 'start', offsetMs: -5 * 60000 }, 0);
+  let cv = E.cueView(s5, at(14, 57) + 30000);
+  check('cue standby', cv.map(c => c.cue.text + ':' + c.status), ['Abmod:standby', 'Kaffee-Musik:later', 'Panel-Mikros:later']);
+  cv = E.cueView(s5, at(14, 58));
+  check('cue go', [cv[0].cue.text, cv[0].status, cv[0].inMs], ['Abmod', 'go', 0]);
+  E.apply(s5, { type: 'cue.done', itemId: 's1', cueId: cv[0].cue.id }, 0);
+  cv = E.cueView(s5, at(15, 54) + 30000);
+  check('cue later + missed', cv.map(c => c.cue.text + ':' + c.status), ['Panel-Mikros:standby', 'Kaffee-Musik:missed', 'Abmod:done']);
+  // manual mode: untimed until the slot starts
+  E.apply(s5, { type: 'agenda.settings', mode: 'manual' }, 0);
+  cv = E.cueView(s5, at(12, 0));
+  check('manual untimed', cv.filter(c => c.cue.text === 'Kaffee-Musik').map(c => c.status), ['later']);
+  E.apply(s5, { type: 'agenda.go', index: 1 }, at(12, 0));
+  cv = E.cueView(s5, at(12, 0) + 1000);
+  check('manual go on start', cv.filter(c => c.cue.text === 'Kaffee-Musik').map(c => c.status), ['go']);
+  check('manual next ready', cv.filter(c => c.cue.text === 'Panel-Mikros').map(c => c.status), ['ready']);
+
   check('shift all', [E.toHHMM(v.rows[0].start), E.toHHMM(v.rows[2].start), v.remainingMs], ['12:45', '15:45', 45 * 60000]);
 }
 

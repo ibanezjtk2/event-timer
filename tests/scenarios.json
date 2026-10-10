@@ -1459,5 +1459,284 @@
         }
       }
     ]
+  },
+  {
+    "name": "cues per slot",
+    "steps": [
+      {
+        "at": 0,
+        "do": {
+          "type": "agenda.replace",
+          "items": [
+            {
+              "title": "A",
+              "durationMs": 600000
+            },
+            {
+              "title": "B",
+              "durationMs": 600000
+            }
+          ]
+        }
+      },
+      {
+        "at": 0,
+        "expect": {
+          "agenda.items.0.cues.length": 0
+        }
+      },
+      {
+        "at": 0,
+        "do": {
+          "type": "cue.add",
+          "itemId": "s1",
+          "text": " Einspieler   starten ",
+          "ref": "start",
+          "offsetMs": -60000
+        }
+      },
+      {
+        "at": 0,
+        "do": {
+          "type": "cue.add",
+          "itemId": "s1",
+          "ref": "end",
+          "offsetMs": "-120000"
+        }
+      },
+      {
+        "at": 0,
+        "expect": {
+          "agenda.items.0.cues.0.id": "c3",
+          "agenda.items.0.cues.0.text": "Einspieler starten",
+          "agenda.items.0.cues.0.offsetMs": -60000,
+          "agenda.items.0.cues.1.text": "Cue",
+          "agenda.items.0.cues.1.ref": "end",
+          "agenda.items.0.cues.1.offsetMs": -120000,
+          "agenda.items.0.cues.1.done": false
+        }
+      },
+      {
+        "at": 0,
+        "do": {
+          "type": "cue.add",
+          "itemId": "nope",
+          "text": "x"
+        },
+        "changed": false
+      },
+      {
+        "at": 0,
+        "do": {
+          "type": "cue.update",
+          "itemId": "s1",
+          "cueId": "c4",
+          "patch": {
+            "text": "Licht runter",
+            "ref": "start",
+            "offsetMs": 0
+          }
+        }
+      },
+      {
+        "at": 0,
+        "expect": {
+          "agenda.items.0.cues.1.text": "Licht runter",
+          "agenda.items.0.cues.1.ref": "start",
+          "agenda.items.0.cues.1.offsetMs": 0
+        }
+      },
+      {
+        "at": 0,
+        "do": {
+          "type": "cue.done",
+          "itemId": "s1",
+          "cueId": "c3"
+        }
+      },
+      {
+        "at": 0,
+        "expect": {
+          "agenda.items.0.cues.0.done": true
+        }
+      },
+      {
+        "at": 0,
+        "do": {
+          "type": "cue.done",
+          "itemId": "s1",
+          "cueId": "c3",
+          "done": false
+        }
+      },
+      {
+        "at": 0,
+        "expect": {
+          "agenda.items.0.cues.0.done": false
+        }
+      },
+      {
+        "at": 0,
+        "do": {
+          "type": "cue.done",
+          "itemId": "s1",
+          "cueId": "c4"
+        }
+      },
+      {
+        "at": 0,
+        "do": {
+          "type": "agenda.reset"
+        }
+      },
+      {
+        "at": 0,
+        "expect": {
+          "agenda.items.0.cues.1.done": false
+        }
+      },
+      {
+        "at": 0,
+        "do": {
+          "type": "cue.remove",
+          "itemId": "s1",
+          "cueId": "c3"
+        }
+      },
+      {
+        "at": 0,
+        "expect": {
+          "agenda.items.0.cues.length": 1,
+          "agenda.items.0.cues.0.id": "c4"
+        }
+      },
+      {
+        "at": 0,
+        "do": {
+          "type": "cue.remove",
+          "itemId": "s1",
+          "cueId": "c3"
+        },
+        "changed": false
+      }
+    ]
+  },
+  {
+    "name": "stage requests",
+    "steps": [
+      {
+        "at": 0,
+        "expect": {
+          "requests.length": 0,
+          "stageQuick.0": "Brauche 2 Minuten mehr",
+          "stageQuick.length": 6
+        }
+      },
+      {
+        "at": 5000,
+        "do": {
+          "type": "request.send",
+          "text": "  Mikro   fällt aus ",
+          "from": "Moderation"
+        }
+      },
+      {
+        "at": 6000,
+        "do": {
+          "type": "request.send",
+          "text": "Frage aus dem Saal"
+        }
+      },
+      {
+        "at": 6000,
+        "do": {
+          "type": "request.send",
+          "text": "   "
+        },
+        "changed": false
+      },
+      {
+        "at": 6000,
+        "expect": {
+          "requests.0.id": "r1",
+          "requests.0.text": "Mikro fällt aus",
+          "requests.0.from": "Moderation",
+          "requests.0.at": 5000,
+          "requests.0.ack": false,
+          "requests.1.from": "Bühne"
+        }
+      },
+      {
+        "at": 7000,
+        "do": {
+          "type": "request.ack",
+          "requestId": "r1"
+        }
+      },
+      {
+        "at": 7000,
+        "do": {
+          "type": "request.ack",
+          "requestId": "r1"
+        },
+        "changed": false
+      },
+      {
+        "at": 7000,
+        "expect": {
+          "requests.0.ack": true,
+          "requests.1.ack": false
+        }
+      },
+      {
+        "at": 7000,
+        "do": {
+          "type": "request.ackAll"
+        }
+      },
+      {
+        "at": 7000,
+        "do": {
+          "type": "request.ackAll"
+        },
+        "changed": false
+      },
+      {
+        "at": 7000,
+        "expect": {
+          "requests.1.ack": true
+        }
+      },
+      {
+        "at": 7000,
+        "do": {
+          "type": "request.clear"
+        }
+      },
+      {
+        "at": 7000,
+        "expect": {
+          "requests.length": 0
+        }
+      },
+      {
+        "at": 7000,
+        "do": {
+          "type": "stage.quickSet",
+          "list": [
+            "A",
+            " ",
+            "B"
+          ]
+        }
+      },
+      {
+        "at": 7000,
+        "expect": {
+          "stageQuick.length": 2,
+          "stageQuick.1": "B"
+        }
+      }
+    ]
   }
 ]

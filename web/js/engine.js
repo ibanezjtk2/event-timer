@@ -56,6 +56,7 @@
     },
   ];
 
+  const DEFAULT_STAGE = ['Brauche 2 Minuten mehr', 'Mikrofon-Problem', 'Frage aus dem Saal', 'Technik bitte kommen', 'Bitte Pause einlegen', 'Alles okay'];
   const DEFAULT_QUICK = ['Bitte zum Ende kommen', 'Lauter sprechen', 'Näher ans Mikrofon', 'Letzte Frage', 'Langsamer sprechen'];
 
   // ---------- helpers ----------
@@ -103,6 +104,8 @@
       timers: [newTimer(1)],
       presets: clone(BUILTIN_PRESETS),
       quickMessages: DEFAULT_QUICK.slice(),
+      stageQuick: DEFAULT_STAGE.slice(),
+      requests: [],
       agenda: { timerId: 't1', plannedStart: '', autoStart: true, mode: 'manual', shiftMs: 0, holdAt: null, cursor: -1, items: [] },
     };
   }
@@ -259,6 +262,7 @@
       end: hhmm(it.end),
       extraMs: 0,
       rippleMs: 0,
+      cues: [],
       startedAt: null,
       endedAt: null,
     };
@@ -557,9 +561,72 @@
         ag.items.forEach(it => { it.extraMs = 0; it.rippleMs = 0; });
         return true;
       }
+      // ----- technical cues per slot (Regie only)
+      case 'cue.add': {
+        const it = s.agenda.items.find(x => x.id === a.itemId);
+        if (!it || it.cues.length >= 20) return false;
+        it.cues.push({ id: 'c' + (++s.seq), text: text(a.text, 80) || 'Cue', ref: a.ref === 'end' ? 'end' : 'start', offsetMs: num(a.offsetMs, -DAY, DAY, 0), done: false });
+        return true;
+      }
+      case 'cue.update': {
+        const it = s.agenda.items.find(x => x.id === a.itemId);
+        const c = it && it.cues.find(x => x.id === a.cueId);
+        if (!c) return false;
+        const p = a.patch || {};
+        if ('text' in p) { const tx = text(p.text, 80); if (tx) c.text = tx; }
+        if ('ref' in p) c.ref = p.ref === 'end' ? 'end' : 'start';
+        if ('offsetMs' in p) c.offsetMs = num(p.offsetMs, -DAY, DAY, c.offsetMs);
+        return true;
+      }
+      case 'cue.remove': {
+        const it = s.agenda.items.find(x => x.id === a.itemId);
+        if (!it || !it.cues.some(x => x.id === a.cueId)) return false;
+        it.cues = it.cues.filter(x => x.id !== a.cueId);
+        return true;
+      }
+      case 'cue.done': {
+        const it = s.agenda.items.find(x => x.id === a.itemId);
+        const c = it && it.cues.find(x => x.id === a.cueId);
+        if (!c) return false;
+        c.done = 'done' in a ? Boolean(a.done) : true;
+        return true;
+      }
+
+      // ----- back channel: stage → control room
+      case 'request.send': {
+        const tx = text(a.text, 120);
+        if (!tx) return false;
+        s.requests.push({ id: 'r' + (++s.seq), text: tx, from: text(a.from, 30) || 'Bühne', at: now, ack: false });
+        while (s.requests.length > 30) {
+          const i = s.requests.findIndex(x => x.ack);
+          s.requests.splice(i >= 0 ? i : 0, 1);
+        }
+        return true;
+      }
+      case 'request.ack': {
+        const r = s.requests.find(x => x.id === a.requestId);
+        if (!r || r.ack) return false;
+        r.ack = true;
+        return true;
+      }
+      case 'request.ackAll': {
+        const open = s.requests.filter(x => !x.ack);
+        if (!open.length) return false;
+        open.forEach(x => { x.ack = true; });
+        return true;
+      }
+      case 'request.clear':
+        if (!s.requests.length) return false;
+        s.requests = [];
+        return true;
+      case 'stage.quickSet':
+        if (!Array.isArray(a.list)) return false;
+        s.stageQuick = a.list.map(x => text(x, 60)).filter(Boolean).slice(0, 12);
+        return true;
+
       case 'agenda.reset': {
         s.agenda.cursor = -1;
-        s.agenda.items.forEach(it => { it.startedAt = null; it.endedAt = null; });
+        s.agenda.items.forEach(it => { it.startedAt = null; it.endedAt = null; it.cues.forEach(c => { c.done = false; }); });
         s.timers.forEach(x => { if (x.segmentId) { x.segmentId = null; resetTimer(x); } });
         return true;
       }
@@ -619,6 +686,58 @@
     view.endAt = timed.length ? Math.max(...timed.map(r => r.end)) : null;
     return view;
   }
+  /**
+   * Cues with their due time. Times come from the clock schedule or, in
+   * manual mode, from when the slot was actually started.
+   * status: go (due, waiting for GO) · standby (≤ 60 s) · ready (untimed, slot live/next)
+   *         · later · missed (slot over, never fired) · done
+   */
+  function cueView(s, now) {
+    const a = s.agenda;
+    const sv = a.mode === 'clock' ? scheduleView(s, now) : null;
+    const out = [];
+    a.items.forEach((it, i) => {
+      if (!it.cues || !it.cues.length) return;
+      let start = null, end = null, live, next, over;
+      if (sv) {
+        const r = sv.rows[i];
+        start = r.start; end = r.end;
+        live = r.status === 'live'; next = sv.next === r; over = r.status === 'done';
+      } else {
+        if (it.startedAt != null) { start = it.startedAt; end = it.endedAt != null ? it.endedAt : it.startedAt + it.durationMs; }
+        live = i === a.cursor; next = i === a.cursor + 1; over = i < a.cursor;
+      }
+      it.cues.forEach(c => {
+        const base = c.ref === 'end' ? end : start;
+        const dueAt = base == null ? null : base + c.offsetMs;
+        let status;
+        if (c.done) status = 'done';
+        else if (over) status = 'missed';
+        else if (dueAt == null) status = live || next ? 'ready' : 'later';
+        else if (now >= dueAt) status = 'go';
+        else if (dueAt - now <= 60000) status = 'standby';
+        else status = 'later';
+        out.push({ item: it, index: i, cue: c, dueAt, inMs: dueAt == null ? null : dueAt - now, status, live, next });
+      });
+    });
+    const rank = { go: 0, standby: 1, ready: 2, later: 3, missed: 4, done: 5 };
+    out.sort((x, y) => rank[x.status] - rank[y.status] || (x.dueAt == null ? Infinity : x.dueAt) - (y.dueAt == null ? Infinity : y.dueAt) || x.index - y.index);
+    return out;
+  }
+  /** Fills fields added in later versions (older saved standalone shows). */
+  function normalize(st) {
+    const d = defaultState();
+    for (const k of Object.keys(d)) if (!(k in st)) st[k] = clone(d[k]);
+    for (const k of Object.keys(d.agenda)) if (!(k in st.agenda)) st.agenda[k] = clone(d.agenda[k]);
+    // built-in designs always come fresh from this version; custom ones are kept
+    st.presets = clone(BUILTIN_PRESETS).concat((st.presets || []).filter(p => p && !p.builtin));
+    st.timers.forEach(t => { if (!st.presets.some(p => p.id === t.presetId)) t.presetId = 'stage'; });
+    st.agenda.items.forEach(it => {
+      if (!Array.isArray(it.cues)) it.cues = [];
+      for (const [k, v] of [['start', ''], ['end', ''], ['extraMs', 0], ['rippleMs', 0]]) if (!(k in it)) it[k] = v;
+    });
+    return st;
+  }
   function toHHMM(ms) { const x = new Date(ms); return String(x.getHours()).padStart(2, '0') + ':' + String(x.getMinutes()).padStart(2, '0'); }
 
   // ---------- formatting ----------
@@ -658,7 +777,7 @@
 
   const api = {
     MAX_TIMERS, BUILTIN_PRESETS, FONTS, KINDS,
-    defaultState, apply, timerView, agendaView, scheduleView, toHHMM, isStatic, rawValue, formatMs, parseDuration, clone,
+    defaultState, apply, timerView, agendaView, scheduleView, cueView, normalize, toHHMM, isStatic, rawValue, formatMs, parseDuration, clone,
   };
   root.ETEngine = api;
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
