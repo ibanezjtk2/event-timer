@@ -26,24 +26,31 @@
     const focused = el => document.activeElement === el;
 
     // -------------------------------------------------------- skeleton
+    /** Small keyboard hint inside a button (hidden on touch devices). */
+    const kbd = k => h('kbd', null, k);
     const conn = h('div', { class: 'conn', 'data-status': 'connecting' }, h('i'), h('span'));
-    const titleInput = h('input', { class: 'event-title', placeholder: t('Veranstaltung benennen'), maxlength: 80, 'aria-label': t('Veranstaltung benennen') });
+    const titleInput = h('input', { class: 'event-title', placeholder: t('Name der Veranstaltung'), maxlength: 80, 'aria-label': t('Name der Veranstaltung') });
     titleInput.addEventListener('change', () => act({ type: 'event.update', title: titleInput.value }));
-    const blackoutBtn = h('button', { class: 'btn btn-stop', 'aria-pressed': 'false', title: 'B', onclick: () => act({ type: 'blackout.toggle' }) }, t('Blackout'));
-    const settingsBtn = h('button', { class: 'btn btn-icon', 'aria-label': t('Einstellungen'), title: t('Einstellungen'), onclick: () => openDrawer() }, icon('gear'));
+    const hdrClock = h('div', { class: 'hdr-clock num', 'aria-label': t('Uhrzeit') }, '--:--:--');
+    const blackoutBtn = h('button', { class: 'btn btn-stop', 'aria-pressed': 'false', onclick: () => act({ type: 'blackout.toggle' }) }, t('All Blackout'), kbd('B'));
+    const menuBtn = h('button', { class: 'btn btn-icon', 'aria-label': t('Menü'), title: t('Menü'), onclick: () => openDrawer() }, icon('menu'));
     const topbar = h('header', { class: 'topbar' },
       h('div', { class: 'brand', html: root.ETUI.brandSvg + '<span>Event Timer</span>' }),
       titleInput,
-      h('div', { class: 'topbar-right' }, conn, blackoutBtn, settingsBtn));
+      hdrClock,
+      h('div', { class: 'topbar-right' }, conn, blackoutBtn, menuBtn));
 
     const banner = h('div', { class: 'banner', hidden: true });
+    // pinned alert zone: messages from the stage and cues waiting for GO never scroll away
+    const alerts = h('div', { class: 'alerts', 'aria-live': 'assertive' });
+    const topWrap = h('div', { class: 'top' }, topbar, banner, alerts);
     const mv = h('div', { class: 'mv', role: 'toolbar', 'aria-label': 'Timer' });
 
     // timer panel
     const nameInput = h('input', { class: 'name-input', maxlength: 40, 'aria-label': t('Name') });
     nameInput.addEventListener('change', () => act({ type: 'timer.update', id: sel, patch: { name: nameInput.value } }));
     const kindSeg = h('div', { class: 'seg', role: 'group' });
-    const kinds = [['countdown', 'Countdown'], ['countup', 'Hochzählen'], ['clock', 'Bis Uhrzeit'], ['time', 'Uhrzeit'], ['schedule', 'Zeitplan']];
+    const kinds = [['countdown', 'Countdown'], ['countup', 'Count-up'], ['clock', 'Zielzeit'], ['time', 'Uhrzeit'], ['schedule', 'Ablaufplan']];
     kinds.forEach(([k, label]) => kindSeg.appendChild(h('button', {
       'data-kind': k, 'aria-pressed': 'false',
       onclick: () => {
@@ -54,7 +61,7 @@
       },
     }, t(label))));
     let kindForced = null;
-    const removeBtn = armed(h('button', { class: 'btn btn-quiet btn-icon', title: t('Timer entfernen'), 'aria-label': t('Timer entfernen') }, icon('trash')),
+    const removeBtn = armed(h('button', { class: 'btn btn-quiet btn-icon', title: t('Timer löschen'), 'aria-label': t('Timer löschen') }, icon('trash')),
       () => { act({ type: 'timer.remove', id: sel }); });
 
     const readTime = h('div', { class: 'readout-time' }, '00:00');
@@ -63,11 +70,11 @@
     const readout = h('div', { class: 'readout' }, readTime, readState, h('div', { class: 'readout-bar' }, readBar));
 
     const playBtn = h('button', { class: 'btn btn-go btn-big', onclick: () => act({ type: 'timer.toggle', id: sel }) });
-    const resetBtn = h('button', { class: 'btn btn-big', onclick: () => act({ type: 'timer.reset', id: sel }) }, icon('reset'), t('Zurücksetzen'));
+    const resetBtn = h('button', { class: 'btn btn-big', onclick: () => act({ type: 'timer.reset', id: sel }) }, icon('reset'), t('Reset'), kbd('R'));
     const transport = h('div', { class: 'transport' }, playBtn, resetBtn);
     const nudges = h('div', { class: 'nudges' },
-      [[-MIN, '−1:00'], [-10000, '−0:10'], [10000, '+0:10'], [MIN, '+1:00']].map(([ms, label]) =>
-        h('button', { class: 'btn', onclick: () => act({ type: 'timer.adjust', id: sel, ms }) }, label)));
+      [[-MIN, '−1:00', '↓'], [-10000, '−0:10', '←'], [10000, '+0:10', '→'], [MIN, '+1:00', '↑']].map(([ms, label, key]) =>
+        h('button', { class: 'btn', onclick: () => act({ type: 'timer.adjust', id: sel, ms }) }, label, kbd(key))));
 
     const durInput = h('input', { class: 'input', placeholder: t('Minuten oder mm:ss'), inputmode: 'decimal', 'aria-label': t('Dauer') });
     const setDur = start => {
@@ -85,8 +92,8 @@
       chips,
       h('div', { class: 'row', style: { marginTop: '10px' } },
         h('div', { style: { flex: '1 1 150px' } }, durInput),
-        h('button', { class: 'btn', onclick: () => setDur(false) }, t('Setzen')),
-        h('button', { class: 'btn', onclick: () => setDur(true) }, icon('play'), t('Setzen und starten'))));
+        h('button', { class: 'btn', title: '↵', onclick: () => setDur(false) }, t('Set')),
+        h('button', { class: 'btn', title: '⇧ ↵', onclick: () => setDur(true) }, icon('play'), t('Set & Go'))));
 
     const targetInput = h('input', { class: 'input num', type: 'time', 'aria-label': t('Zielzeit') });
     const setTarget = () => {
@@ -104,21 +111,26 @@
       h('h3', { class: 'section-title' }, t('Zielzeit')),
       h('div', { class: 'row' }, h('div', { style: { flex: '0 1 180px' } }, targetInput), h('button', { class: 'btn btn-go', onclick: setTarget }, t('Zielzeit setzen'))));
 
-    // message
-    const msgInput = h('input', { class: 'input', placeholder: t('Nachricht eingeben'), maxlength: 280, 'aria-label': t('Nachricht an die Bühne') });
+    // DSM overlay (message on the downstage monitor)
+    const msgInput = h('input', { class: 'input', placeholder: t('Text für DSM'), maxlength: 280, 'aria-label': t('Text für DSM') });
     const sendMsg = () => { if (msgInput.value.trim()) { act({ type: 'timer.message', id: sel, text: msgInput.value }); msgInput.value = ''; } };
     msgInput.addEventListener('keydown', e => { if (e.key === 'Enter') sendMsg(); });
     const quickRow = h('div', { class: 'row', style: { marginTop: '10px' } });
-    const flashBtn = h('button', { class: 'chip', 'aria-pressed': 'false', onclick: () => act({ type: 'timer.message', id: sel, flash: !timer().message.flash }) }, t('Blinken'));
-    const showBtn = h('button', { class: 'chip', onclick: () => act({ type: 'timer.message', id: sel, visible: !timer().message.visible }) });
-    const clearBtn = h('button', { class: 'chip', onclick: () => act({ type: 'timer.messageClear', id: sel }) }, t('Löschen'));
-    const msgPreview = h('div', { class: 'msg-preview' }, h('span'), flashBtn, showBtn, clearBtn);
+    const flashBtn = h('button', { class: 'btn', 'aria-pressed': 'false', onclick: () => act({ type: 'timer.message', id: sel, flash: !timer().message.flash }) }, t('Blinken'));
+    const showBtn = h('button', { class: 'btn', onclick: () => act({ type: 'timer.message', id: sel, visible: !timer().message.visible }) });
+    const clearBtn = h('button', { class: 'btn btn-quiet', onclick: () => act({ type: 'timer.messageClear', id: sel }) }, icon('trash'), t('Löschen'));
+    const msgBadge = h('span', { class: 'badge' });
+    const msgText = h('div', { class: 'msg-card-text' });
+    const msgCard = h('div', { class: 'msg-card', 'data-state': 'empty' },
+      h('div', { class: 'msg-card-head' }, msgBadge, h('span', { class: 'spacer' }), flashBtn, showBtn, clearBtn),
+      msgText);
     const msgSection = h('div', { class: 'section' },
-      h('h3', { class: 'section-title' }, t('Nachricht an die Bühne')),
-      h('div', { class: 'row' }, h('div', { style: { flex: '1 1 200px' } }, msgInput), h('button', { class: 'btn', onclick: sendMsg }, t('Senden'))),
-      quickRow, msgPreview);
+      h('h3', { class: 'section-title' }, t('DSM-Einblendung')),
+      msgCard,
+      h('div', { class: 'row', style: { marginTop: '10px' } }, h('div', { style: { flex: '1 1 200px' } }, msgInput), h('button', { class: 'btn btn-go', onclick: sendMsg }, t('Senden'))),
+      quickRow);
 
-    // options
+    // options (collapsed by default – rarely touched during a show)
     const overtimeToggle = h('input', { type: 'checkbox' });
     overtimeToggle.addEventListener('change', () => act({ type: 'timer.update', id: sel, patch: { overtime: overtimeToggle.checked } }));
     const warnInput = h('input', { class: 'input num', type: 'number', min: 0, max: 60, step: 0.5 });
@@ -127,15 +139,19 @@
     critInput.addEventListener('change', () => act({ type: 'timer.update', id: sel, patch: { critMs: Number(critInput.value) * MIN } }));
     const presetSelect = h('select', { class: 'input' });
     presetSelect.addEventListener('change', () => act({ type: 'timer.update', id: sel, patch: { presetId: presetSelect.value } }));
-    const optSection = h('div', { class: 'section' },
-      h('div', { class: 'grid2' },
-        h('label', { class: 'field' }, h('span', null, t('Vorwarnung ab') + ' (' + t('Min.') + ')'), warnInput),
-        h('label', { class: 'field' }, h('span', null, t('Kritisch ab') + ' (' + t('Min.') + ')'), critInput),
+    const optSummary = h('span', { class: 'opt-summary' });
+    const optSection = h('details', { class: 'section opt' },
+      h('summary', null, h('span', { class: 'section-title' }, t('Optionen')), optSummary),
+      h('div', { class: 'grid2', style: { marginTop: '10px' } },
+        h('label', { class: 'field' }, h('span', null, t('Vorwarnung (Min.)')), warnInput),
+        h('label', { class: 'field' }, h('span', null, t('Kritisch (Min.)')), critInput),
         h('label', { class: 'field' }, h('span', null, t('Design')), presetSelect)),
-      h('label', { class: 'switch', style: { marginTop: '12px' } }, overtimeToggle, t('Überziehen erlauben')));
+      h('label', { class: 'switch', style: { marginTop: '12px' } }, overtimeToggle, t('Überzeit anzeigen')));
+    if (store.get('et-opt-open') === '1') optSection.open = true;
+    optSection.addEventListener('toggle', () => store.set('et-opt-open', optSection.open ? '1' : '0'));
 
     const linkRow = h('div', { class: 'links' });
-    const linkSection = h('div', { class: 'section' }, h('h3', { class: 'section-title' }, t('Display-Link')), linkRow);
+    const linkSection = h('div', { class: 'section' }, h('h3', { class: 'section-title' }, t('DSM-Link')), linkRow);
 
     const timerPanel = h('section', { class: 'panel', 'aria-label': 'Timer' },
       h('div', { class: 'panel-head' }, nameInput, kindSeg, removeBtn),
@@ -143,12 +159,13 @@
 
     // agenda panel
     const ros = h('ol', { class: 'ros' });
-    const statDrift = h('div', { class: 'stat' }, h('small', null, t('Abweichung')), h('b', null, '—'));
-    const statEnd = h('div', { class: 'stat' }, h('small', null, t('Ende ca.')), h('b', null, '—'));
-    const statTotal = h('div', { class: 'stat' }, h('small', null, t('Geplant')), h('b', null, '—'));
+    const stat = label => h('div', { class: 'stat' }, h('small', null, t(label)), h('b', null, '—'), h('span', { class: 'stat-note' }));
+    const statDrift = stat('Abweichung vom Plan');
+    const statEnd = stat('Voraussichtliches Ende');
+    const statTotal = stat('Gesamtdauer');
     const plannedInput = h('input', { class: 'input num', type: 'time', 'aria-label': t('Planbeginn') });
     plannedInput.addEventListener('change', () => act({ type: 'agenda.settings', plannedStart: plannedInput.value }));
-    const rosTimerSelect = h('select', { class: 'input', 'aria-label': t('Ablauf verbinden mit') });
+    const rosTimerSelect = h('select', { class: 'input', 'aria-label': t('Verknüpfter Timer') });
     rosTimerSelect.addEventListener('change', () => act({ type: 'agenda.settings', timerId: rosTimerSelect.value }));
     const autoToggle = h('input', { type: 'checkbox' });
     autoToggle.addEventListener('change', () => act({ type: 'agenda.settings', autoStart: autoToggle.checked }));
@@ -156,12 +173,12 @@
     const addTitle = h('input', { class: 'input', placeholder: t('Titel'), maxlength: 80 });
     const addSpeaker = h('input', { class: 'input', placeholder: t('Sprecher*in'), maxlength: 80 });
     const addDur = h('input', { class: 'input num', placeholder: '10', inputmode: 'decimal', 'aria-label': t('Dauer') });
-    const addFrom = h('input', { class: 'input num', type: 'time', 'aria-label': t('Von') });
-    const addTo = h('input', { class: 'input num', type: 'time', 'aria-label': t('Bis') });
+    const addFrom = h('input', { class: 'input num', type: 'time', 'aria-label': t('Beginn') });
+    const addTo = h('input', { class: 'input num', type: 'time', 'aria-label': t('Ende') });
     const addItem = () => {
       if (!addTitle.value.trim()) { addTitle.focus(); return; }
       act({ type: 'agenda.add', item: { title: addTitle.value, speaker: addSpeaker.value, start: addFrom.value, end: addTo.value, durationMs: E.parseDuration(addDur.value || '10') ?? 10 * MIN } });
-      // the next slot usually starts where this one ends
+      // the next item usually starts where this one ends
       addFrom.value = addTo.value ? addTo.value : '';
       addTitle.value = ''; addSpeaker.value = ''; addDur.value = ''; addTo.value = '';
       addTitle.focus();
@@ -171,7 +188,7 @@
     const importDetails = h('details', null,
       h('summary', { class: 'btn btn-quiet', style: { display: 'inline-flex' } }, t('Importieren')),
       h('div', { style: { display: 'grid', gap: '8px', marginTop: '8px' } },
-        h('p', { class: 'help' }, t('Eine Zeile pro Slot: [Von-Bis;] Titel; Sprecher*in; [Minuten]. Auch direkt aus Excel kopierbar.')),
+        h('p', { class: 'help' }, t('Eine Zeile pro Programmpunkt: [Beginn-Ende;] Titel; Sprecher*in; [Minuten]. Auch direkt aus Excel kopierbar.')),
         importBox,
         h('div', { class: 'row' },
           armed(h('button', { class: 'btn' }, t('Importieren')), () => {
@@ -183,8 +200,9 @@
           }),
           h('span', { class: 'help' }, t('Ersetzt den bisherigen Ablauf.')))));
 
-    const modeSeg = h('div', { class: 'seg', role: 'group', 'aria-label': t('Ablauf läuft') },
-      [['manual', 'Per Knopf'], ['clock', 'Nach Uhrzeit']].map(([m, l]) => h('button', { 'data-mode': m, 'aria-pressed': 'false', onclick: () => act({ type: 'agenda.settings', mode: m }) }, t(l))));
+    const modeSeg = h('div', { class: 'seg seg-wide', role: 'group', 'aria-label': t('Ablaufplan') },
+      [['manual', 'Manuell weiterschalten'], ['clock', 'Automatisch nach Uhrzeit']].map(([m, l]) => h('button', { 'data-mode': m, 'aria-pressed': 'false', onclick: () => act({ type: 'agenda.settings', mode: m }) }, t(l))));
+    const modeHelp = h('p', { class: 'help mode-help' });
     let ripple = store.get('et-ripple') !== '0';
     const rippleToggle = h('input', { type: 'checkbox' });
     rippleToggle.checked = ripple;
@@ -194,55 +212,56 @@
     const holdBtn = h('button', { class: 'btn btn-big', onclick: () => {
       const a = S().agenda;
       if (a.holdAt == null) { act({ type: 'agenda.hold' }); return; }
-      // resume: the slot that was running when we stopped gets the held time, everything after moves along
+      // resume: the item that was running when we stopped gets the held time, everything after moves along
       const v = sched();
       if (v.current) act({ type: 'agenda.resume', itemId: v.current.item.id });
       else if (v.next && v.next.index > 0) act({ type: 'agenda.resume', itemId: v.rows[v.next.index - 1].item.id, mode: 'after' });
       else act({ type: 'agenda.resume' });
     } });
-    const nowBtn = h('button', { class: 'btn btn-go btn-big', onclick: () => { const v = sched(); if (v.current) act({ type: 'agenda.adjust', itemId: v.current.item.id, ms: -Math.max(1000, v.remainingMs), ripple }); } }, icon('next'), t('Jetzt weiter'));
+    const nowBtn = h('button', { class: 'btn btn-go btn-big', onclick: () => { const v = sched(); if (v.current) act({ type: 'agenda.adjust', itemId: v.current.item.id, ms: -Math.max(1000, v.remainingMs), ripple }); } }, icon('next'), t('Punkt jetzt beenden'));
     const schedCtl = h('div', { class: 'sched-ctl' },
       h('div', { class: 'sched-main' }, holdBtn, nowBtn),
       h('div', { class: 'row' },
-        h('span', { class: 'help' }, t('Laufender Punkt')),
+        h('span', { class: 'help sched-label' }, t('Laufender Punkt')),
         h('button', { class: 'btn num', onclick: () => extendCurrent(-5 * MIN) }, '−5'),
         h('button', { class: 'btn num', onclick: () => extendCurrent(-MIN) }, '−1'),
         h('button', { class: 'btn num', onclick: () => extendCurrent(MIN) }, '+1'),
         h('button', { class: 'btn num', onclick: () => extendCurrent(5 * MIN) }, '+5'),
-        h('label', { class: 'switch' }, rippleToggle, t('Folgende verschieben'))),
+        h('label', { class: 'switch' }, rippleToggle, t('Nachfolgende Punkte mitverschieben'))),
       h('div', { class: 'row' },
-        h('span', { class: 'help' }, t('Ganzer Plan')),
+        h('span', { class: 'help sched-label' }, t('Gesamtplan')),
         h('button', { class: 'btn num', onclick: () => act({ type: 'agenda.shift', ms: -5 * MIN }) }, '−5'),
         h('button', { class: 'btn num', onclick: () => act({ type: 'agenda.shift', ms: 5 * MIN }) }, '+5'),
         h('span', { class: 'help', 'data-adjust': '' }),
         h('span', { style: { flex: 1 } }),
-        armed(h('button', { class: 'btn btn-quiet' }, t('Anpassungen zurücksetzen')), () => act({ type: 'agenda.clearAdjust' }))));
+        armed(h('button', { class: 'btn btn-quiet' }, t('Originalplan wiederherstellen')), () => act({ type: 'agenda.clearAdjust' }))));
 
     const prevBtn = h('button', { class: 'btn btn-big', 'aria-label': t('Zurück'), onclick: () => act({ type: 'agenda.prev' }) }, icon('prev'));
-    const goBtn = h('button', { class: 'btn btn-go btn-big', title: 'G', onclick: () => act({ type: 'agenda.next' }) });
+    const goBtn = h('button', { class: 'btn btn-go btn-big', onclick: () => act({ type: 'agenda.next' }) });
     const rosPanel = h('section', { class: 'panel', 'aria-label': t('Ablaufplan') },
-      h('div', { class: 'panel-head' }, h('h2', null, t('Ablaufplan')), h('div', { class: 'spacer' }), modeSeg),
+      h('div', { class: 'panel-head' }, h('h2', null, t('Ablaufplan'))),
+      modeSeg, modeHelp,
       h('div', { class: 'row', style: { marginBottom: '12px' } },
         h('label', { class: 'field', style: { width: '130px' } }, h('span', null, t('Planbeginn')), plannedInput),
-        h('label', { class: 'field', style: { width: '160px' }, 'data-manual': '' }, h('span', null, t('Steuert')), rosTimerSelect)),
+        h('label', { class: 'field', style: { width: '180px' }, 'data-manual': '' }, h('span', null, t('Verknüpfter Timer')), rosTimerSelect)),
       h('div', { class: 'ros-summary' }, statDrift, statEnd, statTotal),
       ros,
       h('div', { class: 'ros-go', 'data-manual': '' }, prevBtn, goBtn),
       h('div', { 'data-clock': '' }, schedCtl),
       h('div', { class: 'section' },
-        h('h3', { class: 'section-title' }, t('Slot hinzufügen')),
+        h('h3', { class: 'section-title' }, t('Programmpunkt hinzufügen')),
         h('div', { class: 'ros-add' },
           h('label', { class: 'field ros-add-title' }, h('span', null, t('Titel')), addTitle),
           h('label', { class: 'field ros-add-speaker' }, h('span', null, t('Sprecher*in')), addSpeaker),
-          h('label', { class: 'field' }, h('span', null, t('Von')), addFrom),
-          h('label', { class: 'field' }, h('span', null, t('Bis')), addTo),
+          h('label', { class: 'field' }, h('span', null, t('Beginn')), addFrom),
+          h('label', { class: 'field' }, h('span', null, t('Ende')), addTo),
           h('label', { class: 'field ros-add-dur' }, h('span', null, t('oder Dauer (Min.)')), addDur),
           h('button', { class: 'btn ros-add-btn', onclick: addItem }, icon('plus'), t('Hinzufügen')))),
       h('div', { class: 'section row' },
-        h('label', { class: 'switch', 'data-manual': '' }, autoToggle, t('Automatisch starten')),
+        h('label', { class: 'switch', 'data-manual': '' }, autoToggle, t('Timer automatisch starten')),
         h('div', { class: 'spacer', style: { flex: 1 } }),
         importDetails,
-        h('button', { class: 'btn btn-quiet', onclick: () => copy(exportText()) }, t('Als Text kopieren')),
+        h('button', { class: 'btn btn-quiet', onclick: () => copy(exportText()) }, t('Als Text exportieren')),
         armed(h('button', { class: 'btn btn-quiet' }, t('Ablauf zurücksetzen')), () => act({ type: 'agenda.reset' }))));
 
     // ------------------------------------------------------- cue bar
@@ -253,6 +272,7 @@
         h('button', { class: 'btn btn-quiet', onclick: () => openUrl(tr.mode === 'standalone' ? viewUrl('cues') : baseUrl() + '/cues') }, icon('open'), t('Cue-Display'))),
       cueList);
     const goCue = c => act({ type: 'cue.done', itemId: c.item.id, cueId: c.cue.id });
+    const cuePillText = c => (c.status === 'go' ? 'GO' : c.status === 'ready' ? t('Auf Abruf') : c.inMs != null ? E.formatMs(c.inMs) : t('wartet'));
     function cueWhen(c) {
       const m = minutesLabel(Math.abs(c.offsetMs));
       if (c.ref === 'end') return c.offsetMs < 0 ? m + ' ' + t('Min. vor Ende') : t('bei Ende');
@@ -260,35 +280,72 @@
     }
     let cueSig = '';
     let cueShown = [];
+    let goCues = [];
     function tickCues(s, now) {
       const all = E.cueView(s, now);
+      goCues = all.filter(c => c.status === 'go');
       cuePanel.hidden = !all.length;
-      if (!all.length) return;
-      const active = all.filter(c => c.status === 'go' || c.status === 'standby' || c.status === 'ready');
-      const later = all.filter(c => c.status === 'later').slice(0, Math.max(0, 5 - active.length));
-      cueShown = active.concat(later);
-      const sig = cueShown.map(c => c.cue.id + c.status + c.cue.text + c.cue.offsetMs + c.cue.ref).join('|') + root.ETUI.lang;
-      if (sig !== cueSig) {
-        cueSig = sig;
-        const rows = cueShown.map(c => h('li', { class: 'cue-row', 'data-status': c.status, 'data-cue': c.cue.id },
-          h('span', { class: 'cue-pill num' }),
-          h('span', { class: 'cue-what' }, h('b', null, c.cue.text), h('span', null, c.item.title), h('small', null, cueWhen(c.cue))),
-          h('button', { class: 'btn ' + (c.status === 'go' ? 'btn-go' : ''), title: 'C', onclick: () => goCue(c) }, t('Go'))));
-        cueList.replaceChildren(...(rows.length ? rows : [h('li', { class: 'cue-empty' }, t('Keine offenen Cues.'))]));
+      if (all.length) {
+        const active = all.filter(c => c.status === 'go' || c.status === 'standby' || c.status === 'ready');
+        const later = all.filter(c => c.status === 'later').slice(0, Math.max(0, 5 - active.length));
+        cueShown = active.concat(later);
+        const sig = cueShown.map(c => c.cue.id + c.status + c.cue.text + c.cue.offsetMs + c.cue.ref).join('|') + root.ETUI.lang;
+        if (sig !== cueSig) {
+          cueSig = sig;
+          const rows = cueShown.map((c, i) => h('li', { class: 'cue-row', 'data-status': c.status, 'data-cue': c.cue.id },
+            h('span', { class: 'cue-pill num' }),
+            h('span', { class: 'cue-what' }, h('b', null, c.cue.text), h('span', null, c.item.title), h('small', null, cueWhen(c.cue))),
+            h('button', { class: 'btn ' + (c.status === 'go' ? 'btn-go' : ''), onclick: () => goCue(c) }, 'GO', i === 0 ? kbd('C') : null)));
+          cueList.replaceChildren(...(rows.length ? rows : [h('li', { class: 'cue-empty' }, t('Keine offenen Cues'))]));
+        }
+        const open = all.filter(c => c.status !== 'done' && c.status !== 'missed').length;
+        const ct = open + ' ' + t('offen');
+        if (cueCount.textContent !== ct) cueCount.textContent = ct;
+        cueShown.forEach(c => {
+          const pill = cueList.querySelector(`[data-cue="${c.cue.id}"] .cue-pill`);
+          if (!pill) return;
+          const txt = cuePillText(c);
+          if (pill.textContent !== txt) pill.textContent = txt;
+        });
+      } else {
+        cueShown = [];
       }
-      const open = all.filter(c => c.status !== 'done' && c.status !== 'missed').length;
-      const ct = open + ' ' + t('offen');
-      if (cueCount.textContent !== ct) cueCount.textContent = ct;
-      cueShown.forEach(c => {
-        const pill = cueList.querySelector(`[data-cue="${c.cue.id}"] .cue-pill`);
-        if (!pill) return;
-        const txt = c.status === 'go' ? 'GO' : c.status === 'ready' ? t('bereit') : c.inMs != null ? E.formatMs(c.inMs) : t('wartet');
-        if (pill.textContent !== txt) pill.textContent = txt;
-      });
+      syncAlerts(s);
+    }
+
+    // ------------------------------------------------- talkback (Regie → Moderation)
+    const talkInput = h('input', { class: 'input', placeholder: t('Freitext an die Moderation'), maxlength: 120, 'aria-label': t('Freitext an die Moderation') });
+    const sendTalk = text => { if (text && text.trim()) act({ type: 'talkback.send', text: text.trim() }); };
+    talkInput.addEventListener('keydown', e => { if (e.key === 'Enter') { sendTalk(talkInput.value); talkInput.value = ''; } });
+    const talkQuickRow = h('div', { class: 'row' });
+    const talkLog = h('ol', { class: 'talk-log' });
+    const talkClear = armed(h('button', { class: 'btn btn-quiet' }, t('Verlauf löschen')), () => act({ type: 'talkback.clear' }));
+    const talkPanel = h('section', { class: 'panel talk-panel', 'aria-label': t('Talkback') },
+      h('div', { class: 'panel-head' }, icon('talk'), h('h2', null, t('Talkback')), h('span', { class: 'help' }, t('an die Moderation')), h('div', { class: 'spacer' }),
+        h('button', { class: 'btn btn-quiet', onclick: () => openUrl(tr.mode === 'standalone' ? viewUrl('moderation') : baseUrl() + '/moderation') }, icon('open'), '/moderation')),
+      talkQuickRow,
+      h('div', { class: 'row', style: { marginTop: '10px' } }, h('div', { style: { flex: '1 1 200px' } }, talkInput),
+        h('button', { class: 'btn btn-go', onclick: () => { sendTalk(talkInput.value); talkInput.value = ''; } }, t('Senden'))),
+      talkLog,
+      h('div', { class: 'row', style: { justifyContent: 'flex-end' } }, talkClear));
+    function syncTalk(s) {
+      const qk = (s.talkQuick || []).join('\n');
+      if (talkQuickRow.dataset.key !== qk) {
+        talkQuickRow.dataset.key = qk;
+        talkQuickRow.replaceChildren(...(s.talkQuick || []).map(q => h('button', { class: 'chip', onclick: () => sendTalk(q) }, q)));
+      }
+      const list = (s.talkback || []).slice(-5).reverse();
+      const key = list.map(k => k.id + ':' + k.ackAt).join() + root.ETUI.lang;
+      if (talkLog.dataset.key !== key) {
+        talkLog.dataset.key = key;
+        talkLog.replaceChildren(...list.map(k => h('li', { 'data-ack': k.ackAt != null ? 1 : 0 },
+          h('span', null, k.text),
+          h('small', null, hhmm(k.at) + ' · ' + (k.ackAt != null ? t('verstanden') + ' ✓ ' + hhmm(k.ackAt) : t('gesendet'))))));
+      }
+      talkClear.hidden = !(s.talkback || []).length;
     }
 
     // ------------------------------------------- messages from the stage
-    const reqBox = h('div', { class: 'req-box', 'aria-live': 'assertive' });
     const seenReq = new Set();
     let reqInit = false;
     let actx = null;
@@ -316,32 +373,53 @@
         });
       } catch { /* no audio */ }
     }
-    function syncRequests(s) {
+    /** Alert zone: open messages from the stage + cues that are due. */
+    function syncAlerts(s) {
       const open = s.requests.filter(r => !r.ack);
-      const key = open.map(r => r.id).join() + root.ETUI.lang;
-      if (reqBox.dataset.key !== key) {
-        reqBox.dataset.key = key;
-        const items = open.slice(-4).reverse().map(r => h('div', { class: 'req', role: 'alert' }, icon('bell'),
-          h('div', { class: 'req-text' }, h('b', null, r.text), h('span', null, r.from + ', ' + hhmm(r.at))),
-          h('button', { class: 'btn', onclick: () => act({ type: 'request.ack', requestId: r.id }) }, t('Gesehen'))));
-        if (open.length > 1) items.push(h('button', { class: 'btn btn-quiet', onclick: () => act({ type: 'request.ackAll' }) }, t('Alle gesehen')));
-        reqBox.replaceChildren(...items);
+      const key = open.map(r => r.id).join() + '#' + goCues.map(c => c.cue.id).join() + root.ETUI.lang;
+      if (alerts.dataset.key !== key) {
+        alerts.dataset.key = key;
+        const items = open.slice(-4).reverse().map(r => h('div', { class: 'alert alert-req', role: 'alert' }, icon('bell'),
+          h('div', { class: 'alert-text' }, h('b', null, r.text), h('span', null, t('Meldung') + ' · ' + r.from + ' · ' + hhmm(r.at))),
+          h('button', { class: 'btn', onclick: () => act({ type: 'request.ack', requestId: r.id }) }, icon('check'), t('Bestätigen'))));
+        if (open.length > 1) items.push(h('button', { class: 'btn btn-quiet alert-all', onclick: () => act({ type: 'request.ackAll' }) }, t('Alle bestätigen')));
+        goCues.slice(0, 3).forEach((c, i) => items.push(h('div', { class: 'alert alert-cue', role: 'alert' }, h('span', { class: 'cue-pill num' }, 'GO'),
+          h('div', { class: 'alert-text' }, h('b', null, c.cue.text), h('span', null, t('Cue') + ' · ' + c.item.title)),
+          h('button', { class: 'btn btn-go', onclick: () => goCue(c) }, 'GO', i === 0 ? kbd('C') : null))));
+        alerts.replaceChildren(...items);
       }
       const fresh = open.filter(r => !seenReq.has(r.id));
       open.forEach(r => seenReq.add(r.id));
       if (reqInit && fresh.length && soundOn()) beep();
       reqInit = true;
-      document.title = (open.length ? `(${open.length}) ` : '') + 'Event Timer – ' + t('Steuerung');
+      const n = open.length + goCues.length;
+      const title = (n ? `(${n}) ` : '') + 'Event Timer – ' + t('Regie');
+      if (document.title !== title) document.title = title;
     }
 
-    const desk = h('main', { class: 'desk' }, h('div', null, timerPanel), h('div', null, cuePanel, rosPanel));
+    // columns: 1 (phone/tablet) · 2 (laptop) · 3 (≥ 1600 px)
+    const cols = [h('div', { class: 'col' }), h('div', { class: 'col' }), h('div', { class: 'col' })];
+    const desk = h('main', { class: 'desk' }, ...cols);
+    const mq3 = window.matchMedia('(min-width: 1600px)');
+    const mq2 = window.matchMedia('(min-width: 1100px)');
+    function layoutDesk() {
+      const n = mq3.matches ? 3 : mq2.matches ? 2 : 1;
+      desk.dataset.cols = n;
+      if (n === 3) { cols[0].append(timerPanel); cols[1].append(rosPanel); cols[2].append(cuePanel, talkPanel); }
+      else if (n === 2) { cols[0].append(timerPanel, talkPanel); cols[1].append(cuePanel, rosPanel); }
+      else cols[0].append(timerPanel, cuePanel, rosPanel, talkPanel);
+      cols.forEach((c, i) => { c.hidden = i >= n; });
+    }
+    mq3.addEventListener('change', layoutDesk);
+    mq2.addEventListener('change', layoutDesk);
+    layoutDesk();
 
     // gate (PIN)
     const pinInput = h('input', { class: 'input', type: 'password', inputmode: 'numeric', autocomplete: 'off', 'aria-label': t('PIN eingeben') });
     const pinError = h('div', { class: 'gate-error', role: 'alert' });
     const gate = h('div', { class: 'gate', hidden: true },
       h('form', { onsubmit: e => { e.preventDefault(); pinError.textContent = ''; tr.auth(pinInput.value); } },
-        h('h2', null, t('Steuerung gesperrt')),
+        h('h2', null, t('Regie gesperrt')),
         h('label', { class: 'field' }, h('span', null, t('PIN eingeben')), pinInput),
         pinError,
         h('button', { class: 'btn btn-go', type: 'submit' }, t('Entsperren')),
@@ -351,13 +429,13 @@
     // drawer
     const drawerBody = h('div', { class: 'drawer-body' });
     const tabs = h('div', { class: 'tabs', role: 'tablist' });
-    const drawer = h('dialog', { class: 'drawer', 'aria-label': t('Einstellungen') },
-      h('div', { class: 'drawer-head' }, h('h2', null, t('Einstellungen')),
-        h('button', { class: 'btn btn-quiet btn-icon', 'aria-label': 'Schließen', onclick: () => drawer.close() }, icon('close'))),
+    const drawer = h('dialog', { class: 'drawer', 'aria-label': t('Menü') },
+      h('div', { class: 'drawer-head' }, h('h2', null, t('Menü')),
+        h('button', { class: 'btn btn-quiet btn-icon', 'aria-label': t('Schließen'), onclick: () => drawer.close() }, icon('close'))),
       tabs, drawerBody);
     drawer.addEventListener('click', e => { if (e.target === drawer) drawer.close(); });
 
-    app.replaceChildren(topbar, banner, reqBox, mv, desk, gate, drawer);
+    app.replaceChildren(topWrap, mv, desk, gate, drawer);
 
     // ------------------------------------------------------- helpers
     function baseUrl() {
@@ -385,7 +463,7 @@
     }
     function openUrl(url) {
       const w = tr.mode === 'standalone' ? tr.openWindow(url) : window.open(url, '_blank');
-      if (!w) toast(t('Neues Fenster wurde blockiert – nutze „Bühnenansicht hier“.'));
+      if (!w) toast(t('Neues Fenster wurde blockiert – nutze „DSM hier öffnen“.'));
     }
 
     function parseImport(text) {
@@ -463,7 +541,7 @@
       rosKey = key;
       ros.replaceChildren();
       if (!a.items.length) {
-        ros.appendChild(h('li', { class: 'ros-empty' }, t('Noch kein Ablauf. Füge den ersten Slot hinzu oder importiere eine Liste.')));
+        ros.appendChild(h('li', { class: 'ros-empty' }, t('Noch kein Ablauf. Füge den ersten Programmpunkt hinzu oder importiere eine Liste.')));
         return;
       }
       a.items.forEach((it, i) => {
@@ -523,11 +601,11 @@
       const ti = h('input', { class: 'input', value: dr.title, maxlength: 80, 'aria-label': t('Titel') });
       const sp = h('input', { class: 'input', value: dr.speaker, maxlength: 80, placeholder: t('Sprecher*in'), 'aria-label': t('Sprecher*in') });
       const du = h('input', { class: 'input num', value: dr.dur, inputmode: 'decimal', 'aria-label': t('Dauer') });
-      const fr = h('input', { class: 'input num', type: 'time', value: dr.start, 'aria-label': t('Von') });
-      const to = h('input', { class: 'input num', type: 'time', value: dr.end, 'aria-label': t('Bis') });
+      const fr = h('input', { class: 'input num', type: 'time', value: dr.start, 'aria-label': t('Beginn') });
+      const to = h('input', { class: 'input num', type: 'time', value: dr.end, 'aria-label': t('Ende') });
       [[ti, 'title'], [sp, 'speaker'], [du, 'dur'], [fr, 'start'], [to, 'end']].forEach(([el, k]) => el.addEventListener('input', () => { dr[k] = el.value; }));
       const cueEd = h('div', { class: 'cue-edit' },
-        h('span', { class: 'help' }, t('Cues für die Regie')),
+        h('span', { class: 'help' }, t('Cues')),
         ...(it.cues || []).map(c => cueEditRow(it, c)),
         h('div', { class: 'row' }, h('button', { class: 'btn btn-quiet', onclick: () => act({ type: 'cue.add', itemId: it.id, text: t('Neuer Cue'), ref: 'start', offsetMs: 0 }) }, icon('plus'), t('Cue hinzufügen'))));
       const save = () => {
@@ -539,8 +617,8 @@
       setTimeout(() => ti.focus(), 0);
       return h('li', { class: 'ros-edit' }, ti, sp,
         h('div', { class: 'ros-edit-times' },
-          h('label', { class: 'field' }, h('span', null, t('Von')), fr),
-          h('label', { class: 'field' }, h('span', null, t('Bis')), to),
+          h('label', { class: 'field' }, h('span', null, t('Beginn')), fr),
+          h('label', { class: 'field' }, h('span', null, t('Ende')), to),
           h('label', { class: 'field' }, h('span', null, t('oder Dauer (Min.)')), du)),
         cueEd,
         h('div', { class: 'row' },
@@ -563,13 +641,17 @@
       targetSection.hidden = shownKind !== 'clock';
       nudges.hidden = shownKind === 'clock' || E.isStatic(shownKind);
       transport.hidden = E.isStatic(shownKind);
-      durSection.querySelector('[data-dur-title]').textContent = shownKind === 'countup' ? t('Optionales Limit') : t('Dauer');
+      durSection.querySelector('[data-dur-title]').textContent = shownKind === 'countup' ? t('Limit (optional)') : t('Dauer');
       chips.querySelectorAll('.chip').forEach(c => c.setAttribute('aria-pressed', String(Number(c.dataset.ms) === tm.durationMs)));
       if (tm.kind === 'clock' && tm.targetLabel && !focused(targetInput)) targetInput.value = tm.targetLabel;
 
       const m = tm.message;
-      msgPreview.firstChild.textContent = m.text || t('Keine Nachricht auf dem Display.');
-      msgPreview.dataset.hidden = m.visible ? '0' : '1';
+      const mstate = !m.text ? 'empty' : m.visible ? 'live' : 'hidden';
+      msgCard.dataset.state = mstate;
+      msgCard.dataset.flash = m.flash && mstate === 'live' ? '1' : '0';
+      msgBadge.textContent = { empty: t('Keine Einblendung aktiv'), live: t('LIVE auf DSM'), hidden: t('Ausgeblendet') }[mstate];
+      msgText.textContent = m.text;
+      msgText.hidden = !m.text;
       [flashBtn, showBtn, clearBtn].forEach(b => { b.hidden = !m.text; });
       flashBtn.setAttribute('aria-pressed', String(m.flash));
       showBtn.textContent = m.visible ? t('Ausblenden') : t('Einblenden');
@@ -588,6 +670,10 @@
         presetSelect.replaceChildren(...s.presets.map(p => h('option', { value: p.id }, p.name)));
       }
       presetSelect.value = tm.presetId;
+      const preset = s.presets.find(p => p.id === tm.presetId);
+      // closed options still tell what is set
+      const summary = [preset ? preset.name : '', t('Vorwarnung') + ' ' + minutesLabel(tm.warnMs), t('Kritisch') + ' ' + minutesLabel(tm.critMs), tm.overtime ? t('Überzeit an') : t('Überzeit aus')].filter(Boolean).join(' · ');
+      if (optSummary.textContent !== summary) optSummary.textContent = summary;
 
       const url = displayUrl(tm.id);
       if (linkRow.dataset.url !== url) {
@@ -613,18 +699,23 @@
       goBtn.disabled = !a.items.length || av.done;
       const clock = a.mode === 'clock';
       modeSeg.querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.mode === a.mode)));
+      const help = clock
+        ? t('Programmpunkte beginnen und enden nach ihren Uhrzeiten. Eingreifen mit Hold, ± Minuten oder „Punkt jetzt beenden“.')
+        : t('Du schaltest jeden Programmpunkt selbst weiter (Taste G). Der verknüpfte Timer zählt die geplante Dauer herunter.');
+      if (modeHelp.textContent !== help) modeHelp.textContent = help;
       rosPanel.querySelectorAll('[data-manual]').forEach(x => { x.hidden = clock; });
       rosPanel.querySelectorAll('[data-clock]').forEach(x => { x.hidden = !clock; });
       const held = a.holdAt != null;
       holdBtn.className = 'btn btn-big ' + (held ? 'btn-hold' : '');
-      holdBtn.replaceChildren(icon(held ? 'play' : 'pause'), held ? t('Fortsetzen') : t('Anhalten'));
+      holdBtn.replaceChildren(icon(held ? 'play' : 'pause'), held ? t('Fortsetzen') : t('Hold'));
       const adj = schedCtl.querySelector('[data-adjust]');
       adj.textContent = a.shiftMs ? t('verschoben um') + ' ' + (a.shiftMs > 0 ? '+' : '−') + E.formatMs(Math.abs(a.shiftMs)) : '';
       const target = a.cursor < 0 ? a.items[0] : a.items[a.cursor + 1];
       goBtn.replaceChildren(icon('next'),
         h('span', { style: { display: 'grid', textAlign: 'left' } },
-          av.done ? t('Ablauf beendet') : a.cursor < 0 ? t('Ablauf starten') : target ? t('Nächster Slot') : t('Ablauf beendet'),
-          target && !av.done ? h('small', null, target.title) : null));
+          av.done ? t('Ablauf beendet') : a.cursor < 0 ? t('Ablauf starten') : target ? t('Nächster Punkt') : t('Ablauf beendet'),
+          target && !av.done ? h('small', null, target.title) : null),
+        av.done ? null : kbd('G'));
     }
 
     function sync() {
@@ -633,21 +724,24 @@
       const online = tr.status === 'online';
       conn.dataset.status = tr.status;
       const m = tr.meta || {};
-      conn.lastChild.textContent = tr.mode === 'standalone' ? t('Nur dieses Gerät')
-        : !online ? (tr.status === 'connecting' ? t('Verbinde …') : t('Getrennt – verbinde neu …'))
-        : t('Verbunden') + (m.displays ? ` · ${m.displays} ${m.displays === 1 ? t('Display verbunden') : t('Displays verbunden')}` : '');
+      const ct = tr.mode === 'standalone' ? t('Nur dieses Gerät')
+        : !online ? (tr.status === 'connecting' ? t('Verbinde …') : t('Verbindung getrennt – verbinde neu …'))
+        : t('Verbunden') + (m.displays ? ` · ${m.displays} ${m.displays === 1 ? t('Display') : t('Displays')}` : '');
+      if (conn.lastChild.textContent !== ct) conn.lastChild.textContent = ct;
       if (!focused(titleInput)) titleInput.value = s.event.title;
       blackoutBtn.setAttribute('aria-pressed', String(s.blackout));
 
       const locked = tr.mode === 'server' && online && !tr.canControl();
       gate.hidden = !locked || viewOnly;
-      if (locked && viewOnly) { banner.hidden = false; banner.dataset.tone = ''; banner.textContent = t('Nur-Ansicht: Zum Steuern PIN eingeben.'); banner.onclick = () => { viewOnly = false; sync(); }; }
+      if (locked && viewOnly) { banner.hidden = false; banner.dataset.tone = ''; banner.textContent = t('Nur ansehen: Zum Steuern PIN eingeben.'); banner.onclick = () => { viewOnly = false; sync(); }; }
       else if (tr.mode === 'standalone' && m.storageOk === false) { banner.hidden = false; banner.dataset.tone = 'stop'; banner.textContent = t('Speichern im Browser nicht möglich (privates Fenster?). Nach dem Schließen ist alles weg.'); }
       else banner.hidden = true;
       desk.inert = locked;
+      alerts.inert = locked;
       mv.inert = false;
 
-      syncRequests(s);
+      syncAlerts(s);
+      syncTalk(s);
       buildTiles();
       syncPanel();
       buildAgenda();
@@ -660,6 +754,8 @@
       const s = S();
       if (s) {
         const now = tr.now();
+        const clk = D.clockText(now, true);
+        if (hdrClock.textContent !== clk) hdrClock.textContent = clk;
         tickCues(s, now);
         for (const tm of s.timers) {
           const tv = tileViews.get(tm.id);
@@ -669,7 +765,7 @@
           const sv = tm.kind === 'schedule' ? E.scheduleView(s, now) : null;
           const tally = tm.kind === 'time' ? '' : sv ? (sv.current && !sv.held ? (sv.remainingMs <= tm.critMs ? 'stop' : sv.remainingMs <= tm.warnMs ? 'warn' : 'go') : '') : v.state === 'running' || (tm.kind === 'clock' && v.state !== 'idle') ? (v.phase === 'normal' ? 'go' : v.phase === 'warn' ? 'warn' : 'stop') : v.state === 'finished' ? 'stop' : '';
           if (tv.tile.dataset.tally !== tally) tv.tile.dataset.tally = tally;
-          const badge = v.state === 'paused' ? t('Pausiert') : (tm.message.visible ? '✉' : '');
+          const badge = v.state === 'paused' ? t('Pausiert') : (tm.message.visible ? 'LIVE' : '');
           tv.badge.hidden = !badge;
           if (tv.badge.textContent !== badge) tv.badge.textContent = badge;
         }
@@ -679,7 +775,7 @@
           const isTime = tm.kind === 'time';
           let txt = isTime ? D.clockText(now, true) : E.formatMs(v.ms, { up: tm.kind === 'countup' });
           let phase = v.phase, prog = v.progress, state = v.state;
-          let st = isTime ? t('Zeigt die Uhrzeit') : stateLabel(v) + (v.over && v.state !== 'finished' ? ' · ' + t('Überzogen') : '');
+          let st = isTime ? t('Zeigt die Uhrzeit') : stateLabel(v) + (v.over && v.state !== 'finished' ? ' · ' + t('Überzeit') : '');
           let sub = isTime ? '' : tm.kind === 'clock' ? (tm.targetLabel ? t('bis') + ' ' + tm.targetLabel : '') : (tm.durationMs ? t('von') + ' ' + E.formatMs(tm.durationMs) : '');
           if (tm.kind === 'schedule') {
             // follows the clock-driven run of show
@@ -689,15 +785,15 @@
               txt = E.formatMs(sv.remainingMs);
               phase = sv.remainingMs <= tm.critMs ? 'crit' : sv.remainingMs <= tm.warnMs ? 'warn' : 'normal';
               prog = sv.progress;
-              st = sv.current.item.title || t('Zeitplan');
-              sub = sv.held ? t('Angehalten') : hhmm(sv.current.start) + '–' + hhmm(sv.current.end);
+              st = sv.current.item.title || t('Ablaufplan');
+              sub = sv.held ? t('Hold aktiv') : hhmm(sv.current.start) + '–' + hhmm(sv.current.end);
             } else if (sv.next) {
               txt = E.formatMs(sv.gapMs);
               st = t('Pause');
               sub = t('Weiter um') + ' ' + hhmm(sv.next.start);
             } else {
               txt = D.clockText(now, false);
-              st = sv.ready ? t('Programm beendet') : t('Zeitplan ohne Uhrzeiten');
+              st = sv.ready ? t('Programm beendet') : t('Ablaufplan ohne Uhrzeiten');
               sub = '';
             }
           }
@@ -712,27 +808,23 @@
           if (playBtn.dataset.label !== label + v.state) {
             playBtn.dataset.label = label + v.state;
             playBtn.className = 'btn btn-big ' + (running ? 'btn-hold' : 'btn-go');
-            playBtn.replaceChildren(icon(running ? 'pause' : 'play'), running ? t('Pause') : (v.state === 'paused' ? t('Weiter') : t('Start')));
+            playBtn.replaceChildren(icon(running ? 'pause' : 'play'), running ? t('Pause') : (v.state === 'paused' ? t('Fortsetzen') : t('Start')), kbd(t('Leertaste')));
             playBtn.disabled = tm.kind === 'clock' || v.state === 'finished';
           }
         }
         // run of show stats
         if (s.agenda.mode === 'clock') { tickSchedule(s, now); return; }
-        statDrift.firstChild.textContent = t('Abweichung');
-        statEnd.firstChild.textContent = t('Ende ca.');
-        statTotal.firstChild.textContent = t('Geplant');
         const av = E.agendaView(s, now);
         const items = s.agenda.items;
         const d = av.drift;
+        // drift in words: "4:50 vor Plan" reads faster than "−04:50"
         const tone = !av.started ? '' : d > 30000 ? 'behind' : d < -30000 ? 'ahead' : '';
-        statDrift.dataset.tone = tone;
-        const dt = !av.started ? '—' : Math.abs(d) < 1000 ? '±0' : (d > 0 ? '+' : '−') + E.formatMs(Math.abs(d));
-        if (statDrift.lastChild.textContent !== dt) statDrift.lastChild.textContent = dt;
+        const dt = !av.started ? '—' : Math.abs(d) < 1000 ? '0:00' : E.formatMs(Math.abs(d));
+        const dn = !av.started ? '' : Math.abs(d) < 30000 ? t('im Plan') : d > 0 ? t('hinter Plan') : t('vor Plan');
+        setStat(statDrift, t('Abweichung vom Plan'), dt, tone, dn);
         const wallEnd = Date.now() + (av.projectedEnd - now);
-        const et = items.length ? hhmm(wallEnd) : '—';
-        if (statEnd.lastChild.textContent !== et) statEnd.lastChild.textContent = et;
-        const tt = items.length ? E.formatMs(av.totalPlanned) : '—';
-        if (statTotal.lastChild.textContent !== tt) statTotal.lastChild.textContent = tt;
+        setStat(statEnd, t('Voraussichtliches Ende'), items.length ? hhmm(wallEnd) : '—', '', '');
+        setStat(statTotal, t('Gesamtdauer'), items.length ? E.formatMs(av.totalPlanned) : '—', '', '');
         const live = ros.querySelector('[data-live]');
         if (live && av.current && av.current.startedAt != null) {
           const over = av.currentElapsed - av.current.durationMs;
@@ -742,34 +834,35 @@
         }
       }
     }
+    function setStat(el, label, value, tone, note) {
+      const [l, b, n] = el.children;
+      if (l.textContent !== label) l.textContent = label;
+      if (b.textContent !== value) b.textContent = value;
+      if (n.textContent !== (note || '')) n.textContent = note || '';
+      el.dataset.tone = tone || '';
+    }
 
     /** Run of show driven by the clock: stats, live row bar, hold state. */
     function tickSchedule(s, now) {
       const v = E.scheduleView(s, now);
-      const set = (el, label, value, tone) => {
-        if (el.firstChild.textContent !== label) el.firstChild.textContent = label;
-        if (el.lastChild.textContent !== value) el.lastChild.textContent = value;
-        el.dataset.tone = tone || '';
-      };
-      if (v.current) set(statDrift, v.held ? t('Angehalten') : t('Noch'), E.formatMs(v.remainingMs), v.held ? 'behind' : '');
-      else if (v.next) set(statDrift, t('Pause, weiter in'), E.formatMs(v.gapMs), '');
-      else set(statDrift, t('Noch'), '—', '');
-      set(statEnd, t('Danach'), v.next ? hhmm(v.next.start) : '—', '');
-      set(statTotal, t('Ende'), v.endAt ? hhmm(v.endAt) : '—', '');
+      if (v.current) setStat(statDrift, v.held ? t('Hold aktiv') : t('Restzeit'), E.formatMs(v.remainingMs), v.held ? 'behind' : '', '');
+      else if (v.next) setStat(statDrift, t('Pause – weiter in'), E.formatMs(v.gapMs), '', '');
+      else setStat(statDrift, t('Restzeit'), '—', '', '');
+      setStat(statEnd, t('Danach'), v.next ? hhmm(v.next.start) : '—', '', v.next ? v.next.item.title : '');
+      setStat(statTotal, t('Ende'), v.endAt ? hhmm(v.endAt) : '—', '', '');
       const bar = ros.querySelector('.ros-bar');
       if (bar && v.current) bar.style.width = (v.progress * 100).toFixed(2) + '%';
       const live = ros.querySelector('[data-live]');
       if (live && v.current) {
-        const txt = v.held ? t('Angehalten') : t('noch') + ' ' + E.formatMs(v.remainingMs);
+        const txt = v.held ? t('Hold aktiv') : t('noch') + ' ' + E.formatMs(v.remainingMs);
         if (live.textContent !== txt) live.textContent = txt;
       }
-      // statuses change with the clock → rebuild the list when a slot starts or ends
+      // statuses change with the clock → rebuild the list when an item starts or ends
       const sig = v.rows.map(r => r.status).join();
       if (ros.dataset.sig !== sig) { ros.dataset.sig = sig; buildAgenda(); }
     }
-
     // ------------------------------------------------------- drawer
-    const TABS = [['connect', 'Verbinden'], ['design', 'Design'], ['messages', 'Nachrichten'], ['security', 'Sicherheit'], ['companion', 'Companion'], ['more', 'Mehr']];
+    const TABS = [['connect', 'Verbindung'], ['design', 'Design'], ['messages', 'Schnellnachrichten'], ['security', 'Sicherheit'], ['companion', 'Companion'], ['more', 'System']];
     let drawerKey = '';
     function openDrawer(tab) {
       if (tab) drawerTab = tab;
@@ -779,7 +872,7 @@
     }
     function renderDrawer() {
       const s = S();
-      const key = JSON.stringify([drawerTab, designId, sel, root.ETUI.lang, tr.meta, s.presets, s.quickMessages, s.timers.map(x => [x.id, x.name, x.presetId])]);
+      const key = JSON.stringify([drawerTab, designId, sel, root.ETUI.lang, tr.meta, s.presets, s.quickMessages, s.stageQuick, s.talkQuick, s.timers.map(x => [x.id, x.name, x.presetId])]);
       if (key === drawerKey) return;
       if (drawer.contains(document.activeElement) && document.activeElement.matches('input, textarea, select') && drawerTab !== 'connect') return;
       drawerKey = key;
@@ -812,12 +905,12 @@
           h('div', { class: 'short-hero' },
             h('small', null, t('Einfach im Browser eintippen')),
             h('b', { class: 'num' }, host + '/1'),
-            h('span', null, t('Displays /1 bis /8, Zeitplan /plan, Uhr /uhr, Steuerung /control'))),
+            h('span', null, t('DSM /1 bis /8 · Ablauf /plan · Uhr /uhr · Regie /control'))),
           linkLine(base + '/control'));
       } else {
         wrap.append(h('p', { class: 'help' }, t('Netzwerkname nicht verfügbar – bitte IP-Adresse oder QR-Code nutzen.')));
       }
-      const nameIn = h('input', { class: 'input', value: m.name || 'event-timer', maxlength: 40, autocapitalize: 'off', spellcheck: 'false', 'aria-label': t('Name im Netzwerk') });
+      const nameIn = h('input', { class: 'input', value: m.name || 'event-timer', maxlength: 40, autocapitalize: 'off', spellcheck: 'false', 'aria-label': t('Netzwerkname') });
       const nameErr = h('span', { class: 'help' });
       const saveName = () => {
         const v = nameIn.value.trim().toLowerCase();
@@ -832,7 +925,7 @@
       p80.addEventListener('change', () => tr.setPort80(p80.checked));
       wrap.append(...[
         h('div', { class: 'row' },
-          h('label', { class: 'field', style: { flex: '1 1 200px' } }, h('span', null, t('Name im Netzwerk')), nameIn),
+          h('label', { class: 'field', style: { flex: '1 1 200px' } }, h('span', null, t('Netzwerkname')), nameIn),
           h('button', { class: 'btn', style: { alignSelf: 'end' }, onclick: saveName }, t('Speichern'))),
         nameErr,
         h('label', { class: 'switch' }, p80, t('Ohne Portnummer (Port 80)')),
@@ -847,14 +940,14 @@
       if (tr.mode === 'standalone') {
         out.push(h('p', null, t('Standalone-Modus: Alles läuft in diesem Browser. Displays im selben Browser (neues Fenster, z. B. auf dem zweiten Bildschirm) laufen automatisch mit.')));
         out.push(h('div', { class: 'row' },
-          h('button', { class: 'btn btn-go', onclick: () => openUrl(viewUrl('display', { t: sel.slice(1) })) }, icon('open'), t('Display in neuem Fenster')),
-          h('button', { class: 'btn', onclick: () => { drawer.close(); location.hash = 'display?t=' + sel.slice(1) + '&here=1'; } }, icon('full'), t('Bühnenansicht hier'))));
+          h('button', { class: 'btn btn-go', onclick: () => openUrl(viewUrl('display', { t: sel.slice(1) })) }, icon('open'), t('DSM in neuem Fenster')),
+          h('button', { class: 'btn', onclick: () => { drawer.close(); location.hash = 'display?t=' + sel.slice(1) + '&here=1'; } }, icon('full'), t('DSM hier öffnen'))));
         out.push(h('p', { class: 'help' }, t('Für mehrere Geräte das Event-Timer-Programm auf einem Rechner starten.')));
       } else {
         out.push(shortAddressSection());
         out.push(h('p', { class: 'help' }, t('Mit dem Handy scannen, um zu steuern oder anzuzeigen.')));
         out.push(h('div', { class: 'qr-grid' },
-          qrCard(t('Steuerung'), viewUrl('control')),
+          qrCard(t('Regie'), viewUrl('control')),
           qrCard(timer().name, displayUrl(sel)),
           qrCard(t('Moderation'), baseUrl() + '/moderation')));
         out.push(linkLine(viewUrl('control')));
@@ -870,7 +963,7 @@
       }
       // display link builder
       const layoutSel = h('select', { class: 'input' },
-        [['full', 'Vollbild-Timer'], ['plan', 'Zeitplan (Moderation)'], ['time', 'Nur Uhrzeit'], ['clock', 'Uhrzeit groß'], ['lower', 'Bauchbinde (Keying)'], ['agenda', 'Ablauf (Backstage)']].map(([v, l]) => h('option', { value: v }, t(l))));
+        [['full', 'Vollbild-Timer'], ['plan', 'Ablaufplan (Moderation)'], ['time', 'Nur Uhrzeit'], ['clock', 'Uhrzeit groß'], ['lower', 'Bauchbinde (Keying)'], ['agenda', 'Ablauf (Backstage)']].map(([v, l]) => h('option', { value: v }, t(l))));
       const timerSel = h('select', { class: 'input' }, s.timers.map(x => h('option', { value: x.id.slice(1) }, x.name)));
       timerSel.value = sel.slice(1);
       const transp = h('input', { type: 'checkbox' });
@@ -884,7 +977,7 @@
       [layoutSel, timerSel, transp].forEach(x => x.addEventListener('change', upd));
       upd();
       out.push(h('div', { class: 'section' },
-        h('h3', { class: 'section-title' }, t('Link für Displays bauen')),
+        h('h3', { class: 'section-title' }, t('DSM-Link erstellen')),
         h('div', { class: 'grid2' },
           h('label', { class: 'field' }, h('span', null, 'Timer'), timerSel),
           h('label', { class: 'field' }, h('span', null, t('Ansicht')), layoutSel)),
@@ -969,31 +1062,33 @@
         h('label', { class: 'field' }, h('span', null, t('Name')), nameIn),
         h('div', { class: 'grid2' },
           colorField('bg', 'Hintergrund'), colorField('fg', 'Ziffern'), colorField('accent', 'Fortschritt'),
-          colorField('warn', 'Warnung'), colorField('crit', 'Kritisch'), colorField('overBg', 'Überzogen Hintergrund'),
-          colorField('overFg', 'Überzogen Ziffern'), colorField('msgBg', 'Nachricht Fläche'), colorField('msgFg', 'Nachricht Text')),
+          colorField('warn', 'Warnung'), colorField('crit', 'Kritisch'), colorField('overBg', 'Überzeit Hintergrund'),
+          colorField('overFg', 'Überzeit Ziffern'), colorField('msgBg', 'Einblendung Fläche'), colorField('msgFg', 'Einblendung Text')),
         h('div', { class: 'grid2' },
           selField('font', 'Schrift', [['din', 'DIN / Bahnschrift'], ['grotesk', 'Grotesk'], ['mono', 'Monospace'], ['serif', 'Serif'], ['rounded', 'Rounded']]),
           selField('weight', 'Stärke', [[400, '400'], [500, '500'], [600, '600'], [700, '700'], [800, '800'], [900, '900']]),
           selField('bgStyle', 'Fläche', [['solid', 'Einfarbig'], ['glow', 'Leuchten'], ['transparent', 'Transparent']])),
         h('div', { class: 'grid2' },
           boolField('showProgress', 'Fortschrittsbalken'), boolField('showClock', 'Uhrzeit'), boolField('showTitle', 'Titel und Sprecher*in'),
-          boolField('showNext', 'Nächster Slot anzeigen'), boolField('showNotice', 'Hinweise'), boolField('flashOver', 'Blinken beim Überziehen')),
-        h('div', { class: 'grid2' }, textField('warnText', 'Text bei Warnung'), textField('expiredText', 'Text bei Ablauf'), textField('overText', 'Text beim Überziehen')),
+          boolField('showNext', 'Nächsten Programmpunkt anzeigen'), boolField('showNotice', 'Hinweise'), boolField('flashOver', 'Blinken bei Überzeit')),
+        h('div', { class: 'grid2' }, textField('warnText', 'Text bei Warnung'), textField('expiredText', 'Text bei Ablauf'), textField('overText', 'Text bei Überzeit')),
         actions,
       ];
     }
 
     function tabMessages() {
       const s = S();
-      const ta = h('textarea', { class: 'input', rows: 7 }, s.quickMessages.join('\n'));
-      const st = h('textarea', { class: 'input', rows: 7 }, (s.stageQuick || []).join('\n'));
+      const block = (label, help, list, type) => {
+        const ta = h('textarea', { class: 'input', rows: 6 }, (list || []).join('\n'));
+        return h('div', { class: 'section' },
+          h('label', { class: 'field' }, h('span', null, t(label)), ta),
+          h('p', { class: 'help', style: { margin: '6px 0 8px' } }, t(help)),
+          h('div', { class: 'row' }, h('button', { class: 'btn btn-go', onclick: () => { act({ type, list: ta.value.split(/\r?\n/) }); toast(t('Gespeichert')); } }, t('Speichern'))));
+      };
       return [
-        h('label', { class: 'field' }, h('span', null, t('Schnellnachrichten an die Bühne')), ta),
-        h('div', { class: 'row' }, h('button', { class: 'btn btn-go', onclick: () => { act({ type: 'quick.set', list: ta.value.split(/\r?\n/) }); toast(t('Gespeichert')); } }, t('Speichern'))),
-        h('div', { class: 'section' },
-          h('label', { class: 'field' }, h('span', null, t('Knöpfe auf /moderation (Bühne → Regie)')), st),
-          h('p', { class: 'help', style: { margin: '6px 0 8px' } }, t('Eine pro Zeile, höchstens 12.')),
-          h('div', { class: 'row' }, h('button', { class: 'btn btn-go', onclick: () => { act({ type: 'stage.quickSet', list: st.value.split(/\r?\n/) }); toast(t('Gespeichert')); } }, t('Speichern')))),
+        block('Schnellnachrichten an den DSM', 'Regie → DSM. Eine pro Zeile, höchstens 12.', s.quickMessages, 'quick.set'),
+        block('Talkback-Presets', 'Regie → Moderation (/moderation). Eine pro Zeile, höchstens 12.', s.talkQuick, 'talkback.quickSet'),
+        block('Schnellmeldungen (/moderation)', 'Bühne → Regie: Knöpfe auf dem Handy der Moderation. Eine pro Zeile, höchstens 12.', s.stageQuick, 'stage.quickSet'),
       ];
     }
 
@@ -1002,9 +1097,9 @@
       const m = tr.meta || {};
       const pin = h('input', { class: 'input num', type: 'password', inputmode: 'numeric', autocomplete: 'new-password', maxlength: 32 });
       return [
-        h('p', null, m.pinRequired ? t('Steuerung ist mit PIN geschützt.') : t('Keine PIN gesetzt – jedes Gerät im Netzwerk kann steuern.')),
+        h('p', null, m.pinRequired ? t('Regie ist mit PIN geschützt.') : t('Keine PIN gesetzt – jedes Gerät im Netzwerk kann steuern.')),
         h('p', { class: 'help' }, t('Mit PIN dürfen nur Geräte steuern, die sie kennen. Displays brauchen nie eine PIN; am Rechner selbst ist keine nötig.')),
-        h('label', { class: 'field' }, h('span', null, t('Steuerungs-PIN')), pin),
+        h('label', { class: 'field' }, h('span', null, t('Regie-PIN')), pin),
         h('div', { class: 'row' },
           h('button', { class: 'btn btn-go', onclick: () => { if (pin.value.trim()) { tr.setPin(pin.value.trim()); pin.value = ''; toast(t('PIN setzen')); } } }, t('PIN setzen')),
           m.pinRequired ? armed(h('button', { class: 'btn' }, t('PIN entfernen')), () => tr.setPin('')) : null),
@@ -1042,13 +1137,13 @@
       const snd = h('input', { type: 'checkbox' });
       snd.checked = soundOn();
       snd.addEventListener('change', () => { store.set('et-req-sound', snd.checked ? '1' : '0'); if (snd.checked) { unlockAudio(); beep(); } });
-      const keys = [['Leertaste', 'Start/Pause'], ['R', 'Zurücksetzen'], ['↑ / ↓', '±1:00'], ['← / →', '±0:10'], ['G', 'Nächster Slot im Ablauf'], ['C', 'Nächsten Cue auslösen'], ['B', 'Blackout'], ['1 … 8', 'Timer wählen']];
+      const keys = [['Leertaste', 'Start/Pause'], ['R', 'Reset'], ['↑ / ↓', '±1:00'], ['← / →', '±0:10'], ['⇧ ↵', 'Set & Go'], ['G', 'Nächster Programmpunkt'], ['C', 'Nächsten Cue auslösen (GO)'], ['B', 'All Blackout'], ['1 … 8', 'Timer wählen']];
       const out = [
         h('label', { class: 'field' }, h('span', null, t('Sprache')), langSel),
-        h('label', { class: 'switch' }, snd, t('Ton bei Meldungen von der Bühne')),
+        h('label', { class: 'switch' }, snd, t('Signalton bei Meldungen')),
         h('div', null, h('h3', { class: 'section-title' }, t('Tastenkürzel')),
           h('div', { class: 'grid2' }, keys.map(([k, v]) => h('div', null, h('b', { class: 'num' }, t(k)), ' ', h('span', { class: 'muted' }, t(v)))))),
-        h('p', { class: 'help' }, t('Version') + ' ' + (m.version || root.ET_VERSION || '1.0.0') + (m.dataPath ? ' · ' + t('Speicherort') + ': ' + m.dataPath : tr.mode === 'standalone' ? ' · ' + t('Speichert in diesem Browser.') : '')),
+        h('p', { class: 'help' }, t('Version') + ' ' + (m.version || root.ET_VERSION || '1.5.0') + (m.dataPath ? ' · ' + t('Speicherort') + ': ' + m.dataPath : tr.mode === 'standalone' ? ' · ' + t('Speichert in diesem Browser.') : '')),
       ];
       if (tr.mode === 'standalone') {
         out.push(h('div', { class: 'section' },
@@ -1072,7 +1167,7 @@
       else if (k === 'ArrowLeft') act({ type: 'timer.adjust', id: sel, ms: -10000 });
       else if (k === 'g' || k === 'G') act({ type: 'agenda.next' });
       else if (k === 'b' || k === 'B') act({ type: 'blackout.toggle' });
-      else if (k === 'c' || k === 'C') { const c = cueShown.find(x => x.status === 'go' || x.status === 'standby' || x.status === 'ready'); if (c) goCue(c); }
+      else if (k === 'c' || k === 'C') { const c = goCues[0] || cueShown.find(x => x.status === 'go' || x.status === 'standby' || x.status === 'ready'); if (c) goCue(c); }
       else if (/^[1-8]$/.test(k)) { const tm = S().timers[Number(k) - 1]; if (tm) select(tm.id); }
     };
     document.addEventListener('keydown', onKey);

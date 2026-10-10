@@ -42,7 +42,7 @@ Aufruf: event-timer [Optionen]
   --port <n>       Wunschport (Standard {DEFAULT_PORT}; belegt → nächster freier)
   --host <ip>      Netzwerkadresse zum Lauschen (Standard 0.0.0.0 = alle)
   --data <datei>   Speicherdatei (Standard: neben dem Programm, sonst Benutzerordner)
-  --pin <pin>      Steuerungs-PIN setzen (leer \"\" = PIN entfernen)
+  --pin <pin>      Regie-PIN setzen (leer \"\" = PIN entfernen)
   --name <name>    Netzwerkname: http://<name>.local (Standard event-timer)
   --port80         zusätzlich Port 80, Adressen dann ohne :2468 (--no-port80 aus)
   --no-browser     Browser beim Start nicht öffnen
@@ -107,7 +107,7 @@ fn handle_existing_instance(port: u16, open: bool) -> bool {
         return false;
     }
     if j.get("version").as_str() == Some(VERSION) {
-        println!("Event Timer {VERSION} läuft bereits auf Port {port} – öffne die Steuerung.");
+        println!("Event Timer {VERSION} läuft bereits auf Port {port} – öffne die Regie.");
         if open {
             net::open_browser(&format!("http://localhost:{port}/control"));
         }
@@ -261,13 +261,13 @@ fn print_banner(app: &App, port: u16, wanted: u16) {
             format!("http://{host}:{port}")
         };
         println!("\n  Kurz:                {base}/control");
-        println!("  Displays:            {base}/1 … /8   ·   {base}/uhr   ·   {base}/agenda");
+        println!("  DSM:                 {base}/1 … /8   ·   {base}/uhr   ·   {base}/moderation");
     } else {
-        println!("\n  Displays:            /1 … /8  ·  /uhr  ·  /agenda");
+        println!("\n  DSM:                 /1 … /8  ·  /uhr  ·  /moderation");
     }
     println!("  Daten:               {}", app.data_path.display());
     if app.pin_required() {
-        println!("  Steuerung ist per PIN geschützt.");
+        println!("  Regie ist per PIN geschützt.");
     }
     println!("\n  Beenden mit Strg+C oder Fenster schließen.\n");
 }

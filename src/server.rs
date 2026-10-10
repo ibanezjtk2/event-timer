@@ -387,7 +387,8 @@ fn handle_ws_message(app: &Arc<App>, c: &Client, text: &str) {
         "action" => {
             // the stage may always talk to the control room – even without the PIN –
             // but only one message per 1.5 s per device
-            if msg.get("action").get("type").as_str() == Some("request.send") {
+            let kind = msg.get("action").get("type").as_str();
+            if kind == Some("request.send") {
                 let now = now_ms() as u64;
                 if now.saturating_sub(c.last_request.load(Ordering::SeqCst)) < 1500 {
                     send(
@@ -400,6 +401,11 @@ fn handle_ws_message(app: &Arc<App>, c: &Client, text: &str) {
                     return;
                 }
                 c.last_request.store(now, Ordering::SeqCst);
+                app.act(msg.get("action"));
+                return;
+            }
+            // confirming talkback ("Verstanden") needs no PIN either; it only marks notes as read
+            if kind == Some("talkback.ack") {
                 app.act(msg.get("action"));
                 return;
             }
@@ -650,6 +656,10 @@ fn companion(app: &App, req: &Request) -> Response {
                     .rev()
                     .find(|r| !r.ack)
                     .map(|r| format!("{}: {}", r.from, r.text)),
+            )
+            .with(
+                "openTalkback",
+                st.talkback.iter().filter(|k| k.ack_at.is_none()).count(),
             )
             .with(
                 "timers",

@@ -31,6 +31,14 @@ const DEFAULT_STAGE: [&str; 6] = [
     "Bitte Pause einlegen",
     "Alles okay",
 ];
+const DEFAULT_TALK: [&str; 6] = [
+    "Noch 5 Minuten",
+    "Bitte zum Ende kommen",
+    "Letzte Frage",
+    "Mikrofon ist aus",
+    "Fragen aus dem Saal nehmen",
+    "Pause wird verlängert",
+];
 const DEFAULT_QUICK: [&str; 5] = [
     "Bitte zum Ende kommen",
     "Lauter sprechen",
@@ -155,6 +163,15 @@ pub struct Request {
     pub ack: bool,
 }
 
+/// Talkback: a note from the control room to the presenter's phone.
+#[derive(Clone, Debug)]
+pub struct Talk {
+    pub id: String,
+    pub text: String,
+    pub at: i64,
+    pub ack_at: Option<i64>,
+}
+
 #[derive(Clone, Debug)]
 pub struct Agenda {
     pub timer_id: String,
@@ -180,6 +197,8 @@ pub struct State {
     pub quick_messages: Vec<String>,
     pub stage_quick: Vec<String>,
     pub requests: Vec<Request>,
+    pub talk_quick: Vec<String>,
+    pub talkback: Vec<Talk>,
     pub agenda: Agenda,
 }
 
@@ -228,7 +247,7 @@ fn builtin(
 }
 
 pub fn builtin_presets() -> Vec<Preset> {
-    let de = ["Bitte zum Ende kommen", "Zeit abgelaufen", "Überzogen"];
+    let de = ["Bitte zum Ende kommen", "Zeit abgelaufen", "Überzeit"];
     vec![
         builtin(
             "stage",
@@ -297,6 +316,8 @@ impl Default for State {
             quick_messages: DEFAULT_QUICK.iter().map(|s| s.to_string()).collect(),
             stage_quick: DEFAULT_STAGE.iter().map(|s| s.to_string()).collect(),
             requests: Vec::new(),
+            talk_quick: DEFAULT_TALK.iter().map(|s| s.to_string()).collect(),
+            talkback: Vec::new(),
             agenda: Agenda {
                 timer_id: "t1".into(),
                 planned_start: String::new(),
@@ -1127,6 +1148,59 @@ fn apply_inner(s: &mut State, kind: &str, a: &Json, now: i64) -> bool {
             s.requests.clear();
             true
         }
+        "talkback.send" => {
+            let t = text(a.get("text"), 120);
+            if t.is_empty() {
+                return false;
+            }
+            s.seq += 1;
+            s.talkback.push(Talk {
+                id: format!("k{}", s.seq),
+                text: t,
+                at: now,
+                ack_at: None,
+            });
+            while s.talkback.len() > 20 {
+                let i = s
+                    .talkback
+                    .iter()
+                    .position(|x| x.ack_at.is_some())
+                    .unwrap_or(0);
+                s.talkback.remove(i);
+            }
+            true
+        }
+        "talkback.ack" => {
+            // with an id: that note; without: everything still open
+            let tid = a.get("talkbackId").as_str();
+            let mut changed = false;
+            for k in s.talkback.iter_mut() {
+                if k.ack_at.is_none() && tid.map_or(true, |id| id == k.id) {
+                    k.ack_at = Some(now);
+                    changed = true;
+                }
+            }
+            changed
+        }
+        "talkback.clear" => {
+            if s.talkback.is_empty() {
+                return false;
+            }
+            s.talkback.clear();
+            true
+        }
+        "talkback.quickSet" => {
+            let Some(list) = a.get("list").as_array() else {
+                return false;
+            };
+            s.talk_quick = list
+                .iter()
+                .map(|x| text(x, 60))
+                .filter(|x| !x.is_empty())
+                .take(12)
+                .collect();
+            true
+        }
         "stage.quickSet" => {
             let Some(list) = a.get("list").as_array() else {
                 return false;
@@ -1642,6 +1716,25 @@ impl State {
                 ),
             )
             .with(
+                "talkQuick",
+                Json::Arr(self.talk_quick.iter().map(Json::from).collect()),
+            )
+            .with(
+                "talkback",
+                Json::Arr(
+                    self.talkback
+                        .iter()
+                        .map(|k| {
+                            Json::obj()
+                                .with("id", &k.id)
+                                .with("text", &k.text)
+                                .with("at", k.at)
+                                .with("ackAt", k.ack_at)
+                        })
+                        .collect(),
+                ),
+            )
+            .with(
                 "agenda",
                 Json::obj()
                     .with("timerId", &self.agenda.timer_id)
@@ -1730,6 +1823,27 @@ impl State {
                     })
                 })
                 .take(30)
+                .collect();
+        }
+        if let Some(list) = j.get("talkQuick").as_array() {
+            s.talk_quick = list
+                .iter()
+                .filter_map(|x| x.as_str().map(String::from))
+                .take(12)
+                .collect();
+        }
+        if let Some(list) = j.get("talkback").as_array() {
+            s.talkback = list
+                .iter()
+                .filter_map(|k| {
+                    Some(Talk {
+                        id: k.get("id").as_str()?.to_string(),
+                        text: k.get("text").as_str().unwrap_or("").to_string(),
+                        at: k.get("at").as_i64().unwrap_or(0),
+                        ack_at: k.get("ackAt").as_i64(),
+                    })
+                })
+                .take(20)
                 .collect();
         }
         let a = j.get("agenda");

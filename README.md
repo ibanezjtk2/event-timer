@@ -11,11 +11,11 @@ Countdown, Redezeit und Ablaufplan für Bühne und Regie. Ein einzelnes Programm
 | Speichert | Datei neben dem Programm | im Browser |
 | Companion / PIN | ja | nein |
 
-Standalone ist für „Ich hab nur ein iPad dabei“: Datei öffnen, fertig. Unter *Einstellungen → Verbinden → Bühnenansicht hier* wird das Gerät selbst zum Display, oder *Display in neuem Fenster* für einen zweiten Bildschirm.
+Standalone ist für „Ich hab nur ein iPad dabei“: Datei öffnen, fertig. Unter *Menü (☰) → Verbindung → DSM hier öffnen* wird das Gerät selbst zum DSM (Downstage-Monitor), oder *DSM in neuem Fenster* für einen zweiten Bildschirm.
 
 ## Start (Server)
 
-Doppelklick bzw. `./event-timer`. Die Steuerung öffnet sich im Browser, im Konsolenfenster stehen die Adressen fürs Netzwerk. Der QR-Code unter *Einstellungen → Verbinden* bringt Handys direkt hin.
+Doppelklick bzw. `./event-timer`. Die Regie öffnet sich im Browser, im Konsolenfenster stehen die Adressen fürs Netzwerk. Der QR-Code unter *Menü (☰) → Verbindung* bringt Handys direkt hin.
 
 ```
 event-timer [--port 2468] [--host 0.0.0.0] [--data datei.json] [--pin 1234]
@@ -23,7 +23,7 @@ event-timer [--port 2468] [--host 0.0.0.0] [--data datei.json] [--pin 1234]
 ```
 
 - **Port 2468** (früher 3000, damit nichts mit anderer Show-Software kollidiert). Ist er belegt, nimmt das Programm automatisch den nächsten freien und zeigt ihn an. Mit `--port` ist der Port fest.
-- Startest du das Programm ein zweites Mal, öffnet es nur die Steuerung der laufenden Instanz. Eine andere Version wird automatisch ersetzt.
+- Startest du das Programm ein zweites Mal, öffnet es nur die Regie der laufenden Instanz. Eine andere Version wird automatisch ersetzt.
 - **Windows-Firewall:** Beim ersten Start „Private Netzwerke“ erlauben, sonst kommen Handys nicht ran.
 - **macOS:** Unsignierte Datei → einmal Rechtsklick → *Öffnen*, oder `xattr -d com.apple.quarantine event-timer-macos`.
 - **Raspberry Pi:** `event-timer-linux-arm64` (64-Bit-OS) bzw. `-armv7` (32-Bit). Autostart per systemd: siehe `tools/event-timer.service`.
@@ -37,7 +37,7 @@ event-timer.local:2468/1          # Display Timer 1
 event-timer.local/1               # dasselbe, wenn „Ohne Portnummer (Port 80)“ an ist
 ```
 
-- **Name ändern** unter *Einstellungen → Verbinden* oder mit `--name saal1` → `saal1.local`. Laufen zwei Event Timer im selben Netz, braucht jeder einen eigenen Namen.
+- **Name ändern** unter *Menü (☰) → Verbindung* oder mit `--name saal1` → `saal1.local`. Laufen zwei Event Timer im selben Netz, braucht jeder einen eigenen Namen.
 - **Port 80** ist aus, damit nichts anderem in die Quere kommt. Unter Linux braucht Port 80 erweiterte Rechte: `sudo setcap cap_net_bind_service=+ep event-timer`.
 - Das klappt auf iPhone, iPad, Mac, Windows 10/11 und Linux (mit Avahi). Manche Android-Geräte lösen `.local` nicht auf, dort hilft der QR-Code oder die IP.
 
@@ -45,11 +45,11 @@ event-timer.local/1               # dasselbe, wenn „Ohne Portnummer (Port 80)�
 
 | Pfad | Zweck |
 |---|---|
-| `/control` | Steuerung |
-| `/1` … `/8` (auch `/timer1`) | Vollbild-Display eines Timers |
+| `/control` | Regie |
+| `/1` … `/8` (auch `/timer1`) | DSM (Downstage-Monitor): Vollbild-Timer |
 | `/agenda` | Backstage-Display mit Ablaufplan, Abweichung und Ende-Prognose |
-| `/plan` | Zeitplan für die Moderation: laufender Punkt mit Restzeit und Balken, ganzer Tagesablauf daneben |
-| `/moderation` | Handy der Moderation: Restzeit plus Knöpfe, die Meldungen an die Regie schicken (ohne PIN) |
+| `/plan` | Ablaufplan für die Moderation: laufender Punkt mit Restzeit und Balken, ganzer Tagesablauf daneben |
+| `/moderation` | Handy der Moderation: Restzeit, Talkback von der Regie mit „Verstanden“, Schnellmeldungen an die Regie (ohne PIN) |
 | `/cues` | Cue-Liste groß für weitere Operatoren (Licht, Video, Ton) |
 | `/uhr` (auch `/clock`) | nur die Uhrzeit, sonst nichts (`?sec=0` ohne Sekunden) |
 | `/display?t=2&layout=clock` | Uhrzeit groß, Timer klein |
@@ -60,30 +60,32 @@ Displays brauchen nie eine PIN, halten den Bildschirm wach (Wake Lock) und synch
 
 ## Funktionen
 
-- **Bis zu 8 Timer**: Countdown, Hochzählen (mit optionalem Limit), bis Uhrzeit („Beginn um 14:30“) oder einfach **Uhrzeit**: Damit schaltest du ein Bühnen-Display in der Pause per Klick auf die Uhr um.
-- **Blinken beim Überziehen**: Der Bildschirm pulsiert rot, sobald die Zeit um ist. Abschaltbar pro Design.
-- **Ablaufplan**: Slots mit Titel, Sprecher*in und Dauer; *Weiter* lädt und startet den nächsten Slot. Zeigt die Abweichung zum Plan, die voraussichtliche Endzeit und mit *Planbeginn* die Uhrzeit jedes Slots. Import per Copy & Paste (`Titel; Sprecher*in; Minuten`, auch direkt aus Excel).
-- **Nachrichten an die Bühne** mit Schnellnachrichten und Blinken
+- **Bis zu 8 Timer**: Countdown, Count-up (mit optionalem Limit), Zielzeit („Beginn um 14:30“), **Uhrzeit** (schaltet den DSM in der Pause per Klick auf die Uhr) oder **Ablaufplan** (folgt dem Ablauf nach Uhrzeit). *Set* setzt eine Dauer, *Set & Go* (⇧ ↵) startet sie sofort.
+- **Blinken bei Überzeit**: Der Bildschirm pulsiert rot, sobald die Zeit um ist. Abschaltbar pro Design.
+- **Ablaufplan**: Programmpunkte mit Titel, Sprecher*in und Dauer; *Nächster Punkt* lädt und startet den nächsten Programmpunkt. Zeigt die Abweichung vom Plan in Worten („4:50 vor Plan“), das voraussichtliche Ende und mit *Planbeginn* die Uhrzeit jedes Programmpunkts. Import per Copy & Paste (`Titel; Sprecher*in; Minuten`, auch direkt aus Excel).
+- **DSM-Einblendung** mit Schnellnachrichten und Blinken; der Status „LIVE auf DSM“ / „Ausgeblendet“ zeigt immer, was gerade auf dem Monitor steht.
+- **Alarmzone**: Meldungen von der Bühne und fällige GO-Cues stehen fest oben unter der Kopfzeile und scrollen nie weg. Daneben die große Uhrzeit.
+- **Layout**: eine Spalte auf Handy/iPad, zwei am Laptop, ab 1600 px drei (Timer · Ablaufplan · Cues und Talkback). Seltene Timer-Einstellungen liegen eingeklappt unter *Optionen*.
 - **Designs**: 4 eingebaute (Stage, Daylight, Overlay zum Keying, Nur Ziffern) plus eigene, mit Live-Vorschau, frei pro Timer wählbar
-- **Blackout** für alle Displays
-- **Multiviewer**: Die Steuerung zeigt jeden Timer als Live-Kachel mit Tally-Rahmen (grün läuft, gelb Warnung, rot kritisch/überzogen)
+- **All Blackout** für alle Displays
+- **Multiviewer**: Die Regie zeigt jeden Timer als Live-Kachel mit Tally-Rahmen (grün läuft, gelb Warnung, rot kritisch/überzogen)
 - **Speichern**: Jede Änderung landet sofort in `event-timer-data.json`. Nach einem Absturz oder Neustart läuft ein laufender Timer zeitlich korrekt weiter.
-- **PIN** für die Steuerung (Einstellungen → Sicherheit oder `--pin`). Am Rechner selbst (localhost) ist keine nötig.
-- Deutsch / Englisch, Tastenkürzel: Leertaste, R, ↑/↓ (±1 min), ←/→ (±10 s), G (nächster Slot), B (Blackout), 1–8
+- **PIN** für die Regie (Menü → Sicherheit oder `--pin`). Am Rechner selbst (localhost) ist keine nötig.
+- Deutsch / Englisch. Tastenkürzel stehen direkt auf den Knöpfen: Leertaste, R, ↑/↓ (±1 min), ←/→ (±10 s), ⇧ ↵ (Set & Go), G (nächster Programmpunkt), C (GO), B (All Blackout), 1–8
 
-## Zeitplan nach Uhrzeit
+## Ablaufplan automatisch nach Uhrzeit
 
-Im Ablaufplan oben rechts **„Nach Uhrzeit“** wählen. Dann läuft der Ablauf von selbst nach der Uhr, ganz ohne „Weiter“-Knopf:
+Im Ablaufplan **„Automatisch nach Uhrzeit“** wählen (statt „Manuell weiterschalten“). Dann läuft der Ablauf von selbst nach der Uhr:
 
-- Programmpunkte mit **Von/Bis** eintragen (`13:00–15:00 Workshop A`) oder nur mit Dauer. Punkte ohne Uhrzeit schließen direkt an den vorherigen an, der erste an den *Planbeginn*.
-- Der laufende Punkt bekommt einen Balken, der bis zum Ende durchläuft. Lücken zeigen „Pause, weiter um 15:30“.
-- **`/plan`** zeigt der Moderation den ganzen Tag mit Restzeit des laufenden Punkts. Die Timer-Art **„Zeitplan“** macht dasselbe auf jedem normalen Display (`/1` …).
+- Programmpunkte mit **Beginn/Ende** eintragen (`13:00–15:00 Workshop A`) oder nur mit Dauer. Punkte ohne Uhrzeit schließen direkt an den vorherigen an, der erste an den *Planbeginn*.
+- Der laufende Punkt bekommt einen Balken, der bis zum Ende durchläuft. Lücken zeigen „Pause – weiter in …“.
+- **`/plan`** zeigt der Moderation den ganzen Tag mit Restzeit des laufenden Punkts. Die Timer-Art **„Ablaufplan“** macht dasselbe auf jedem normalen Display (`/1` …).
 - **Eingreifen aus der Regie:**
-  - **Anhalten/Fortsetzen:** Die Haltezeit hängt sich an den laufenden Punkt, alles Folgende rutscht mit.
-  - **±1/±5 Min** für den laufenden Punkt, mit oder ohne „Folgende verschieben“
-  - **Jetzt weiter:** beendet den laufenden Punkt sofort.
-  - **Ganzer Plan ±5:** z. B. wenn ihr später anfangt
-  - **Anpassungen zurücksetzen:** zurück zum Originalplan
+  - **Hold/Fortsetzen:** Die Haltezeit hängt sich an den laufenden Punkt, alles Folgende rutscht mit.
+  - **±1/±5 Min** für den laufenden Punkt, mit oder ohne „Nachfolgende Punkte mitverschieben“
+  - **Punkt jetzt beenden:** beendet den laufenden Punkt sofort.
+  - **Gesamtplan ±5:** z. B. wenn ihr später anfangt
+  - **Originalplan wiederherstellen:** alle Anpassungen zurücknehmen
 - Der Import versteht Uhrzeiten: `13:00-15:00; Workshop A; Anna Schmidt`
 
 ## Cues für die Regie
@@ -91,18 +93,26 @@ Im Ablaufplan oben rechts **„Nach Uhrzeit“** wählen. Dann läuft der Ablauf
 Jeder Programmpunkt kann technische Cues haben, z. B. „Einspieler starten“ oder „Panel-Mikros auf“. Du legst sie im Ablaufplan über den Stift an der Zeile an.
 
 - **Wann:** bei Start, x Min. vor oder nach dem Start, x Min. vor dem Ende oder bei Ende.
-- **Cue-Leiste** in der Steuerung: 60 Sekunden vorher steht der Cue gelb auf *Standby*, zum Zeitpunkt rot blinkend auf **GO**, bis du **Go** drückst (oder die Taste **C**).
-- Nach Uhrzeit laufen die Cues vollautomatisch mit. Im Modus „Per Knopf“ zählen sie ab dem Moment, in dem der Punkt startet.
+- **Cue-Leiste** in der Regie: 60 Sekunden vorher steht der Cue gelb auf *Standby*, zum Zeitpunkt rot blinkend auf **GO** (zusätzlich oben in der Alarmzone), bis du **GO** drückst (oder die Taste **C**). Cues ohne feste Zeit stehen *Auf Abruf*.
+- Nach Uhrzeit laufen die Cues vollautomatisch mit. Im Modus „Manuell weiterschalten“ zählen sie ab dem Moment, in dem der Punkt startet.
 - **`/cues`** zeigt die Liste groß, z. B. am Lichtpult.
 
-## Rückkanal Bühne → Regie
+## Talkback und Meldungen (Regie ↔ Moderation)
 
-Die Moderation öffnet **`/moderation`** auf dem Handy. Sie sieht die eigene Restzeit und den nächsten Punkt und hat große Knöpfe wie „Brauche 2 Minuten mehr“ oder „Mikrofon-Problem“, dazu ein Freitextfeld.
+Die Moderation öffnet **`/moderation`** auf dem Handy. Sie sieht die eigene Restzeit, den nächsten Punkt und die aktuelle DSM-Einblendung.
 
-- In der Steuerung erscheint die Meldung als rot pulsierendes Banner mit Ton, der Tab-Titel zeigt die Anzahl.
-- **Gesehen** quittiert die Meldung. Auf dem Handy steht dann „gesehen ✓“.
+**Regie → Moderation (Talkback)**
+- Im Panel *Talkback* per Preset („Noch 5 Minuten“, „Letzte Frage“ …) oder Freitext senden.
+- Auf dem Handy erscheint die Nachricht groß und blau (mit Vibration) und dem Knopf **Verstanden**.
+- In der Regie steht danach „verstanden ✓ 14:32“. „Verstanden“ braucht keine PIN.
+
+**Bühne → Regie (Meldungen)**
+- Große Knöpfe (Schnellmeldungen) wie „Brauche 2 Minuten mehr“ oder „Mikrofon-Problem“, dazu Freitext.
+- In der Regie steht die Meldung rot pulsierend in der Alarmzone, mit Signalton; der Tab-Titel zeigt die Anzahl.
+- **Bestätigen** quittiert die Meldung. Auf dem Handy steht dann „bestätigt ✓“.
 - Es braucht **keine PIN**, aber pro Gerät höchstens eine Meldung alle 1,5 Sekunden.
-- Knöpfe anpassen unter *Einstellungen → Nachrichten*, Ton abschalten unter *Mehr*.
+
+Alle drei Listen (Schnellnachrichten an den DSM, Talkback-Presets, Schnellmeldungen) bearbeitest du unter *Menü → Schnellnachrichten*, den Signalton schaltest du unter *System* ab.
 
 ## Bitfocus Companion
 
@@ -117,7 +127,7 @@ Modul **Generic HTTP**, GET-Requests (bei gesetzter PIN `?pin=…` anhängen):
 /api/companion/agenda/{next|prev|reset}   /api/companion/agenda/go/3
 /api/companion/blackout/{on|off|toggle}
 /api/companion/status                 → JSON inkl. timers[].display ("04:59"), phase, agenda.current, agenda.drift,
-                                        openRequests, lastRequest (Meldungen von der Bühne)
+                                        openRequests, lastRequest (Meldungen von der Bühne), openTalkback
 ```
 
 Die Pfade aus v0.12 funktionieren weiter. Neu sind Timer 7–8, Ablauf, Blackout und Flash. Wichtig ist nur der neue Port.
@@ -141,7 +151,7 @@ Es gibt keine Abhängigkeiten, deshalb klappt der Build auch offline. Ins eigene
 ```
 src/engine.rs   Timer-Logik (Rust)          web/js/engine.js   dieselbe Logik (JS, für Standalone)
 src/server.rs   HTTP, WebSocket, PIN, API   tests/scenarios.json  gemeinsame Tests für beide Engines
-src/json.rs     JSON ohne Crates            web/js/control.js  Steuerung
+src/json.rs     JSON ohne Crates            web/js/control.js  Regie
 src/http.rs     HTTP/WebSocket-Protokoll    web/js/display.js  Display-Renderer (auch für die Kacheln)
 src/store.rs    Speichern                   web/js/qr.js       QR-Code-Encoder
 ```

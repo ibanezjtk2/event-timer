@@ -1738,5 +1738,146 @@
         }
       }
     ]
+  },
+  {
+    "name": "talkback",
+    "steps": [
+      {
+        "at": 0,
+        "expect": {
+          "talkback.length": 0,
+          "talkQuick.0": "Noch 5 Minuten",
+          "talkQuick.length": 6
+        }
+      },
+      {
+        "at": 1000,
+        "do": {
+          "type": "talkback.send",
+          "text": "  Noch   5 Minuten "
+        }
+      },
+      {
+        "at": 2000,
+        "do": {
+          "type": "talkback.send",
+          "text": "Letzte Frage"
+        }
+      },
+      {
+        "at": 2000,
+        "do": {
+          "type": "talkback.send",
+          "text": "  "
+        },
+        "changed": false
+      },
+      {
+        "at": 2000,
+        "expect": {
+          "talkback.0.id": "k1",
+          "talkback.0.text": "Noch 5 Minuten",
+          "talkback.0.at": 1000,
+          "talkback.0.ackAt": null,
+          "talkback.1.id": "k2"
+        }
+      },
+      {
+        "at": 3000,
+        "do": {
+          "type": "talkback.ack",
+          "talkbackId": "k1"
+        }
+      },
+      {
+        "at": 3000,
+        "do": {
+          "type": "talkback.ack",
+          "talkbackId": "k1"
+        },
+        "changed": false
+      },
+      {
+        "at": 3000,
+        "expect": {
+          "talkback.0.ackAt": 3000,
+          "talkback.1.ackAt": null
+        }
+      },
+      {
+        "at": 4000,
+        "do": {
+          "type": "talkback.send",
+          "text": "Mikrofon ist aus"
+        }
+      },
+      {
+        "at": 5000,
+        "do": {
+          "type": "talkback.ack"
+        }
+      },
+      {
+        "at": 5000,
+        "do": {
+          "type": "talkback.ack"
+        },
+        "changed": false
+      },
+      {
+        "at": 5000,
+        "expect": {
+          "talkback.0.ackAt": 3000,
+          "talkback.1.ackAt": 5000,
+          "talkback.2.ackAt": 5000
+        }
+      },
+      {
+        "at": 5000,
+        "do": {
+          "type": "talkback.clear"
+        }
+      },
+      {
+        "at": 5000,
+        "do": {
+          "type": "talkback.clear"
+        },
+        "changed": false
+      },
+      {
+        "at": 5000,
+        "expect": {
+          "talkback.length": 0
+        }
+      },
+      {
+        "at": 5000,
+        "do": {
+          "type": "talkback.quickSet",
+          "list": [
+            "A",
+            " ",
+            "B",
+            "C"
+          ]
+        }
+      },
+      {
+        "at": 5000,
+        "expect": {
+          "talkQuick.length": 3,
+          "talkQuick.2": "C"
+        }
+      },
+      {
+        "at": 5000,
+        "do": {
+          "type": "talkback.quickSet",
+          "list": "nope"
+        },
+        "changed": false
+      }
+    ]
   }
 ]

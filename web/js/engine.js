@@ -28,7 +28,7 @@
       overBg: '#4a0710', overFg: '#ffffff', msgFg: '#000000', msgBg: '#ffd84d',
       font: 'din', weight: 700,
       showProgress: true, showClock: true, showTitle: true, showNext: true, showNotice: true, flashOver: true,
-      warnText: 'Bitte zum Ende kommen', expiredText: 'Zeit abgelaufen', overText: 'Überzogen',
+      warnText: 'Bitte zum Ende kommen', expiredText: 'Zeit abgelaufen', overText: 'Überzeit',
     },
     {
       id: 'daylight', name: 'Daylight', builtin: true,
@@ -36,7 +36,7 @@
       overBg: '#d0192e', overFg: '#ffffff', msgFg: '#ffffff', msgBg: '#0d1620',
       font: 'grotesk', weight: 700,
       showProgress: true, showClock: true, showTitle: true, showNext: true, showNotice: true, flashOver: true,
-      warnText: 'Bitte zum Ende kommen', expiredText: 'Zeit abgelaufen', overText: 'Überzogen',
+      warnText: 'Bitte zum Ende kommen', expiredText: 'Zeit abgelaufen', overText: 'Überzeit',
     },
     {
       id: 'overlay', name: 'Overlay (Keying)', builtin: true,
@@ -57,6 +57,7 @@
   ];
 
   const DEFAULT_STAGE = ['Brauche 2 Minuten mehr', 'Mikrofon-Problem', 'Frage aus dem Saal', 'Technik bitte kommen', 'Bitte Pause einlegen', 'Alles okay'];
+  const DEFAULT_TALK = ['Noch 5 Minuten', 'Bitte zum Ende kommen', 'Letzte Frage', 'Mikrofon ist aus', 'Fragen aus dem Saal nehmen', 'Pause wird verlängert'];
   const DEFAULT_QUICK = ['Bitte zum Ende kommen', 'Lauter sprechen', 'Näher ans Mikrofon', 'Letzte Frage', 'Langsamer sprechen'];
 
   // ---------- helpers ----------
@@ -106,6 +107,8 @@
       quickMessages: DEFAULT_QUICK.slice(),
       stageQuick: DEFAULT_STAGE.slice(),
       requests: [],
+      talkQuick: DEFAULT_TALK.slice(),
+      talkback: [],
       agenda: { timerId: 't1', plannedStart: '', autoStart: true, mode: 'manual', shiftMs: 0, holdAt: null, cursor: -1, items: [] },
     };
   }
@@ -618,6 +621,32 @@
       case 'request.clear':
         if (!s.requests.length) return false;
         s.requests = [];
+        return true;
+      // ----- talkback: control room → presenter
+      case 'talkback.send': {
+        const tx = text(a.text, 120);
+        if (!tx) return false;
+        s.talkback.push({ id: 'k' + (++s.seq), text: tx, at: now, ackAt: null });
+        while (s.talkback.length > 20) {
+          const i = s.talkback.findIndex(x => x.ackAt != null);
+          s.talkback.splice(i >= 0 ? i : 0, 1);
+        }
+        return true;
+      }
+      case 'talkback.ack': {
+        // with an id: that note; without: everything still open
+        const open = s.talkback.filter(x => x.ackAt == null && (a.talkbackId == null || x.id === a.talkbackId));
+        if (!open.length) return false;
+        open.forEach(x => { x.ackAt = now; });
+        return true;
+      }
+      case 'talkback.clear':
+        if (!s.talkback.length) return false;
+        s.talkback = [];
+        return true;
+      case 'talkback.quickSet':
+        if (!Array.isArray(a.list)) return false;
+        s.talkQuick = a.list.map(x => text(x, 60)).filter(Boolean).slice(0, 12);
         return true;
       case 'stage.quickSet':
         if (!Array.isArray(a.list)) return false;

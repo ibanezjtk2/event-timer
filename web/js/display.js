@@ -122,7 +122,7 @@
           progress = sv.progress;
           titleText = c.item.title;
           speakerText = c.item.speaker;
-          subText = sv.held ? label('Angehalten') : hm(c.start) + ' – ' + hm(c.end);
+          subText = sv.held ? label('Hold aktiv') : hm(c.start) + ' – ' + hm(c.end);
           if (sv.next) nextText = label('Danach') + ' ' + hm(sv.next.start) + ': ' + sv.next.item.title;
         } else if (sv.next) {
           txt = E.formatMs(sv.gapMs);
@@ -130,12 +130,12 @@
           state = 'paused';
           titleText = sv.rows.some(x => x.status === 'done') ? label('Pause') : (s.event.title || label('Gleich geht es los'));
           speakerText = '';
-          subText = (sv.held ? label('Angehalten') + ' · ' : '') + label('Weiter um') + ' ' + hm(sv.next.start) + ': ' + sv.next.item.title;
+          subText = (sv.held ? label('Hold aktiv') + ' · ' : '') + label('Weiter um') + ' ' + hm(sv.next.start) + ': ' + sv.next.item.title;
         } else {
           txt = clockText(wall, false);
           phase = 'normal';
           state = 'idle';
-          titleText = sv.finished ? label('Programm beendet') : label('Zeitplan ohne Uhrzeiten');
+          titleText = sv.finished ? label('Programm beendet') : label('Ablaufplan ohne Uhrzeiten');
           speakerText = '';
           subText = '';
         }
@@ -241,8 +241,8 @@
       const av = E.agendaView(s, ctx.now);
       const drift = av.drift;
       const label = ctx.i18n || (x => x);
-      const dtxt = Math.abs(drift) < 30000 ? label('Im Plan') : (drift > 0 ? label('hinter Plan') : label('vor Plan')) + ' ' + E.formatMs(Math.abs(drift));
-      setText(sub, a.items.length ? dtxt + ' · ' + label('Ende ca.') + ' ' + clockText(av.projectedEnd - ctx.now + (ctx.wallNow || Date.now()), false) : '');
+      const dtxt = Math.abs(drift) < 30000 ? label('Im Plan') : E.formatMs(Math.abs(drift)) + ' ' + (drift > 0 ? label('hinter Plan') : label('vor Plan'));
+      setText(sub, a.items.length ? dtxt + ' · ' + label('Ende') + ' ' + clockText(av.projectedEnd - ctx.now + (ctx.wallNow || Date.now()), false) : '');
     }
 
     return { update, root: r };
