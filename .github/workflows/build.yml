@@ -1,0 +1,92 @@
+name: Build
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+      - run: cargo test --locked
+      - run: node tools/test-engine.js
+
+  build:
+    needs: test
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: windows-latest, target: x86_64-pc-windows-msvc, out: event-timer-windows-x64.exe }
+          - { os: macos-latest, target: universal, out: event-timer-macos }
+          - { os: ubuntu-latest, target: x86_64-unknown-linux-musl, out: event-timer-linux-x64, zig: true }
+          - { os: ubuntu-latest, target: aarch64-unknown-linux-musl, out: event-timer-linux-arm64, zig: true }
+          - { os: ubuntu-latest, target: armv7-unknown-linux-musleabihf, out: event-timer-linux-armv7, zig: true }
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+
+      - name: Windows
+        if: runner.os == 'Windows'
+        shell: bash
+        run: |
+          cargo build --release --locked --target ${{ matrix.target }}
+          mkdir -p out && cp target/${{ matrix.target }}/release/event-timer.exe out/${{ matrix.out }}
+
+      - name: macOS (universal: Apple Silicon + Intel)
+        if: runner.os == 'macOS'
+        run: |
+          rustup target add aarch64-apple-darwin x86_64-apple-darwin
+          cargo build --release --locked --target aarch64-apple-darwin
+          cargo build --release --locked --target x86_64-apple-darwin
+          mkdir -p out
+          lipo -create -output out/${{ matrix.out }} \
+            target/aarch64-apple-darwin/release/event-timer target/x86_64-apple-darwin/release/event-timer
+
+      - name: Linux (static, via zig)
+        if: matrix.zig
+        run: |
+          pip3 install --break-system-packages cargo-zigbuild
+          rustup target add ${{ matrix.target }}
+          cargo zigbuild --release --locked --target ${{ matrix.target }}
+          mkdir -p out && cp target/${{ matrix.target }}/release/event-timer out/${{ matrix.out }}
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.out }}
+          path: out/${{ matrix.out }}
+
+  standalone:
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+      - run: node tools/build-standalone.js
+      - uses: actions/upload-artifact@v4
+        with:
+          name: event-timer-standalone.html
+          path: dist/event-timer-standalone.html
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [build, standalone]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with: { path: dist, merge-multiple: true }
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*
+          generate_release_notes: true

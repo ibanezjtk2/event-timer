@@ -1,0 +1,4 @@
+/target
+/dist
+event-timer-data.json
+*.json.tmp
