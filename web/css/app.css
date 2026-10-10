@@ -206,8 +206,21 @@ input[type="color"].input { padding: 3px; height: 40px; cursor: pointer; }
 .ros-dur small[data-tone="ahead"] { color: var(--go); }
 .ros-actions { display: flex; gap: 2px; }
 .ros-actions .btn { min-height: 34px; min-width: 34px; padding: 4px 8px; font-size: 13px; }
-.ros-edit { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1.4fr) 90px; gap: 8px; padding: 10px; background: var(--raised); border-radius: var(--r-s); }
+.ros-edit { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); gap: 8px; padding: 10px; background: var(--raised); border-radius: var(--r-s); }
 .ros-edit .row { grid-column: 1 / -1; justify-content: flex-end; }
+.ros-row .ros-when small { display: block; font-size: 12px; color: var(--muted); font-weight: 400; }
+.ros-bar { position: absolute; left: 0; top: 0; bottom: 0; width: 0; background: rgba(47, 212, 122, .16); border-radius: var(--r-s) 0 0 var(--r-s); pointer-events: none; transition: width .5s linear; }
+.ros-row > :not(.ros-bar) { position: relative; }
+.ros-edit-times { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.ros-add { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 8px; align-items: end; }
+.ros-add .ros-add-title { grid-column: span 3; }
+.ros-add .ros-add-speaker { grid-column: span 3; }
+.ros-add .field { grid-column: span 2; }
+.ros-add .ros-add-btn { grid-column: 5 / -1; }
+input[type="time"].input { min-width: 0; }
+.sched-ctl { display: grid; gap: 10px; margin-top: 12px; }
+.sched-main { display: grid; grid-template-columns: 1fr 1.4fr; gap: 10px; }
+.sched-ctl .row .btn { min-width: 46px; }
 .ros-empty { padding: 22px 16px; text-align: center; color: var(--muted); background: var(--sunken); border-radius: var(--r-m); border: 1px dashed var(--line); }
 .ros-go { display: grid; grid-template-columns: auto 1fr; gap: 10px; margin-top: 12px; }
 .ros-go .btn-go { font-size: 19px; }
@@ -359,12 +372,20 @@ dialog.drawer::backdrop { background: rgba(5, 7, 10, .55); }
 .dsp[data-layout="agenda"] .dsp-top { grid-column: 1 / -1; }
 .dsp[data-layout="agenda"] .dsp-main { grid-column: 1; grid-row: 2; }
 .dsp[data-layout="agenda"] .dsp-time { font-size: min(13cqw, 30cqh); }
+.dsp[data-layout="agenda"][data-len="6"] .dsp-time { font-size: min(11cqw, 27cqh); }
+.dsp[data-layout="agenda"][data-len="7"] .dsp-time { font-size: min(9.6cqw, 24cqh); }
+.dsp[data-layout="agenda"][data-len="8"] .dsp-time, .dsp[data-layout="agenda"][data-len="9"] .dsp-time { font-size: min(8.4cqw, 22cqh); }
 .dsp[data-layout="agenda"] .dsp-sub { font-size: clamp(8px, 3.6cqh, 50px); margin-top: 2cqh; opacity: .85; }
 .dsp[data-layout="agenda"] .dsp-list { display: grid; align-content: start; gap: .9cqh; grid-column: 2; grid-row: 2 / 4; margin: 2cqh 3cqw 3cqh 0; padding: 0; list-style: none; overflow: hidden; font-size: clamp(8px, 3.4cqh, 46px); }
 .dsp[data-layout="agenda"] .dsp-msg { grid-column: 1; grid-row: 3; }
 .dsp[data-layout="agenda"] .dsp-notice, .dsp[data-layout="agenda"] .dsp-bottom { display: none; }
 .dsp-row { display: grid; grid-template-columns: 4.2em minmax(0, 1fr) auto; gap: 1em; align-items: baseline; padding: .45em .7em; border-radius: .4em; background: color-mix(in srgb, var(--d-fg) 6%, transparent); }
+.dsp-row { position: relative; overflow: hidden; }
 .dsp-row[data-status="done"] { opacity: .4; }
+.dsp-row > * { position: relative; z-index: 1; }
+.dsp-row-bar { position: absolute !important; z-index: 0 !important; left: 0; top: 0; bottom: 0; width: 0; background: color-mix(in srgb, var(--d-accent) 34%, transparent); transition: width .5s linear; }
+.dsp[data-sched="1"] .dsp-progress { height: max(6px, 2.6cqh); }
+.dsp[data-sched="1"] .dsp-list { overflow-y: auto; scrollbar-width: none; }
 .dsp-row[data-status="live"] { background: color-mix(in srgb, var(--d-accent) 26%, transparent); }
 .dsp-row-time, .dsp-row-dur { font-variant-numeric: tabular-nums; opacity: .8; }
 .dsp-row-text { min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
@@ -407,6 +428,10 @@ dialog.drawer::backdrop { background: rgba(5, 7, 10, .55); }
   .ros-summary { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .stat b { font-size: 18px; }
   .ros-edit { grid-template-columns: 1fr 1fr; }
+  .ros-add { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .ros-add .field { grid-column: span 1; }
+  .ros-add .ros-add-title, .ros-add .ros-add-speaker, .ros-add .ros-add-dur { grid-column: 1 / -1; }
+  .ros-add .ros-add-btn { grid-column: 1 / -1; }
   .ros-edit .input:first-child { grid-column: 1 / -1; }
   /* thumb zone: transport sticks to the bottom on phones */
   .transport { position: fixed; left: 0; right: 0; bottom: 0; z-index: 15; margin: 0; padding: 10px 12px calc(10px + env(safe-area-inset-bottom)); background: rgba(24, 28, 33, .96); border-top: 1px solid var(--line); backdrop-filter: blur(8px); }

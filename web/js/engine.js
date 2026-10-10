@@ -14,7 +14,9 @@
 
   const FONTS = ['din', 'grotesk', 'mono', 'serif', 'rounded'];
   const BG_STYLES = ['solid', 'glow', 'transparent'];
-  const KINDS = ['countdown', 'countup', 'clock', 'time'];
+  const KINDS = ['countdown', 'countup', 'clock', 'time', 'schedule'];
+  // kinds that don't count by themselves (wall clock, clock-driven schedule)
+  const isStatic = k => k === 'time' || k === 'schedule';
   const COLOR_KEYS = ['bg', 'fg', 'accent', 'warn', 'crit', 'overBg', 'overFg', 'msgFg', 'msgBg'];
   const PRESET_BOOLS = ['showProgress', 'showClock', 'showTitle', 'showNext', 'showNotice', 'flashOver'];
   const PRESET_TEXTS = ['warnText', 'expiredText', 'overText'];
@@ -65,6 +67,12 @@
   const color = (v, fallback) => (/^#[0-9a-fA-F]{6}$/.test(String(v)) ? String(v).toLowerCase() : fallback);
   const pick = (v, list, fallback) => (list.includes(v) ? v : fallback);
 
+  const HHMM = /^([01]\d|2[0-3]):([0-5]\d)$/;
+  const hhmm = v => (HHMM.test(String(v == null ? '' : v).trim()) ? String(v).trim() : '');
+  const minutesOf = v => { const m = HHMM.exec(v || ''); return m ? Number(m[1]) * 60 + Number(m[2]) : null; };
+  /** start→end in ms, past midnight if end is earlier */
+  const spanMs = (a, b) => { const d = minutesOf(b) - minutesOf(a); return (d <= 0 ? d + 1440 : d) * 60000; };
+
   function newTimer(slot) {
     return {
       id: 't' + slot,
@@ -95,14 +103,14 @@
       timers: [newTimer(1)],
       presets: clone(BUILTIN_PRESETS),
       quickMessages: DEFAULT_QUICK.slice(),
-      agenda: { timerId: 't1', plannedStart: '', autoStart: true, cursor: -1, items: [] },
+      agenda: { timerId: 't1', plannedStart: '', autoStart: true, mode: 'manual', shiftMs: 0, holdAt: null, cursor: -1, items: [] },
     };
   }
 
   // ---------- derived values ----------
   /** Raw signed value: remaining (countdown/clock) or elapsed (countup). */
   function rawValue(t, now) {
-    if (t.kind === 'time') return 0;
+    if (isStatic(t.kind)) return 0;
     if (t.kind === 'clock') return t.targetAt == null ? 0 : t.targetAt - now;
     if (!t.running || t.since == null) return t.baseMs;
     return t.kind === 'countup' ? t.baseMs + (now - t.since) : t.baseMs - (now - t.since);
@@ -114,7 +122,7 @@
    */
   function timerView(t, now) {
     // 'time' just shows the wall clock – nothing counts
-    if (t.kind === 'time') return { ms: 0, over: false, phase: 'normal', state: 'running', progress: 0, remaining: Infinity };
+    if (isStatic(t.kind)) return { ms: 0, over: false, phase: 'normal', state: 'running', progress: 0, remaining: Infinity };
     const raw = rawValue(t, now);
     let ms, over, remaining;
     if (t.kind === 'countup') {
@@ -207,7 +215,7 @@
   }
 
   function startTimer(s, t, now) {
-    if (t.kind === 'clock' || t.kind === 'time' || t.running) return;
+    if (t.kind === 'clock' || isStatic(t.kind) || t.running) return;
     if (t.kind === 'countdown' && t.baseMs <= 0 && !t.overtime) return;
     t.running = true;
     t.since = now;
@@ -215,7 +223,7 @@
   }
 
   function pauseTimer(t, now) {
-    if (t.kind === 'clock' || t.kind === 'time' || !t.running) return;
+    if (t.kind === 'clock' || isStatic(t.kind) || !t.running) return;
     t.baseMs = rawValue(t, now);
     t.running = false;
     t.since = null;
@@ -241,15 +249,21 @@
 
   function sanitizeItem(s, raw, keepId) {
     const it = raw || {};
-    return {
+    const out = {
       id: keepId || ('s' + (++s.seq)),
       title: text(it.title, 80),
       speaker: text(it.speaker, 80),
       durationMs: num(it.durationMs, 0, DAY, 10 * 60 * 1000),
       note: text(it.note, 300),
+      start: hhmm(it.start),
+      end: hhmm(it.end),
+      extraMs: 0,
+      rippleMs: 0,
       startedAt: null,
       endedAt: null,
     };
+    if (out.start && out.end) out.durationMs = spanMs(out.start, out.end);
+    return out;
   }
 
   function loadSegment(s, index, now) {
@@ -320,7 +334,7 @@
         if ('critMs' in p) t.critMs = num(p.critMs, 0, HOUR, t.critMs);
         if (t.critMs > t.warnMs) { const w = t.warnMs; t.warnMs = t.critMs; t.critMs = w; }
         if ('presetId' in p && s.presets.some(x => x.id === p.presetId)) t.presetId = p.presetId;
-        if ('kind' in p && ['countdown', 'countup', 'time'].includes(p.kind) && p.kind !== t.kind) {
+        if ('kind' in p && ['countdown', 'countup', 'time', 'schedule'].includes(p.kind) && p.kind !== t.kind) {
           t.kind = p.kind;
           t.targetAt = null;
           t.targetLabel = '';
@@ -342,7 +356,7 @@
         if (!t) return false;
         const ms = num(a.ms, 0, DAY, null);
         if (ms == null) return false;
-        if (t.kind === 'clock' || t.kind === 'time') { t.kind = 'countdown'; t.targetAt = null; t.targetLabel = ''; }
+        if (t.kind === 'clock' || isStatic(t.kind)) { t.kind = 'countdown'; t.targetAt = null; t.targetLabel = ''; }
         t.durationMs = ms;
         t.running = false;
         t.since = null;
@@ -351,7 +365,7 @@
         return true;
       }
       case 'timer.adjust': {
-        if (!t || t.kind === 'clock' || t.kind === 'time') return false;
+        if (!t || t.kind === 'clock' || isStatic(t.kind)) return false;
         const delta = num(a.ms, -HOUR, HOUR, 0);
         if (!delta) return false;
         freeze(t, now);
@@ -422,6 +436,7 @@
         if ('timerId' in a && findTimer(s, a.timerId)) ag.timerId = a.timerId;
         if ('plannedStart' in a) ag.plannedStart = /^([01]\d|2[0-3]):[0-5]\d$/.test(String(a.plannedStart)) ? String(a.plannedStart) : '';
         if ('autoStart' in a) ag.autoStart = Boolean(a.autoStart);
+        if ('mode' in a && (a.mode === 'manual' || a.mode === 'clock')) ag.mode = a.mode;
         return true;
       }
       case 'agenda.replace': {
@@ -447,8 +462,11 @@
         if ('title' in p) it.title = text(p.title, 80);
         if ('speaker' in p) it.speaker = text(p.speaker, 80);
         if ('note' in p) it.note = text(p.note, 300);
-        if ('durationMs' in p) {
-          it.durationMs = num(p.durationMs, 0, DAY, it.durationMs);
+        if ('start' in p) it.start = hhmm(p.start);
+        if ('end' in p) it.end = hhmm(p.end);
+        const fixed = it.start && it.end;
+        if ('durationMs' in p || ('start' in p || 'end' in p)) {
+          it.durationMs = fixed ? spanMs(it.start, it.end) : num(p.durationMs, 0, DAY, it.durationMs);
           // keep a loaded-but-untouched timer in sync with the edited slot
           const lt = s.timers.find(x => x.segmentId === it.id);
           if (lt && !lt.running && it.startedAt == null) { lt.durationMs = it.durationMs; lt.baseMs = it.durationMs; }
@@ -498,6 +516,47 @@
         loadSegment(s, target, now);
         return true;
       }
+      // ----- clock-driven schedule: live corrections from the control room
+      case 'agenda.adjust': {
+        const it = s.agenda.items.find(x => x.id === a.itemId);
+        const ms = num(a.ms, -12 * HOUR, 12 * HOUR, 0);
+        if (!it || !ms) return false;
+        it.extraMs = clamp((it.extraMs || 0) + ms, -DAY, DAY);
+        if (a.ripple) it.rippleMs = clamp((it.rippleMs || 0) + ms, -DAY, DAY);
+        return true;
+      }
+      case 'agenda.shift': {
+        const ms = num(a.ms, -DAY, DAY, 0);
+        if (!ms) return false;
+        s.agenda.shiftMs = clamp((s.agenda.shiftMs || 0) + ms, -DAY, DAY);
+        return true;
+      }
+      case 'agenda.hold': {
+        if (s.agenda.holdAt != null) return false;
+        s.agenda.holdAt = now;
+        return true;
+      }
+      case 'agenda.resume': {
+        const ag = s.agenda;
+        if (ag.holdAt == null) return false;
+        const ms = clamp(now - ag.holdAt, 0, DAY);
+        ag.holdAt = null;
+        const it = ag.items.find(x => x.id === a.itemId);
+        if (it) {
+          it.rippleMs = clamp((it.rippleMs || 0) + ms, -DAY, DAY);
+          if (a.mode !== 'after') it.extraMs = clamp((it.extraMs || 0) + ms, -DAY, DAY);
+        } else {
+          ag.shiftMs = clamp((ag.shiftMs || 0) + ms, -DAY, DAY);
+        }
+        return true;
+      }
+      case 'agenda.clearAdjust': {
+        const ag = s.agenda;
+        ag.shiftMs = 0;
+        ag.holdAt = null;
+        ag.items.forEach(it => { it.extraMs = 0; it.rippleMs = 0; });
+        return true;
+      }
       case 'agenda.reset': {
         s.agenda.cursor = -1;
         s.agenda.items.forEach(it => { it.startedAt = null; it.endedAt = null; });
@@ -508,6 +567,59 @@
         return false;
     }
   }
+
+  /**
+   * Clock-driven run of show. Each slot starts at its own "start" time or,
+   * without one, when the previous slot ends (first slot: planned start).
+   * Ends at "end" or start + duration. Uses the device's local time zone.
+   */
+  function scheduleView(s, wallNow) {
+    const a = s.agenda;
+    const held = a.holdAt != null;
+    const now = held ? a.holdAt : wallNow; // on hold the whole plan stands still
+    const d = new Date(now);
+    const dayAt = min => new Date(d.getFullYear(), d.getMonth(), d.getDate(), 0, min).getTime();
+    let shift = a.shiftMs || 0;
+    let prevEnd = minutesOf(a.plannedStart) != null ? dayAt(minutesOf(a.plannedStart)) + shift : null;
+    let prevStart = null;
+    const rows = a.items.map((item, index) => {
+      const sm = minutesOf(item.start);
+      let start = sm != null ? dayAt(sm) + shift : prevEnd;
+      if (start != null && prevStart != null && start < prevStart - 12 * HOUR) start += DAY; // past midnight
+      if (start != null && prevEnd != null && start < prevEnd) start = prevEnd; // one stage: never overlap
+      let end = null;
+      if (start != null) {
+        const em = minutesOf(item.end);
+        if (em != null && sm == null) {
+          end = dayAt(em) + shift;
+          while (end <= start - 12 * HOUR) end += DAY;
+          if (end <= start) end = start + item.durationMs;
+        } else {
+          end = start + item.durationMs;
+        }
+        end = Math.max(start, end + (item.extraMs || 0));
+        prevStart = start;
+      }
+      shift += item.rippleMs || 0;
+      prevEnd = end;
+      return { item, index, start, end, status: start == null ? 'unknown' : now >= end ? 'done' : now >= start ? 'live' : 'todo' };
+    });
+    const timed = rows.filter(r => r.start != null);
+    const current = timed.find(r => r.status === 'live') || null;
+    const next = timed.find(r => r.status === 'todo') || null;
+    const view = { rows, current, next, held, heldMs: held ? wallNow - a.holdAt : 0, ready: timed.length > 0, finished: timed.length > 0 && !current && !next };
+    if (current) {
+      const total = current.end - current.start;
+      view.remainingMs = current.end - now;
+      view.elapsedMs = now - current.start;
+      view.progress = total > 0 ? clamp(view.elapsedMs / total, 0, 1) : 1;
+    } else if (next) {
+      view.gapMs = next.start - now;
+    }
+    view.endAt = timed.length ? Math.max(...timed.map(r => r.end)) : null;
+    return view;
+  }
+  function toHHMM(ms) { const x = new Date(ms); return String(x.getHours()).padStart(2, '0') + ':' + String(x.getMinutes()).padStart(2, '0'); }
 
   // ---------- formatting ----------
   function formatMs(ms, opts) {
@@ -546,7 +658,7 @@
 
   const api = {
     MAX_TIMERS, BUILTIN_PRESETS, FONTS, KINDS,
-    defaultState, apply, timerView, agendaView, rawValue, formatMs, parseDuration, clone,
+    defaultState, apply, timerView, agendaView, scheduleView, toHHMM, isStatic, rawValue, formatMs, parseDuration, clone,
   };
   root.ETEngine = api;
   if (typeof module !== 'undefined' && module.exports) module.exports = api;

@@ -48,6 +48,7 @@ event-timer.local/1               # dasselbe, wenn „Ohne Portnummer (Port 80)�
 | `/control` | Steuerung |
 | `/1` … `/8` (auch `/timer1`) | Vollbild-Display eines Timers |
 | `/agenda` | Backstage-Display mit Ablaufplan, Abweichung und Ende-Prognose |
+| `/plan` | Zeitplan für die Moderation: laufender Punkt mit Restzeit und Balken, ganzer Tagesablauf daneben |
 | `/uhr` (auch `/clock`) | nur die Uhrzeit, sonst nichts (`?sec=0` ohne Sekunden) |
 | `/display?t=2&layout=clock` | Uhrzeit groß, Timer klein |
 | `/display?t=1&layout=lower&bg=transparent` | Bauchbinde mit transparentem Hintergrund, für vMix/OBS als Browser-Input |
@@ -67,6 +68,21 @@ Displays brauchen nie eine PIN, halten den Bildschirm wach (Wake Lock) und synch
 - **Speichern**: Jede Änderung landet sofort in `event-timer-data.json`. Nach einem Absturz oder Neustart läuft ein laufender Timer zeitlich korrekt weiter.
 - **PIN** für die Steuerung (Einstellungen → Sicherheit oder `--pin`). Am Rechner selbst (localhost) ist keine nötig.
 - Deutsch / Englisch, Tastenkürzel: Leertaste, R, ↑/↓ (±1 min), ←/→ (±10 s), G (nächster Slot), B (Blackout), 1–8
+
+## Zeitplan nach Uhrzeit
+
+Im Ablaufplan oben rechts **„Nach Uhrzeit“** wählen. Dann läuft der Ablauf von selbst nach der Uhr, ganz ohne „Weiter“-Knopf:
+
+- Programmpunkte mit **Von/Bis** eintragen (`13:00–15:00 Workshop A`) oder nur mit Dauer. Punkte ohne Uhrzeit schließen direkt an den vorherigen an, der erste an den *Planbeginn*.
+- Der laufende Punkt bekommt einen Balken, der bis zum Ende durchläuft. Lücken zeigen „Pause, weiter um 15:30“.
+- **`/plan`** zeigt der Moderation den ganzen Tag mit Restzeit des laufenden Punkts. Die Timer-Art **„Zeitplan“** macht dasselbe auf jedem normalen Display (`/1` …).
+- **Eingreifen aus der Regie:**
+  - **Anhalten/Fortsetzen:** Die Haltezeit hängt sich an den laufenden Punkt, alles Folgende rutscht mit.
+  - **±1/±5 Min** für den laufenden Punkt, mit oder ohne „Folgende verschieben“
+  - **Jetzt weiter:** beendet den laufenden Punkt sofort.
+  - **Ganzer Plan ±5:** z. B. wenn ihr später anfangt
+  - **Anpassungen zurücksetzen:** zurück zum Originalplan
+- Der Import versteht Uhrzeiten: `13:00-15:00; Workshop A; Anna Schmidt`
 
 ## Bitfocus Companion
 

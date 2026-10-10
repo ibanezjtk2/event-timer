@@ -43,7 +43,7 @@
     const nameInput = h('input', { class: 'name-input', maxlength: 40, 'aria-label': t('Name') });
     nameInput.addEventListener('change', () => act({ type: 'timer.update', id: sel, patch: { name: nameInput.value } }));
     const kindSeg = h('div', { class: 'seg', role: 'group' });
-    const kinds = [['countdown', 'Countdown'], ['countup', 'Hochzählen'], ['clock', 'Bis Uhrzeit'], ['time', 'Uhrzeit']];
+    const kinds = [['countdown', 'Countdown'], ['countup', 'Hochzählen'], ['clock', 'Bis Uhrzeit'], ['time', 'Uhrzeit'], ['schedule', 'Zeitplan']];
     kinds.forEach(([k, label]) => kindSeg.appendChild(h('button', {
       'data-kind': k, 'aria-pressed': 'false',
       onclick: () => {
@@ -156,18 +156,22 @@
     const addTitle = h('input', { class: 'input', placeholder: t('Titel'), maxlength: 80 });
     const addSpeaker = h('input', { class: 'input', placeholder: t('Sprecher*in'), maxlength: 80 });
     const addDur = h('input', { class: 'input num', placeholder: '10', inputmode: 'decimal', 'aria-label': t('Dauer') });
+    const addFrom = h('input', { class: 'input num', type: 'time', 'aria-label': t('Von') });
+    const addTo = h('input', { class: 'input num', type: 'time', 'aria-label': t('Bis') });
     const addItem = () => {
       if (!addTitle.value.trim()) { addTitle.focus(); return; }
-      act({ type: 'agenda.add', item: { title: addTitle.value, speaker: addSpeaker.value, durationMs: E.parseDuration(addDur.value || '10') ?? 10 * MIN } });
-      addTitle.value = ''; addSpeaker.value = ''; addDur.value = '';
+      act({ type: 'agenda.add', item: { title: addTitle.value, speaker: addSpeaker.value, start: addFrom.value, end: addTo.value, durationMs: E.parseDuration(addDur.value || '10') ?? 10 * MIN } });
+      // the next slot usually starts where this one ends
+      addFrom.value = addTo.value ? addTo.value : '';
+      addTitle.value = ''; addSpeaker.value = ''; addDur.value = ''; addTo.value = '';
       addTitle.focus();
     };
-    [addTitle, addSpeaker, addDur].forEach(i => i.addEventListener('keydown', e => { if (e.key === 'Enter') addItem(); }));
-    const importBox = h('textarea', { class: 'input', rows: 5, placeholder: 'Begrüßung; Anna Schmidt; 5\nKeynote; Ben Okafor; 25\nPanel; ; 30' });
+    [addTitle, addSpeaker, addDur, addFrom, addTo].forEach(i => i.addEventListener('keydown', e => { if (e.key === 'Enter') addItem(); }));
+    const importBox = h('textarea', { class: 'input', rows: 5, placeholder: '13:00-15:00; Workshop A; Anna Schmidt\n15:00-15:30; Kaffeepause\nKeynote; Ben Okafor; 25' });
     const importDetails = h('details', null,
       h('summary', { class: 'btn btn-quiet', style: { display: 'inline-flex' } }, t('Importieren')),
       h('div', { style: { display: 'grid', gap: '8px', marginTop: '8px' } },
-        h('p', { class: 'help' }, t('Eine Zeile pro Slot: Titel; Sprecher*in; Minuten. Auch direkt aus Excel kopierbar.')),
+        h('p', { class: 'help' }, t('Eine Zeile pro Slot: [Von-Bis;] Titel; Sprecher*in; [Minuten]. Auch direkt aus Excel kopierbar.')),
         importBox,
         h('div', { class: 'row' },
           armed(h('button', { class: 'btn' }, t('Importieren')), () => {
@@ -179,21 +183,63 @@
           }),
           h('span', { class: 'help' }, t('Ersetzt den bisherigen Ablauf.')))));
 
+    const modeSeg = h('div', { class: 'seg', role: 'group', 'aria-label': t('Ablauf läuft') },
+      [['manual', 'Per Knopf'], ['clock', 'Nach Uhrzeit']].map(([m, l]) => h('button', { 'data-mode': m, 'aria-pressed': 'false', onclick: () => act({ type: 'agenda.settings', mode: m }) }, t(l))));
+    let ripple = store.get('et-ripple') !== '0';
+    const rippleToggle = h('input', { type: 'checkbox' });
+    rippleToggle.checked = ripple;
+    rippleToggle.addEventListener('change', () => { ripple = rippleToggle.checked; store.set('et-ripple', ripple ? '1' : '0'); });
+    const sched = () => E.scheduleView(S(), tr.now());
+    const extendCurrent = ms => { const v = sched(); if (v.current) act({ type: 'agenda.adjust', itemId: v.current.item.id, ms, ripple }); };
+    const holdBtn = h('button', { class: 'btn btn-big', onclick: () => {
+      const a = S().agenda;
+      if (a.holdAt == null) { act({ type: 'agenda.hold' }); return; }
+      // resume: the slot that was running when we stopped gets the held time, everything after moves along
+      const v = sched();
+      if (v.current) act({ type: 'agenda.resume', itemId: v.current.item.id });
+      else if (v.next && v.next.index > 0) act({ type: 'agenda.resume', itemId: v.rows[v.next.index - 1].item.id, mode: 'after' });
+      else act({ type: 'agenda.resume' });
+    } });
+    const nowBtn = h('button', { class: 'btn btn-go btn-big', onclick: () => { const v = sched(); if (v.current) act({ type: 'agenda.adjust', itemId: v.current.item.id, ms: -Math.max(1000, v.remainingMs), ripple }); } }, icon('next'), t('Jetzt weiter'));
+    const schedCtl = h('div', { class: 'sched-ctl' },
+      h('div', { class: 'sched-main' }, holdBtn, nowBtn),
+      h('div', { class: 'row' },
+        h('span', { class: 'help' }, t('Laufender Punkt')),
+        h('button', { class: 'btn num', onclick: () => extendCurrent(-5 * MIN) }, '−5'),
+        h('button', { class: 'btn num', onclick: () => extendCurrent(-MIN) }, '−1'),
+        h('button', { class: 'btn num', onclick: () => extendCurrent(MIN) }, '+1'),
+        h('button', { class: 'btn num', onclick: () => extendCurrent(5 * MIN) }, '+5'),
+        h('label', { class: 'switch' }, rippleToggle, t('Folgende verschieben'))),
+      h('div', { class: 'row' },
+        h('span', { class: 'help' }, t('Ganzer Plan')),
+        h('button', { class: 'btn num', onclick: () => act({ type: 'agenda.shift', ms: -5 * MIN }) }, '−5'),
+        h('button', { class: 'btn num', onclick: () => act({ type: 'agenda.shift', ms: 5 * MIN }) }, '+5'),
+        h('span', { class: 'help', 'data-adjust': '' }),
+        h('span', { style: { flex: 1 } }),
+        armed(h('button', { class: 'btn btn-quiet' }, t('Anpassungen zurücksetzen')), () => act({ type: 'agenda.clearAdjust' }))));
+
     const prevBtn = h('button', { class: 'btn btn-big', 'aria-label': t('Zurück'), onclick: () => act({ type: 'agenda.prev' }) }, icon('prev'));
     const goBtn = h('button', { class: 'btn btn-go btn-big', title: 'G', onclick: () => act({ type: 'agenda.next' }) });
     const rosPanel = h('section', { class: 'panel', 'aria-label': t('Ablaufplan') },
-      h('div', { class: 'panel-head' }, h('h2', null, t('Ablaufplan')), h('div', { class: 'spacer' }),
-        h('label', { class: 'field', style: { width: '120px' } }, h('span', null, t('Planbeginn')), plannedInput),
-        h('label', { class: 'field', style: { width: '150px' } }, h('span', null, t('Steuert')), rosTimerSelect)),
+      h('div', { class: 'panel-head' }, h('h2', null, t('Ablaufplan')), h('div', { class: 'spacer' }), modeSeg),
+      h('div', { class: 'row', style: { marginBottom: '12px' } },
+        h('label', { class: 'field', style: { width: '130px' } }, h('span', null, t('Planbeginn')), plannedInput),
+        h('label', { class: 'field', style: { width: '160px' }, 'data-manual': '' }, h('span', null, t('Steuert')), rosTimerSelect)),
       h('div', { class: 'ros-summary' }, statDrift, statEnd, statTotal),
       ros,
-      h('div', { class: 'ros-go' }, prevBtn, goBtn),
+      h('div', { class: 'ros-go', 'data-manual': '' }, prevBtn, goBtn),
+      h('div', { 'data-clock': '' }, schedCtl),
       h('div', { class: 'section' },
         h('h3', { class: 'section-title' }, t('Slot hinzufügen')),
-        h('div', { class: 'ros-edit', style: { background: 'transparent', padding: 0 } }, addTitle, addSpeaker, addDur,
-          h('div', { class: 'row' }, h('button', { class: 'btn', onclick: addItem }, icon('plus'), t('Hinzufügen'))))),
+        h('div', { class: 'ros-add' },
+          h('label', { class: 'field ros-add-title' }, h('span', null, t('Titel')), addTitle),
+          h('label', { class: 'field ros-add-speaker' }, h('span', null, t('Sprecher*in')), addSpeaker),
+          h('label', { class: 'field' }, h('span', null, t('Von')), addFrom),
+          h('label', { class: 'field' }, h('span', null, t('Bis')), addTo),
+          h('label', { class: 'field ros-add-dur' }, h('span', null, t('oder Dauer (Min.)')), addDur),
+          h('button', { class: 'btn ros-add-btn', onclick: addItem }, icon('plus'), t('Hinzufügen')))),
       h('div', { class: 'section row' },
-        h('label', { class: 'switch' }, autoToggle, t('Automatisch starten')),
+        h('label', { class: 'switch', 'data-manual': '' }, autoToggle, t('Automatisch starten')),
         h('div', { class: 'spacer', style: { flex: 1 } }),
         importDetails,
         h('button', { class: 'btn btn-quiet', onclick: () => copy(exportText()) }, t('Als Text kopieren')),
@@ -256,14 +302,25 @@
     function parseImport(text) {
       return text.split(/\r?\n/).map(line => line.trim()).filter(Boolean).map(line => {
         const parts = line.split(/\t|;|\|/).map(x => x.trim());
+        // optional leading "13:00-15:00" or "13:00"
+        let start = '', end = '';
+        const tm = /^([01]?\d|2[0-3])[:.]([0-5]\d)(?:\s*(?:-|–|bis)\s*([01]?\d|2[0-3])[:.]([0-5]\d))?(?:\s+(.*))?$/.exec(parts[0] || '');
+        if (tm) {
+          start = tm[1].padStart(2, '0') + ':' + tm[2];
+          if (tm[3]) end = tm[3].padStart(2, '0') + ':' + tm[4];
+          if (tm[5]) parts[0] = tm[5]; else parts.shift();
+        }
         let [title, speaker, dur] = parts;
         if (parts.length === 2 && E.parseDuration(parts[1]) != null) { dur = parts[1]; speaker = ''; }
         const ms = E.parseDuration(dur || '');
-        return { title: title || '—', speaker: speaker || '', durationMs: ms == null ? 10 * MIN : ms };
+        return { title: title || '—', speaker: speaker || '', start, end, durationMs: ms == null ? 10 * MIN : ms };
       }).filter(x => x.title).slice(0, 200);
     }
     function exportText() {
-      return S().agenda.items.map(it => [it.title, it.speaker, minutesLabel(it.durationMs)].join('; ')).join('\n');
+      return S().agenda.items.map(it => {
+        const when = it.start ? (it.end ? it.start + '-' + it.end : it.start) : '';
+        return [when, it.title, it.speaker, it.end ? '' : minutesLabel(it.durationMs)].filter((x, i) => i !== 0 || x).join('; ');
+      }).join('\n');
     }
 
     function stateLabel(v) {
@@ -310,7 +367,9 @@
     let rosKey = '';
     function buildAgenda() {
       const s = S(), a = s.agenda;
-      const key = JSON.stringify([a.items, a.cursor, a.plannedStart, editingItem, t('Titel')]);
+      const clock = a.mode === 'clock';
+      const sv = E.scheduleView(s, tr.now());
+      const key = JSON.stringify([a.items, a.cursor, a.plannedStart, a.mode, a.shiftMs, a.holdAt != null, sv.rows.map(r => [r.start, r.end, r.status]), editingItem, t('Titel')]);
       if (key === rosKey) return;
       rosKey = key;
       ros.replaceChildren();
@@ -318,12 +377,12 @@
         ros.appendChild(h('li', { class: 'ros-empty' }, t('Noch kein Ablauf. Füge den ersten Slot hinzu oder importiere eine Liste.')));
         return;
       }
-      let plan = null;
-      if (a.plannedStart) { const [hh, mm] = a.plannedStart.split(':').map(Number); const d = new Date(tr.now()); d.setHours(hh, mm, 0, 0); plan = d.getTime(); }
       a.items.forEach((it, i) => {
-        const status = i < a.cursor ? 'done' : i === a.cursor ? 'live' : i === a.cursor + 1 ? 'next' : 'todo';
-        const when = plan != null ? hhmm(plan) : String(i + 1);
-        if (plan != null) plan += it.durationMs;
+        const row = sv.rows[i];
+        const status = clock
+          ? (row.status === 'todo' && sv.next === row ? 'next' : row.status === 'unknown' ? 'todo' : row.status)
+          : (i < a.cursor ? 'done' : i === a.cursor ? 'live' : i === a.cursor + 1 ? 'next' : 'todo');
+        const when = row.start != null ? hhmm(row.start) : String(i + 1);
         if (editingItem === it.id) { ros.appendChild(editRow(it)); return; }
         let sub = null;
         if (status === 'done' && it.startedAt != null && it.endedAt != null) {
@@ -331,12 +390,14 @@
           sub = h('small', { 'data-tone': delta > 30000 ? 'behind' : delta < -30000 ? 'ahead' : '' }, (delta >= 0 ? '+' : '−') + E.formatMs(Math.abs(delta)));
         } else if (status === 'live') sub = h('small', { 'data-live': it.id }, t('läuft'));
         else if (status === 'next') sub = h('small', null, t('als Nächstes'));
-        ros.appendChild(h('li', { class: 'ros-row', 'data-status': status },
-          h('span', { class: 'ros-when' }, when),
+        if (clock && it.extraMs && status !== 'done') sub = h('small', { 'data-tone': it.extraMs > 0 ? 'behind' : 'ahead' }, (it.extraMs > 0 ? '+' : '−') + E.formatMs(Math.abs(it.extraMs)));
+        ros.appendChild(h('li', { class: 'ros-row', 'data-status': status, 'data-item': it.id },
+          clock && status === 'live' ? h('i', { class: 'ros-bar' }) : null,
+          h('span', { class: 'ros-when' }, when, clock && row.end != null ? h('small', null, hhmm(row.end)) : null),
           h('span', { class: 'ros-what' }, h('b', null, it.title || '—'), it.speaker ? h('span', null, it.speaker) : null),
           h('span', { class: 'ros-dur' }, E.formatMs(it.durationMs), sub),
           h('span', { class: 'ros-actions' },
-            h('button', { class: 'btn btn-quiet', title: t('Laden'), 'aria-label': t('Laden') + ': ' + it.title, onclick: () => act({ type: 'agenda.go', index: i }) }, icon('go')),
+            clock ? null : h('button', { class: 'btn btn-quiet', title: t('Laden'), 'aria-label': t('Laden') + ': ' + it.title, onclick: () => act({ type: 'agenda.go', index: i }) }, icon('go')),
             h('button', { class: 'btn btn-quiet', title: t('Hoch'), 'aria-label': t('Hoch'), disabled: i === 0, onclick: () => act({ type: 'agenda.move', itemId: it.id, to: i - 1 }) }, icon('up')),
             h('button', { class: 'btn btn-quiet', title: t('Runter'), 'aria-label': t('Runter'), disabled: i === a.items.length - 1, onclick: () => act({ type: 'agenda.move', itemId: it.id, to: i + 1 }) }, icon('down')),
             h('button', { class: 'btn btn-quiet', title: t('Bearbeiten'), 'aria-label': t('Bearbeiten'), onclick: () => { editingItem = it.id; buildAgenda(); } }, icon('edit')))));
@@ -347,14 +408,20 @@
       const ti = h('input', { class: 'input', value: it.title, maxlength: 80, 'aria-label': t('Titel') });
       const sp = h('input', { class: 'input', value: it.speaker, maxlength: 80, placeholder: t('Sprecher*in'), 'aria-label': t('Sprecher*in') });
       const du = h('input', { class: 'input num', value: minutesLabel(it.durationMs), inputmode: 'decimal', 'aria-label': t('Dauer') });
+      const fr = h('input', { class: 'input num', type: 'time', value: it.start || '', 'aria-label': t('Von') });
+      const to = h('input', { class: 'input num', type: 'time', value: it.end || '', 'aria-label': t('Bis') });
       const save = () => {
         const ms = E.parseDuration(du.value);
-        act({ type: 'agenda.update', itemId: it.id, patch: { title: ti.value, speaker: sp.value, durationMs: ms == null ? it.durationMs : ms } });
+        act({ type: 'agenda.update', itemId: it.id, patch: { title: ti.value, speaker: sp.value, start: fr.value, end: to.value, durationMs: ms == null ? it.durationMs : ms } });
         editingItem = null; buildAgenda();
       };
-      [ti, sp, du].forEach(x => x.addEventListener('keydown', e => { if (e.key === 'Enter') save(); if (e.key === 'Escape') { editingItem = null; buildAgenda(); } }));
+      [ti, sp, du, fr, to].forEach(x => x.addEventListener('keydown', e => { if (e.key === 'Enter') save(); if (e.key === 'Escape') { editingItem = null; buildAgenda(); } }));
       setTimeout(() => ti.focus(), 0);
-      return h('li', { class: 'ros-edit' }, ti, sp, du,
+      return h('li', { class: 'ros-edit' }, ti, sp,
+        h('div', { class: 'ros-edit-times' },
+          h('label', { class: 'field' }, h('span', null, t('Von')), fr),
+          h('label', { class: 'field' }, h('span', null, t('Bis')), to),
+          h('label', { class: 'field' }, h('span', null, t('oder Dauer (Min.)')), du)),
         h('div', { class: 'row' },
           armed(h('button', { class: 'btn btn-quiet' }, icon('trash'), t('Entfernen')), () => { editingItem = null; act({ type: 'agenda.remove', itemId: it.id }); }),
           h('span', { style: { flex: 1 } }),
@@ -371,10 +438,10 @@
       const shownKind = kindForced || tm.kind;
       kindSeg.querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.kind === shownKind)));
       removeBtn.hidden = s.timers.length <= 1;
-      durSection.hidden = shownKind === 'clock' || shownKind === 'time';
+      durSection.hidden = shownKind === 'clock' || E.isStatic(shownKind);
       targetSection.hidden = shownKind !== 'clock';
-      nudges.hidden = shownKind === 'clock' || shownKind === 'time';
-      transport.hidden = shownKind === 'time';
+      nudges.hidden = shownKind === 'clock' || E.isStatic(shownKind);
+      transport.hidden = E.isStatic(shownKind);
       durSection.querySelector('[data-dur-title]').textContent = shownKind === 'countup' ? t('Optionales Limit') : t('Dauer');
       chips.querySelectorAll('.chip').forEach(c => c.setAttribute('aria-pressed', String(Number(c.dataset.ms) === tm.durationMs)));
       if (tm.kind === 'clock' && tm.targetLabel && !focused(targetInput)) targetInput.value = tm.targetLabel;
@@ -423,6 +490,15 @@
       const av = E.agendaView(s, tr.now());
       prevBtn.disabled = a.cursor <= 0;
       goBtn.disabled = !a.items.length || av.done;
+      const clock = a.mode === 'clock';
+      modeSeg.querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.mode === a.mode)));
+      rosPanel.querySelectorAll('[data-manual]').forEach(x => { x.hidden = clock; });
+      rosPanel.querySelectorAll('[data-clock]').forEach(x => { x.hidden = !clock; });
+      const held = a.holdAt != null;
+      holdBtn.className = 'btn btn-big ' + (held ? 'btn-hold' : '');
+      holdBtn.replaceChildren(icon(held ? 'play' : 'pause'), held ? t('Fortsetzen') : t('Anhalten'));
+      const adj = schedCtl.querySelector('[data-adjust]');
+      adj.textContent = a.shiftMs ? t('verschoben um') + ' ' + (a.shiftMs > 0 ? '+' : '−') + E.formatMs(Math.abs(a.shiftMs)) : '';
       const target = a.cursor < 0 ? a.items[0] : a.items[a.cursor + 1];
       goBtn.replaceChildren(icon('next'),
         h('span', { style: { display: 'grid', textAlign: 'left' } },
@@ -467,7 +543,8 @@
           if (!tv) continue;
           tv.view.update({ state: s, timer: tm, now, i18n: t });
           const v = E.timerView(tm, now);
-          const tally = tm.kind === 'time' ? '' : v.state === 'running' || (tm.kind === 'clock' && v.state !== 'idle') ? (v.phase === 'normal' ? 'go' : v.phase === 'warn' ? 'warn' : 'stop') : v.state === 'finished' ? 'stop' : '';
+          const sv = tm.kind === 'schedule' ? E.scheduleView(s, now) : null;
+          const tally = tm.kind === 'time' ? '' : sv ? (sv.current && !sv.held ? (sv.remainingMs <= tm.critMs ? 'stop' : sv.remainingMs <= tm.warnMs ? 'warn' : 'go') : '') : v.state === 'running' || (tm.kind === 'clock' && v.state !== 'idle') ? (v.phase === 'normal' ? 'go' : v.phase === 'warn' ? 'warn' : 'stop') : v.state === 'finished' ? 'stop' : '';
           if (tv.tile.dataset.tally !== tally) tv.tile.dataset.tally = tally;
           const badge = v.state === 'paused' ? t('Pausiert') : (tm.message.visible ? '✉' : '');
           tv.badge.hidden = !badge;
@@ -477,15 +554,36 @@
         if (tm) {
           const v = E.timerView(tm, now);
           const isTime = tm.kind === 'time';
-          const txt = isTime ? D.clockText(now, true) : E.formatMs(v.ms, { up: tm.kind === 'countup' });
+          let txt = isTime ? D.clockText(now, true) : E.formatMs(v.ms, { up: tm.kind === 'countup' });
+          let phase = v.phase, prog = v.progress, state = v.state;
+          let st = isTime ? t('Zeigt die Uhrzeit') : stateLabel(v) + (v.over && v.state !== 'finished' ? ' · ' + t('Überzogen') : '');
+          let sub = isTime ? '' : tm.kind === 'clock' ? (tm.targetLabel ? t('bis') + ' ' + tm.targetLabel : '') : (tm.durationMs ? t('von') + ' ' + E.formatMs(tm.durationMs) : '');
+          if (tm.kind === 'schedule') {
+            // follows the clock-driven run of show
+            const sv = E.scheduleView(s, now);
+            prog = 0; phase = 'normal'; state = 'running';
+            if (sv.current) {
+              txt = E.formatMs(sv.remainingMs);
+              phase = sv.remainingMs <= tm.critMs ? 'crit' : sv.remainingMs <= tm.warnMs ? 'warn' : 'normal';
+              prog = sv.progress;
+              st = sv.current.item.title || t('Zeitplan');
+              sub = sv.held ? t('Angehalten') : hhmm(sv.current.start) + '–' + hhmm(sv.current.end);
+            } else if (sv.next) {
+              txt = E.formatMs(sv.gapMs);
+              st = t('Pause');
+              sub = t('Weiter um') + ' ' + hhmm(sv.next.start);
+            } else {
+              txt = D.clockText(now, false);
+              st = sv.ready ? t('Programm beendet') : t('Zeitplan ohne Uhrzeiten');
+              sub = '';
+            }
+          }
           if (readTime.textContent !== txt) readTime.textContent = txt;
-          readout.dataset.phase = v.phase;
-          readout.dataset.state = v.state;
-          const st = isTime ? t('Zeigt die Uhrzeit') : stateLabel(v) + (v.over && v.state !== 'finished' ? ' · ' + t('Überzogen') : '');
+          readout.dataset.phase = phase;
+          readout.dataset.state = state;
           if (readState.firstChild.textContent !== st) readState.firstChild.textContent = st;
-          const sub = isTime ? '' : tm.kind === 'clock' ? (tm.targetLabel ? t('bis') + ' ' + tm.targetLabel : '') : (tm.durationMs ? t('von') + ' ' + E.formatMs(tm.durationMs) : '');
           if (readState.lastChild.textContent !== sub) readState.lastChild.textContent = sub;
-          readBar.style.width = (v.progress * 100).toFixed(2) + '%';
+          readBar.style.width = (prog * 100).toFixed(2) + '%';
           const running = tm.running;
           const label = running ? 'pause' : 'play';
           if (playBtn.dataset.label !== label + v.state) {
@@ -496,6 +594,10 @@
           }
         }
         // run of show stats
+        if (s.agenda.mode === 'clock') { tickSchedule(s, now); return; }
+        statDrift.firstChild.textContent = t('Abweichung');
+        statEnd.firstChild.textContent = t('Ende ca.');
+        statTotal.firstChild.textContent = t('Geplant');
         const av = E.agendaView(s, now);
         const items = s.agenda.items;
         const d = av.drift;
@@ -516,6 +618,31 @@
           live.dataset.tone = over > 0 ? 'behind' : '';
         }
       }
+    }
+
+    /** Run of show driven by the clock: stats, live row bar, hold state. */
+    function tickSchedule(s, now) {
+      const v = E.scheduleView(s, now);
+      const set = (el, label, value, tone) => {
+        if (el.firstChild.textContent !== label) el.firstChild.textContent = label;
+        if (el.lastChild.textContent !== value) el.lastChild.textContent = value;
+        el.dataset.tone = tone || '';
+      };
+      if (v.current) set(statDrift, v.held ? t('Angehalten') : t('Noch'), E.formatMs(v.remainingMs), v.held ? 'behind' : '');
+      else if (v.next) set(statDrift, t('Pause, weiter in'), E.formatMs(v.gapMs), '');
+      else set(statDrift, t('Noch'), '—', '');
+      set(statEnd, t('Danach'), v.next ? hhmm(v.next.start) : '—', '');
+      set(statTotal, t('Ende'), v.endAt ? hhmm(v.endAt) : '—', '');
+      const bar = ros.querySelector('.ros-bar');
+      if (bar && v.current) bar.style.width = (v.progress * 100).toFixed(2) + '%';
+      const live = ros.querySelector('[data-live]');
+      if (live && v.current) {
+        const txt = v.held ? t('Angehalten') : t('noch') + ' ' + E.formatMs(v.remainingMs);
+        if (live.textContent !== txt) live.textContent = txt;
+      }
+      // statuses change with the clock → rebuild the list when a slot starts or ends
+      const sig = v.rows.map(r => r.status).join();
+      if (ros.dataset.sig !== sig) { ros.dataset.sig = sig; buildAgenda(); }
     }
 
     // ------------------------------------------------------- drawer
@@ -562,7 +689,7 @@
           h('div', { class: 'short-hero' },
             h('small', null, t('Einfach im Browser eintippen')),
             h('b', { class: 'num' }, host + '/1'),
-            h('span', null, t('Displays /1 bis /8, Uhr /uhr, Ablauf /agenda, Steuerung /control'))),
+            h('span', null, t('Displays /1 bis /8, Zeitplan /plan, Uhr /uhr, Steuerung /control'))),
           linkLine(base + '/control'));
       } else {
         wrap.append(h('p', { class: 'help' }, t('Netzwerkname nicht verfügbar – bitte IP-Adresse oder QR-Code nutzen.')));
@@ -611,13 +738,14 @@
         s.timers.forEach(x => out.push(linkLine(displayUrl(x.id))));
         out.push(linkLine(viewUrl('agenda')));
         out.push(linkLine(baseUrl() + '/uhr'));
+        out.push(linkLine(baseUrl() + '/plan'));
         const m = tr.meta || {};
         if (m.hostname) out.push(h('p', { class: 'help' }, t('Per Rechnername') + ': ', h('b', null, `http://${m.hostname}:${m.port}/control`)));
         out.push(h('p', { class: 'help' }, t('Klappt der Link nicht? Beim ersten Start fragt Windows nach der Firewall – „Private Netzwerke“ erlauben.')));
       }
       // display link builder
       const layoutSel = h('select', { class: 'input' },
-        [['full', 'Vollbild-Timer'], ['time', 'Nur Uhrzeit'], ['clock', 'Uhrzeit groß'], ['lower', 'Bauchbinde (Keying)'], ['agenda', 'Ablauf (Backstage)']].map(([v, l]) => h('option', { value: v }, t(l))));
+        [['full', 'Vollbild-Timer'], ['plan', 'Zeitplan (Moderation)'], ['time', 'Nur Uhrzeit'], ['clock', 'Uhrzeit groß'], ['lower', 'Bauchbinde (Keying)'], ['agenda', 'Ablauf (Backstage)']].map(([v, l]) => h('option', { value: v }, t(l))));
       const timerSel = h('select', { class: 'input' }, s.timers.map(x => h('option', { value: x.id.slice(1) }, x.name)));
       timerSel.value = sel.slice(1);
       const transp = h('input', { type: 'checkbox' });

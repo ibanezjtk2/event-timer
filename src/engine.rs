@@ -40,16 +40,23 @@ pub enum Kind {
     Clock,
     /// shows the wall clock only
     Time,
+    /// follows the clock-driven run of show (rendered by the clients)
+    Schedule,
 }
 
 impl Kind {
-    fn as_str(&self) -> &'static str {
+    pub fn as_str(&self) -> &'static str {
         match self {
             Kind::Countdown => "countdown",
             Kind::Countup => "countup",
             Kind::Clock => "clock",
             Kind::Time => "time",
+            Kind::Schedule => "schedule",
         }
+    }
+    /// kinds that don't count by themselves
+    pub fn is_static(&self) -> bool {
+        matches!(self, Kind::Time | Kind::Schedule)
     }
     fn parse(s: &str) -> Option<Kind> {
         match s {
@@ -57,6 +64,7 @@ impl Kind {
             "countup" => Some(Kind::Countup),
             "clock" => Some(Kind::Clock),
             "time" => Some(Kind::Time),
+            "schedule" => Some(Kind::Schedule),
             _ => None,
         }
     }
@@ -108,6 +116,12 @@ pub struct Item {
     pub speaker: String,
     pub duration_ms: i64,
     pub note: String,
+    /// fixed clock times "HH:MM" (empty = follows the previous slot)
+    pub start: String,
+    pub end: String,
+    /// live corrections: this slot longer/shorter, and how much later everything after it runs
+    pub extra_ms: i64,
+    pub ripple_ms: i64,
     pub started_at: Option<i64>,
     pub ended_at: Option<i64>,
 }
@@ -117,6 +131,11 @@ pub struct Agenda {
     pub timer_id: String,
     pub planned_start: String,
     pub auto_start: bool,
+    /// "manual" (Weiter-Knopf) or "clock" (follows the wall clock)
+    pub mode: String,
+    /// whole plan moved by this much; on hold the plan stands still since hold_at
+    pub shift_ms: i64,
+    pub hold_at: Option<i64>,
     pub cursor: i64,
     pub items: Vec<Item>,
 }
@@ -249,6 +268,9 @@ impl Default for State {
                 timer_id: "t1".into(),
                 planned_start: String::new(),
                 auto_start: true,
+                mode: "manual".into(),
+                shift_ms: 0,
+                hold_at: None,
                 cursor: -1,
                 items: vec![],
             },
@@ -346,7 +368,7 @@ fn valid_hhmm(s: &str) -> bool {
 // ---------------------------------------------------------------- views
 
 pub fn raw_value(t: &Timer, now: i64) -> i64 {
-    if t.kind == Kind::Time {
+    if t.kind.is_static() {
         return 0;
     }
     if t.kind == Kind::Clock {
@@ -388,7 +410,7 @@ impl TimerView {
 }
 
 pub fn timer_view(t: &Timer, now: i64) -> TimerView {
-    if t.kind == Kind::Time {
+    if t.kind.is_static() {
         return TimerView {
             ms: 0,
             over: false,
@@ -581,7 +603,7 @@ fn freeze(t: &mut Timer, now: i64) {
 
 fn start_timer(s: &mut State, ti: usize, now: i64) {
     let t = &mut s.timers[ti];
-    if t.kind == Kind::Clock || t.kind == Kind::Time || t.running {
+    if t.kind == Kind::Clock || t.kind.is_static() || t.running {
         return;
     }
     if t.kind == Kind::Countdown && t.base_ms <= 0 && !t.overtime {
@@ -599,7 +621,7 @@ fn start_timer(s: &mut State, ti: usize, now: i64) {
 }
 
 fn pause_timer(t: &mut Timer, now: i64) {
-    if t.kind == Kind::Clock || t.kind == Kind::Time || !t.running {
+    if t.kind == Kind::Clock || t.kind.is_static() || !t.running {
         return;
     }
     t.base_ms = raw_value(t, now);
@@ -658,17 +680,48 @@ fn sanitize_preset(p: &Json, base: &Preset, id: String) -> Preset {
     }
 }
 
+fn hhmm(v: &Json) -> String {
+    let s = js_string(v);
+    let s = s.trim();
+    if valid_hhmm(s) {
+        s.to_string()
+    } else {
+        String::new()
+    }
+}
+
+fn minutes_of(s: &str) -> i64 {
+    let b = s.as_bytes();
+    ((b[0] - b'0') as i64 * 10 + (b[1] - b'0') as i64) * 60
+        + (b[3] - b'0') as i64 * 10
+        + (b[4] - b'0') as i64
+}
+
+/// start→end in ms, past midnight if end is earlier (same as engine.js spanMs)
+fn span_ms(a: &str, b: &str) -> i64 {
+    let d = minutes_of(b) - minutes_of(a);
+    (if d <= 0 { d + 1440 } else { d }) * 60000
+}
+
 fn sanitize_item(s: &mut State, it: &Json) -> Item {
     s.seq += 1;
-    Item {
+    let mut out = Item {
         id: format!("s{}", s.seq),
         title: text(it.get("title"), 80),
         speaker: text(it.get("speaker"), 80),
         duration_ms: num(it.get("durationMs"), 0, DAY, Some(10 * 60 * 1000)).unwrap_or(0),
         note: text(it.get("note"), 300),
+        start: hhmm(it.get("start")),
+        end: hhmm(it.get("end")),
+        extra_ms: 0,
+        ripple_ms: 0,
         started_at: None,
         ended_at: None,
+    };
+    if !out.start.is_empty() && !out.end.is_empty() {
+        out.duration_ms = span_ms(&out.start, &out.end);
     }
+    out
 }
 
 fn load_segment(s: &mut State, index: i64, now: i64) {
@@ -837,7 +890,7 @@ fn apply_inner(s: &mut State, kind: &str, a: &Json, now: i64) -> bool {
                 return false;
             };
             let t = &mut s.timers[i];
-            if t.kind == Kind::Clock || t.kind == Kind::Time {
+            if t.kind == Kind::Clock || t.kind.is_static() {
                 t.kind = Kind::Countdown;
                 t.target_at = None;
                 t.target_label.clear();
@@ -854,7 +907,7 @@ fn apply_inner(s: &mut State, kind: &str, a: &Json, now: i64) -> bool {
         "timer.adjust" => {
             let i = timer!();
             let t = &mut s.timers[i];
-            if t.kind == Kind::Clock || t.kind == Kind::Time {
+            if t.kind == Kind::Clock || t.kind.is_static() {
                 return false;
             }
             let delta = num(a.get("ms"), -HOUR, HOUR, Some(0)).unwrap_or(0);
@@ -994,6 +1047,9 @@ fn apply_inner(s: &mut State, kind: &str, a: &Json, now: i64) -> bool {
             if a.has("autoStart") {
                 s.agenda.auto_start = a.get("autoStart").truthy();
             }
+            if let Some(m @ ("manual" | "clock")) = a.get("mode").as_str() {
+                s.agenda.mode = m.to_string();
+            }
             true
         }
         "agenda.replace" => {
@@ -1039,9 +1095,19 @@ fn apply_inner(s: &mut State, kind: &str, a: &Json, now: i64) -> bool {
             if p.has("note") {
                 it.note = text(p.get("note"), 300);
             }
-            if p.has("durationMs") {
-                it.duration_ms = num(p.get("durationMs"), 0, DAY, Some(it.duration_ms))
-                    .unwrap_or(it.duration_ms);
+            if p.has("start") {
+                it.start = hhmm(p.get("start"));
+            }
+            if p.has("end") {
+                it.end = hhmm(p.get("end"));
+            }
+            let fixed = !it.start.is_empty() && !it.end.is_empty();
+            if p.has("durationMs") || p.has("start") || p.has("end") {
+                it.duration_ms = if fixed {
+                    span_ms(&it.start, &it.end)
+                } else {
+                    num(p.get("durationMs"), 0, DAY, Some(it.duration_ms)).unwrap_or(it.duration_ms)
+                };
                 let (id, dur, untouched) = (it.id.clone(), it.duration_ms, it.started_at.is_none());
                 if let Some(lt) = s
                     .timers
@@ -1133,6 +1199,62 @@ fn apply_inner(s: &mut State, kind: &str, a: &Json, now: i64) -> bool {
             }
             s.agenda.cursor = -1;
             load_segment(s, target, now);
+            true
+        }
+        "agenda.adjust" => {
+            let ms = num(a.get("ms"), -12 * HOUR, 12 * HOUR, Some(0)).unwrap_or(0);
+            let iid = a.get("itemId").as_str().unwrap_or("");
+            let Some(it) = s.agenda.items.iter_mut().find(|x| x.id == iid) else {
+                return false;
+            };
+            if ms == 0 {
+                return false;
+            }
+            it.extra_ms = (it.extra_ms + ms).clamp(-DAY, DAY);
+            if a.get("ripple").truthy() {
+                it.ripple_ms = (it.ripple_ms + ms).clamp(-DAY, DAY);
+            }
+            true
+        }
+        "agenda.shift" => {
+            let ms = num(a.get("ms"), -DAY, DAY, Some(0)).unwrap_or(0);
+            if ms == 0 {
+                return false;
+            }
+            s.agenda.shift_ms = (s.agenda.shift_ms + ms).clamp(-DAY, DAY);
+            true
+        }
+        "agenda.hold" => {
+            if s.agenda.hold_at.is_some() {
+                return false;
+            }
+            s.agenda.hold_at = Some(now);
+            true
+        }
+        "agenda.resume" => {
+            let Some(held_since) = s.agenda.hold_at.take() else {
+                return false;
+            };
+            let ms = (now - held_since).clamp(0, DAY);
+            let after = a.get("mode").as_str() == Some("after");
+            let iid = a.get("itemId").as_str().unwrap_or("");
+            if let Some(it) = s.agenda.items.iter_mut().find(|x| x.id == iid) {
+                it.ripple_ms = (it.ripple_ms + ms).clamp(-DAY, DAY);
+                if !after {
+                    it.extra_ms = (it.extra_ms + ms).clamp(-DAY, DAY);
+                }
+            } else {
+                s.agenda.shift_ms = (s.agenda.shift_ms + ms).clamp(-DAY, DAY);
+            }
+            true
+        }
+        "agenda.clearAdjust" => {
+            s.agenda.shift_ms = 0;
+            s.agenda.hold_at = None;
+            for it in s.agenda.items.iter_mut() {
+                it.extra_ms = 0;
+                it.ripple_ms = 0;
+            }
             true
         }
         "agenda.reset" => {
@@ -1262,6 +1384,10 @@ impl Item {
             .with("speaker", &self.speaker)
             .with("durationMs", self.duration_ms)
             .with("note", &self.note)
+            .with("start", &self.start)
+            .with("end", &self.end)
+            .with("extraMs", self.extra_ms)
+            .with("rippleMs", self.ripple_ms)
             .with("startedAt", self.started_at)
             .with("endedAt", self.ended_at)
     }
@@ -1272,6 +1398,10 @@ impl Item {
             speaker: j.get("speaker").as_str().unwrap_or("").to_string(),
             duration_ms: j.get("durationMs").as_i64().unwrap_or(0).clamp(0, DAY),
             note: j.get("note").as_str().unwrap_or("").to_string(),
+            start: hhmm(j.get("start")),
+            end: hhmm(j.get("end")),
+            extra_ms: j.get("extraMs").as_i64().unwrap_or(0).clamp(-DAY, DAY),
+            ripple_ms: j.get("rippleMs").as_i64().unwrap_or(0).clamp(-DAY, DAY),
             started_at: j.get("startedAt").as_i64(),
             ended_at: j.get("endedAt").as_i64(),
         })
@@ -1304,6 +1434,9 @@ impl State {
                     .with("timerId", &self.agenda.timer_id)
                     .with("plannedStart", &self.agenda.planned_start)
                     .with("autoStart", self.agenda.auto_start)
+                    .with("mode", &self.agenda.mode)
+                    .with("shiftMs", self.agenda.shift_ms)
+                    .with("holdAt", self.agenda.hold_at)
                     .with("cursor", self.agenda.cursor)
                     .with(
                         "items",
@@ -1382,6 +1515,11 @@ impl State {
         if a.has("autoStart") {
             s.agenda.auto_start = a.get("autoStart").truthy();
         }
+        if let Some(m @ ("manual" | "clock")) = a.get("mode").as_str() {
+            s.agenda.mode = m.to_string();
+        }
+        s.agenda.shift_ms = a.get("shiftMs").as_i64().unwrap_or(0).clamp(-DAY, DAY);
+        s.agenda.hold_at = a.get("holdAt").as_i64();
         if let Some(list) = a.get("items").as_array() {
             s.agenda.items = list
                 .iter()
