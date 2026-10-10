@@ -49,10 +49,10 @@ event-timer.local/1               # dasselbe, wenn „Ohne Portnummer (Port 80)�
 | `/1` … `/8` (auch `/timer1`) | DSM (Downstage-Monitor): Vollbild-Timer |
 | `/agenda` | Backstage-Display mit Ablaufplan, Abweichung und Ende-Prognose |
 | `/plan` | Ablaufplan für die Moderation: laufender Punkt mit Restzeit und Balken, ganzer Tagesablauf daneben |
-| `/moderation` | Handy der Moderation: Restzeit, Talkback von der Regie mit „Verstanden“, Schnellmeldungen an die Regie (ohne PIN) |
+| `/moderation` | Handy/iPad der Moderation: Restzeit, Programm mit Hinweisen, Talkback von der Regie mit „Verstanden“, Schnellmeldungen an die Regie (ohne PIN). Auf dem iPad quer zweispaltig. |
 | `/cues` | Cue-Liste groß für weitere Operatoren (Licht, Video, Ton) |
 | `/uhr` (auch `/clock`) | nur die Uhrzeit, sonst nichts (`?sec=0` ohne Sekunden) |
-| `/display?t=2&layout=clock` | Uhrzeit groß, Timer klein |
+| `/display?t=2&layout=clock` | Uhrzeit groß, Timer klein (alle Ansichten baut dir *Menü → Verbindung → Display-Link erstellen* mit Vorschau zusammen) |
 | `/display?t=1&layout=lower&bg=transparent` | Bauchbinde mit transparentem Hintergrund, für vMix/OBS als Browser-Input |
 | `&chrome=0` | blendet Vollbild-Knopf und Verbindungshinweis aus |
 
@@ -99,7 +99,7 @@ Jeder Programmpunkt kann technische Cues haben, z. B. „Einspieler starten“ o
 
 ## Talkback und Meldungen (Regie ↔ Moderation)
 
-Die Moderation öffnet **`/moderation`** auf dem Handy. Sie sieht die eigene Restzeit, den nächsten Punkt und die aktuelle DSM-Einblendung.
+Die Moderation öffnet **`/moderation`** auf dem Handy oder iPad. Sie sieht die eigene Restzeit, das ganze Programm (laufender Punkt mit Balken, im manuellen Modus auch „2:10 hinter Plan“), den **Hinweis** zum laufenden Punkt und die aktuelle DSM-Einblendung. Hinweise trägst du in der Regie beim Bearbeiten eines Programmpunkts ein (Feld „Hinweis für die Moderation“). Im iPad-Querformat steht links das Jetzt, rechts Knöpfe und Programm – ohne Scrollen.
 
 **Regie → Moderation (Talkback)**
 - Im Panel *Talkback* per Preset („Noch 5 Minuten“, „Letzte Frage“ …) oder Freitext senden.
@@ -108,11 +108,12 @@ Die Moderation öffnet **`/moderation`** auf dem Handy. Sie sieht die eigene Res
 
 **Bühne → Regie (Meldungen)**
 - Große Knöpfe (Schnellmeldungen) wie „Brauche 2 Minuten mehr“ oder „Mikrofon-Problem“, dazu Freitext.
-- In der Regie steht die Meldung rot pulsierend in der Alarmzone, mit Signalton; der Tab-Titel zeigt die Anzahl.
+- In der Regie steht die Meldung rot pulsierend in der Alarmzone, mit Intercom-Signalton (3× „di-da“); bis zur Bestätigung erinnert alle 15 s ein kurzer Ton. Der Tab-Titel zeigt die Anzahl.
+- Browser spielen erst nach einem Klick Ton ab. Solange der Ton gesperrt ist, zeigt die Regie oben „🔇 Ton aus – klicken“.
 - **Bestätigen** quittiert die Meldung. Auf dem Handy steht dann „bestätigt ✓“.
 - Es braucht **keine PIN**, aber pro Gerät höchstens eine Meldung alle 1,5 Sekunden.
 
-Alle drei Listen (Schnellnachrichten an den DSM, Talkback-Presets, Schnellmeldungen) bearbeitest du unter *Menü → Schnellnachrichten*, den Signalton schaltest du unter *System* ab.
+Alle drei Listen (Schnellnachrichten an den DSM, Talkback-Presets, Schnellmeldungen) bearbeitest du unter *Menü → Schnellnachrichten*. Signalton, Lautstärke (Normal/Laut/Sehr laut), Erinnerung und „Ton testen“ findest du unter *System*.
 
 ## Bitfocus Companion
 
