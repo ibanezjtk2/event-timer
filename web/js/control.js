@@ -33,12 +33,13 @@
     titleInput.addEventListener('change', () => act({ type: 'event.update', title: titleInput.value }));
     const hdrClock = h('div', { class: 'hdr-clock num', 'aria-label': t('Uhrzeit') }, '--:--:--');
     const blackoutBtn = h('button', { class: 'btn btn-stop', 'aria-pressed': 'false', onclick: () => act({ type: 'blackout.toggle' }) }, t('All Blackout'), kbd('B'));
+    const soundSlot = h('span', { class: 'sound-slot' });
     const menuBtn = h('button', { class: 'btn btn-icon', 'aria-label': t('Menü'), title: t('Menü'), onclick: () => openDrawer() }, icon('menu'));
     const topbar = h('header', { class: 'topbar' },
       h('div', { class: 'brand', html: root.ETUI.brandSvg + '<span>Event Timer</span>' }),
       titleInput,
       hdrClock,
-      h('div', { class: 'topbar-right' }, conn, blackoutBtn, menuBtn));
+      h('div', { class: 'topbar-right' }, soundSlot, conn, blackoutBtn, menuBtn));
 
     const banner = h('div', { class: 'banner', hidden: true });
     // pinned alert zone: messages from the stage and cues waiting for GO never scroll away
@@ -328,12 +329,19 @@
         h('button', { class: 'btn btn-go', onclick: () => { sendTalk(talkInput.value); talkInput.value = ''; } }, t('Senden'))),
       talkLog,
       h('div', { class: 'row', style: { justifyContent: 'flex-end' } }, talkClear));
+    const seenAck = new Set();
+    let talkInit = false;
     function syncTalk(s) {
       const qk = (s.talkQuick || []).join('\n');
       if (talkQuickRow.dataset.key !== qk) {
         talkQuickRow.dataset.key = qk;
         talkQuickRow.replaceChildren(...(s.talkQuick || []).map(q => h('button', { class: 'chip', onclick: () => sendTalk(q) }, q)));
       }
+      const acked = (s.talkback || []).filter(k => k.ackAt != null);
+      const freshAck = acked.some(k => !seenAck.has(k.id));
+      acked.forEach(k => seenAck.add(k.id));
+      if (talkInit && freshAck && ackSoundOn()) signal('ack');
+      talkInit = true;
       const list = (s.talkback || []).slice(-5).reverse();
       const key = list.map(k => k.id + ':' + k.ackAt).join() + root.ETUI.lang;
       if (talkLog.dataset.key !== key) {
@@ -348,8 +356,16 @@
     // ------------------------------------------- messages from the stage
     const seenReq = new Set();
     let reqInit = false;
+    // ---------------------------------------------------------- sound
+    // A hard-edged intercom call (square wave) cuts through programme audio
+    // far better than a soft sine beep.
     let actx = null;
     const soundOn = () => store.get('et-req-sound') !== '0';
+    const remindOn = () => store.get('et-req-remind') !== '0';
+    const ackSoundOn = () => store.get('et-ack-sound') === '1';
+    const VOLUMES = { normal: 0.3, laut: 0.6, max: 1 };
+    const volume = () => VOLUMES[store.get('et-req-vol')] || VOLUMES.laut;
+    let lastSignal = 0;
     const unlockAudio = () => {
       try {
         actx = actx || new (window.AudioContext || window.webkitAudioContext)();
@@ -357,21 +373,44 @@
       } catch { /* no audio */ }
     };
     document.addEventListener('pointerdown', unlockAudio);
-    function beep() {
-      if (!actx) return;
+    document.addEventListener('keydown', unlockAudio);
+    const audioReady = () => Boolean(actx && actx.state === 'running');
+    function tone(at, freq, dur, vol, type) {
+      const o = actx.createOscillator(), g = actx.createGain();
+      o.type = type || 'square';
+      o.frequency.value = freq;
+      g.gain.setValueAtTime(0.0001, at);
+      g.gain.exponentialRampToValueAtTime(vol, at + 0.006);
+      g.gain.setValueAtTime(vol, at + dur - 0.02);
+      g.gain.exponentialRampToValueAtTime(0.0001, at + dur);
+      o.connect(g).connect(actx.destination);
+      o.start(at);
+      o.stop(at + dur + 0.02);
+    }
+    /** alert: 3× "di-da" (~1.2 s) · remind: 1× "di-da" · ack: soft rising chime · test: like alert */
+    function signal(kind) {
+      if (!audioReady()) return;
       try {
-        const t0 = actx.currentTime;
-        [[0, 880], [0.2, 660]].forEach(([d, f]) => {
-          const o = actx.createOscillator(), g = actx.createGain();
-          o.frequency.value = f;
-          g.gain.setValueAtTime(0.0001, t0 + d);
-          g.gain.exponentialRampToValueAtTime(0.25, t0 + d + 0.02);
-          g.gain.exponentialRampToValueAtTime(0.0001, t0 + d + 0.18);
-          o.connect(g).connect(actx.destination);
-          o.start(t0 + d);
-          o.stop(t0 + d + 0.2);
-        });
+        const v = volume();
+        const t0 = actx.currentTime + 0.02;
+        if (kind === 'ack') { tone(t0, 660, 0.1, v * 0.5, 'sine'); tone(t0 + 0.11, 990, 0.16, v * 0.5, 'sine'); return; }
+        const reps = kind === 'remind' ? 1 : 3;
+        for (let i = 0; i < reps; i++) {
+          tone(t0 + i * 0.4, 988, 0.14, v * 0.55);
+          tone(t0 + i * 0.4 + 0.17, 1319, 0.14, v * 0.55);
+        }
       } catch { /* no audio */ }
+    }
+    /** play on a click: the click itself unlocks audio, so wait for it */
+    const testSound = kind => { unlockAudio(); if (actx) actx.resume().then(() => signal(kind)).catch(() => {}); };
+    const soundHint = h('button', { class: 'sound-hint', hidden: true, title: t('Browser spielen erst nach einem Klick Ton ab.'), onclick: unlockAudio }, '🔇 ', t('Ton aus – klicken'));
+    soundSlot.append(soundHint);
+    /** reminder every 15 s while a stage message is unacknowledged; hint when the browser keeps us muted */
+    function tickSound(s) {
+      const hint = !soundOn() || audioReady();
+      if (soundHint.hidden !== hint) soundHint.hidden = hint;
+      if (!soundOn() || !remindOn() || !s.requests.some(r => !r.ack)) return;
+      if (Date.now() - lastSignal >= 15000) { lastSignal = Date.now(); signal('remind'); }
     }
     /** Alert zone: open messages from the stage + cues that are due. */
     function syncAlerts(s) {
@@ -390,7 +429,7 @@
       }
       const fresh = open.filter(r => !seenReq.has(r.id));
       open.forEach(r => seenReq.add(r.id));
-      if (reqInit && fresh.length && soundOn()) beep();
+      if (reqInit && fresh.length && soundOn()) { lastSignal = Date.now(); signal('alert'); }
       reqInit = true;
       const n = open.length + goCues.length;
       const title = (n ? `(${n}) ` : '') + 'Event Timer – ' + t('Regie');
@@ -562,6 +601,7 @@
           clock && status === 'live' ? h('i', { class: 'ros-bar' }) : null,
           h('span', { class: 'ros-when' }, when, clock && row.end != null ? h('small', null, hhmm(row.end)) : null),
           h('span', { class: 'ros-what' }, h('b', null, it.title || '—'), it.speaker ? h('span', null, it.speaker) : null,
+            it.note ? h('span', { class: 'ros-note', title: it.note }, t('Hinweis') + ': ' + it.note) : null,
             it.cues && it.cues.length ? h('span', { class: 'ros-cues' }, it.cues.length + ' ' + t(it.cues.length === 1 ? 'Cue' : 'Cues')) : null),
           h('span', { class: 'ros-dur' }, E.formatMs(it.durationMs), sub),
           h('span', { class: 'ros-actions' },
@@ -596,30 +636,32 @@
     }
 
     function editRow(it) {
-      if (!editDraft || editDraft.id !== it.id) editDraft = { id: it.id, title: it.title, speaker: it.speaker, dur: minutesLabel(it.durationMs), start: it.start || '', end: it.end || '' };
+      if (!editDraft || editDraft.id !== it.id) editDraft = { id: it.id, title: it.title, speaker: it.speaker, dur: minutesLabel(it.durationMs), start: it.start || '', end: it.end || '', note: it.note || '' };
       const dr = editDraft;
       const ti = h('input', { class: 'input', value: dr.title, maxlength: 80, 'aria-label': t('Titel') });
       const sp = h('input', { class: 'input', value: dr.speaker, maxlength: 80, placeholder: t('Sprecher*in'), 'aria-label': t('Sprecher*in') });
       const du = h('input', { class: 'input num', value: dr.dur, inputmode: 'decimal', 'aria-label': t('Dauer') });
       const fr = h('input', { class: 'input num', type: 'time', value: dr.start, 'aria-label': t('Beginn') });
       const to = h('input', { class: 'input num', type: 'time', value: dr.end, 'aria-label': t('Ende') });
-      [[ti, 'title'], [sp, 'speaker'], [du, 'dur'], [fr, 'start'], [to, 'end']].forEach(([el, k]) => el.addEventListener('input', () => { dr[k] = el.value; }));
+      const nt = h('input', { class: 'input', value: dr.note, maxlength: 300, placeholder: t('z. B. Sponsor erwähnen, Aussprache: Okafor'), 'aria-label': t('Hinweis für die Moderation') });
+      [[ti, 'title'], [sp, 'speaker'], [du, 'dur'], [fr, 'start'], [to, 'end'], [nt, 'note']].forEach(([el, k]) => el.addEventListener('input', () => { dr[k] = el.value; }));
       const cueEd = h('div', { class: 'cue-edit' },
         h('span', { class: 'help' }, t('Cues')),
         ...(it.cues || []).map(c => cueEditRow(it, c)),
         h('div', { class: 'row' }, h('button', { class: 'btn btn-quiet', onclick: () => act({ type: 'cue.add', itemId: it.id, text: t('Neuer Cue'), ref: 'start', offsetMs: 0 }) }, icon('plus'), t('Cue hinzufügen'))));
       const save = () => {
         const ms = E.parseDuration(du.value);
-        act({ type: 'agenda.update', itemId: it.id, patch: { title: ti.value, speaker: sp.value, start: fr.value, end: to.value, durationMs: ms == null ? it.durationMs : ms } });
+        act({ type: 'agenda.update', itemId: it.id, patch: { title: ti.value, speaker: sp.value, note: nt.value, start: fr.value, end: to.value, durationMs: ms == null ? it.durationMs : ms } });
         editingItem = null; editDraft = null; buildAgenda();
       };
-      [ti, sp, du, fr, to].forEach(x => x.addEventListener('keydown', e => { if (e.key === 'Enter') save(); if (e.key === 'Escape') { editingItem = null; editDraft = null; buildAgenda(); } }));
+      [ti, sp, du, fr, to, nt].forEach(x => x.addEventListener('keydown', e => { if (e.key === 'Enter') save(); if (e.key === 'Escape') { editingItem = null; editDraft = null; buildAgenda(); } }));
       setTimeout(() => ti.focus(), 0);
       return h('li', { class: 'ros-edit' }, ti, sp,
         h('div', { class: 'ros-edit-times' },
           h('label', { class: 'field' }, h('span', null, t('Beginn')), fr),
           h('label', { class: 'field' }, h('span', null, t('Ende')), to),
           h('label', { class: 'field' }, h('span', null, t('oder Dauer (Min.)')), du)),
+        h('label', { class: 'field ros-edit-note' }, h('span', null, t('Hinweis für die Moderation')), nt),
         cueEd,
         h('div', { class: 'row' },
           armed(h('button', { class: 'btn btn-quiet' }, icon('trash'), t('Entfernen')), () => { editingItem = null; editDraft = null; act({ type: 'agenda.remove', itemId: it.id }); }),
@@ -757,6 +799,7 @@
         const clk = D.clockText(now, true);
         if (hdrClock.textContent !== clk) hdrClock.textContent = clk;
         tickCues(s, now);
+        tickSound(s);
         for (const tm of s.timers) {
           const tv = tileViews.get(tm.id);
           if (!tv) continue;
@@ -961,28 +1004,50 @@
         if (m.hostname) out.push(h('p', { class: 'help' }, t('Per Rechnername') + ': ', h('b', null, `http://${m.hostname}:${m.port}/control`)));
         out.push(h('p', { class: 'help' }, t('Klappt der Link nicht? Beim ersten Start fragt Windows nach der Firewall – „Private Netzwerke“ erlauben.')));
       }
-      // display link builder
-      const layoutSel = h('select', { class: 'input' },
-        [['full', 'Vollbild-Timer'], ['plan', 'Ablaufplan (Moderation)'], ['time', 'Nur Uhrzeit'], ['clock', 'Uhrzeit groß'], ['lower', 'Bauchbinde (Keying)'], ['agenda', 'Ablauf (Backstage)']].map(([v, l]) => h('option', { value: v }, t(l))));
+      // display link builder: any screen that should show something other than the plain full-screen timer
+      const VIEWS = [
+        ['full', 'Vollbild-Timer', 'Standard-DSM, wie /1.'],
+        ['plan', 'Ablaufplan (Moderation)', 'Laufender Programmpunkt mit Restzeit, daneben der ganze Ablauf (wie /plan).'],
+        ['time', 'Nur Uhrzeit', 'Nur die Uhr, z. B. fürs Foyer (wie /uhr).'],
+        ['clock', 'Uhrzeit groß', 'Uhrzeit groß, der Timer klein darunter.'],
+        ['lower', 'Bauchbinde (Keying)', 'Kleiner Timer unten rechts – für vMix/OBS als Browser-Input über dem Bild.'],
+        ['agenda', 'Ablauf (Backstage)', 'Timer plus Programmliste mit Abweichung, für Backstage oder Greenroom.'],
+      ];
+      const layoutSel = h('select', { class: 'input' }, VIEWS.map(([v, l]) => h('option', { value: v }, t(l))));
       const timerSel = h('select', { class: 'input' }, s.timers.map(x => h('option', { value: x.id.slice(1) }, x.name)));
       timerSel.value = sel.slice(1);
       const transp = h('input', { type: 'checkbox' });
+      const viewHelp = h('p', { class: 'help' });
       const out2 = h('div');
+      const pvBox = h('div', { class: 'preview-box' });
+      const pv = D.create(pvBox, {});
+      const drawPv = () => {
+        const st = S();
+        if (!st) return;
+        const tm = st.timers.find(x => x.id === 't' + timerSel.value) || st.timers[0];
+        pv.update({ state: Object.assign({}, st, { blackout: false }), timer: tm, now: tr.now(), wallNow: tr.now(), layout: layoutSel.value, transparent: transp.checked, seconds: true, i18n: t });
+      };
+      const pvTimer = setInterval(() => { if (!drawer.open || drawerTab !== 'connect' || !pvBox.isConnected) clearInterval(pvTimer); else drawPv(); }, 250);
       const upd = () => {
         const params = { t: timerSel.value };
         if (layoutSel.value !== 'full') params.layout = layoutSel.value;
         if (transp.checked) params.bg = 'transparent';
         out2.replaceChildren(linkLine(viewUrl('display', params)));
+        viewHelp.textContent = t(VIEWS.find(x => x[0] === layoutSel.value)[2]);
+        drawPv();
       };
       [layoutSel, timerSel, transp].forEach(x => x.addEventListener('change', upd));
-      upd();
+      setTimeout(upd, 0);
       out.push(h('div', { class: 'section' },
-        h('h3', { class: 'section-title' }, t('DSM-Link erstellen')),
+        h('h3', { class: 'section-title' }, t('Display-Link erstellen')),
+        h('p', { class: 'help', style: { marginBottom: '10px' } }, t('Für Bildschirme, die etwas anderes zeigen sollen als den normalen Vollbild-Timer.')),
         h('div', { class: 'grid2' },
           h('label', { class: 'field' }, h('span', null, 'Timer'), timerSel),
           h('label', { class: 'field' }, h('span', null, t('Ansicht')), layoutSel)),
-        h('label', { class: 'switch', style: { margin: '10px 0' } }, transp, t('Transparenter Hintergrund')),
-        out2));
+        viewHelp,
+        h('label', { class: 'switch', style: { margin: '6px 0 10px' } }, transp, t('Transparenter Hintergrund (vMix/OBS)')),
+        pvBox,
+        h('div', { style: { marginTop: '10px' } }, out2)));
       return out;
     }
 
@@ -1134,16 +1199,32 @@
       langSel.value = root.ETUI.lang;
       langSel.addEventListener('change', () => { root.ETUI.setLang(langSel.value); location.reload(); });
       const m = tr.meta || {};
-      const snd = h('input', { type: 'checkbox' });
-      snd.checked = soundOn();
-      snd.addEventListener('change', () => { store.set('et-req-sound', snd.checked ? '1' : '0'); if (snd.checked) { unlockAudio(); beep(); } });
+      const sw = (key, on, label, after) => {
+        const i = h('input', { type: 'checkbox' });
+        i.checked = on;
+        i.addEventListener('change', () => { store.set(key, i.checked ? '1' : '0'); if (after) after(i.checked); });
+        return h('label', { class: 'switch' }, i, t(label));
+      };
+      const vol = h('select', { class: 'input' }, [['normal', 'Normal'], ['laut', 'Laut'], ['max', 'Sehr laut']].map(([v, l]) => h('option', { value: v }, t(l))));
+      vol.value = store.get('et-req-vol') || 'laut';
+      vol.addEventListener('change', () => { store.set('et-req-vol', vol.value); testSound('alert'); });
+      const soundBox = h('div', { class: 'section' },
+        h('h3', { class: 'section-title' }, t('Signalton')),
+        h('div', { style: { display: 'grid', gap: '10px' } },
+          sw('et-req-sound', soundOn(), 'Signalton bei Meldungen von der Bühne', on => { if (on) { testSound('alert'); } }),
+          h('div', { class: 'row' },
+            h('label', { class: 'field', style: { flex: '1 1 160px' } }, h('span', null, t('Lautstärke')), vol),
+            h('button', { class: 'btn', style: { alignSelf: 'end' }, onclick: () => { testSound('alert'); } }, t('Ton testen'))),
+          sw('et-req-remind', remindOn(), 'Erinnerung alle 15 s, bis bestätigt'),
+          sw('et-ack-sound', ackSoundOn(), 'Kurzer Ton, wenn die Moderation „Verstanden“ tippt', on => { if (on) { testSound('ack'); } }),
+          h('p', { class: 'help' }, t('Die Lautstärke ist durch die Systemlautstärke des Rechners begrenzt. Browser spielen erst nach einem Klick auf die Seite Ton ab.'))));
       const keys = [['Leertaste', 'Start/Pause'], ['R', 'Reset'], ['↑ / ↓', '±1:00'], ['← / →', '±0:10'], ['⇧ ↵', 'Set & Go'], ['G', 'Nächster Programmpunkt'], ['C', 'Nächsten Cue auslösen (GO)'], ['B', 'All Blackout'], ['1 … 8', 'Timer wählen']];
       const out = [
         h('label', { class: 'field' }, h('span', null, t('Sprache')), langSel),
-        h('label', { class: 'switch' }, snd, t('Signalton bei Meldungen')),
+        soundBox,
         h('div', null, h('h3', { class: 'section-title' }, t('Tastenkürzel')),
           h('div', { class: 'grid2' }, keys.map(([k, v]) => h('div', null, h('b', { class: 'num' }, t(k)), ' ', h('span', { class: 'muted' }, t(v)))))),
-        h('p', { class: 'help' }, t('Version') + ' ' + (m.version || root.ET_VERSION || '1.5.0') + (m.dataPath ? ' · ' + t('Speicherort') + ': ' + m.dataPath : tr.mode === 'standalone' ? ' · ' + t('Speichert in diesem Browser.') : '')),
+        h('p', { class: 'help' }, t('Version') + ' ' + (m.version || root.ET_VERSION || '1.5.1') + (m.dataPath ? ' · ' + t('Speicherort') + ': ' + m.dataPath : tr.mode === 'standalone' ? ' · ' + t('Speichert in diesem Browser.') : '')),
       ];
       if (tr.mode === 'standalone') {
         out.push(h('div', { class: 'section' },
@@ -1177,7 +1258,7 @@
     let alive = true;
     const loop = () => { if (!alive) return; tick(); requestAnimationFrame(loop); };
     requestAnimationFrame(loop);
-    return () => { alive = false; unsubscribe(); document.removeEventListener('keydown', onKey); document.removeEventListener('pointerdown', unlockAudio); if (drawer.open) drawer.close(); };
+    return () => { alive = false; unsubscribe(); document.removeEventListener('keydown', onKey); document.removeEventListener('pointerdown', unlockAudio); document.removeEventListener('keydown', unlockAudio); if (drawer.open) drawer.close(); };
   }
 
   root.ETControl = { mount };
