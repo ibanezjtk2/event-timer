@@ -95,6 +95,8 @@
       },
       auth(pin) { session.set('et-pin', pin); send({ type: 'auth', pin }); },
       setPin(pin) { session.set('et-pin', pin); send({ type: 'setPin', pin }); },
+      setName(name) { send({ type: 'setName', name }); },
+      setPort80(on) { send({ type: 'setPort80', on: Boolean(on) }); },
       onAuth: authEv.on,
       subscribe: ev.on,
     };

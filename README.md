@@ -18,7 +18,8 @@ Standalone ist für „Ich hab nur ein iPad dabei“: Datei öffnen, fertig. Unt
 Doppelklick bzw. `./event-timer`. Die Steuerung öffnet sich im Browser, im Konsolenfenster stehen die Adressen fürs Netzwerk. Der QR-Code unter *Einstellungen → Verbinden* bringt Handys direkt hin.
 
 ```
-event-timer [--port 2468] [--host 0.0.0.0] [--data datei.json] [--pin 1234] [--no-browser]
+event-timer [--port 2468] [--host 0.0.0.0] [--data datei.json] [--pin 1234]
+            [--name saal1] [--port80 | --no-port80] [--no-browser]
 ```
 
 - **Port 2468** (früher 3000, damit nichts mit NDPro & Co. kollidiert). Ist er belegt, nimmt das Programm automatisch den nächsten freien und zeigt ihn an. Mit `--port` ist der Port fest.
@@ -27,14 +28,27 @@ event-timer [--port 2468] [--host 0.0.0.0] [--data datei.json] [--pin 1234] [--n
 - **macOS:** Unsignierte Datei → einmal Rechtsklick → *Öffnen*, oder `xattr -d com.apple.quarantine event-timer-macos`.
 - **Raspberry Pi:** `event-timer-linux-arm64` (64-Bit-OS) bzw. `-armv7` (32-Bit). Autostart per systemd: siehe `tools/event-timer.service`.
 
+## Kurze Adressen statt IP
+
+Das Programm meldet sich per mDNS (Bonjour) selbst im Netzwerk an. Statt `192.168.178.42:2468/timer1` tippst du einfach:
+
+```
+event-timer.local:2468/1          # Display Timer 1
+event-timer.local/1               # dasselbe, wenn „Ohne Portnummer (Port 80)“ an ist
+```
+
+- **Name ändern** unter *Einstellungen → Verbinden* oder mit `--name saal1` → `saal1.local`. Laufen zwei Event Timer im selben Netz, braucht jeder einen eigenen Namen.
+- **Port 80** ist aus, damit nichts anderem in die Quere kommt. Unter Linux braucht Port 80 erweiterte Rechte: `sudo setcap cap_net_bind_service=+ep event-timer`.
+- Das klappt auf iPhone, iPad, Mac, Windows 10/11 und Linux (mit Avahi). Manche Android-Geräte lösen `.local` nicht auf, dort hilft der QR-Code oder die IP.
+
 ## Adressen
 
 | Pfad | Zweck |
 |---|---|
 | `/control` | Steuerung |
-| `/timer1` … `/timer8` | Vollbild-Display eines Timers |
+| `/1` … `/8` (auch `/timer1`) | Vollbild-Display eines Timers |
 | `/agenda` | Backstage-Display mit Ablaufplan, Abweichung und Ende-Prognose |
-| `/clock` | nur die Uhrzeit, sonst nichts (`?sec=0` ohne Sekunden) |
+| `/uhr` (auch `/clock`) | nur die Uhrzeit, sonst nichts (`?sec=0` ohne Sekunden) |
 | `/display?t=2&layout=clock` | Uhrzeit groß, Timer klein |
 | `/display?t=1&layout=lower&bg=transparent` | Bauchbinde mit transparentem Hintergrund, für vMix/OBS als Browser-Input |
 | `&chrome=0` | blendet Vollbild-Knopf und Verbindungshinweis aus |

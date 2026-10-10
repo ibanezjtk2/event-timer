@@ -8,10 +8,27 @@ use std::path::{Path, PathBuf};
 
 pub const FILE_NAME: &str = "event-timer-data.json";
 
-#[derive(Default, Clone)]
+#[derive(Clone)]
 pub struct ServerCfg {
     pub pin_hash: String,
     pub pin_salt: String,
+    /// network name: "<name>.local"
+    pub name: String,
+    /// also listen on port 80 so addresses need no ":2468"
+    pub port80: bool,
+}
+
+pub const DEFAULT_NAME: &str = "event-timer";
+
+impl Default for ServerCfg {
+    fn default() -> Self {
+        ServerCfg {
+            pin_hash: String::new(),
+            pin_salt: String::new(),
+            name: DEFAULT_NAME.into(),
+            port80: false,
+        }
+    }
 }
 
 fn writable_dir(dir: &Path) -> bool {
@@ -69,6 +86,13 @@ pub fn load(path: &Path) -> (State, ServerCfg, Option<String>) {
             let cfg = ServerCfg {
                 pin_hash: srv.get("pinHash").as_str().unwrap_or("").to_string(),
                 pin_salt: srv.get("pinSalt").as_str().unwrap_or("").to_string(),
+                name: srv
+                    .get("name")
+                    .as_str()
+                    .filter(|n| crate::mdns::valid_name(n))
+                    .unwrap_or(DEFAULT_NAME)
+                    .to_string(),
+                port80: srv.get("port80").truthy(),
             };
             (State::from_json(j.get("state")), cfg, None)
         }
@@ -100,7 +124,9 @@ pub fn save(path: &Path, state: &State, cfg: &ServerCfg, version: &str) -> std::
             "server",
             Json::obj()
                 .with("pinHash", &cfg.pin_hash)
-                .with("pinSalt", &cfg.pin_salt),
+                .with("pinSalt", &cfg.pin_salt)
+                .with("name", &cfg.name)
+                .with("port80", cfg.port80),
         );
     let tmp = path.with_extension("json.tmp");
     {

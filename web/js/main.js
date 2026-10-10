@@ -16,11 +16,11 @@
     }
     const p = location.pathname.replace(/\/+$/, '') || '/';
     const params = new URLSearchParams(location.search);
-    const short = p.match(/^\/timer-?([1-8])$/);
+    const short = p.match(/^\/(?:timer-?)?([1-8])$/);
     if (short) { params.set('t', short[1]); return { view: 'display', params, layout: params.get('layout') }; }
     if (p === '/display') return { view: 'display', params, layout: params.get('layout') };
     if (p === '/agenda') return { view: 'display', params, layout: 'agenda' };
-    if (p === '/clock') return { view: 'display', params, layout: 'time' };
+    if (p === '/clock' || p === '/uhr') return { view: 'display', params, layout: 'time' };
     if (p === '/control') return { view: 'control', params };
     return { view: 'home', params };
   }
@@ -114,7 +114,7 @@
       const timers = s ? s.timers : [];
       list.replaceChildren(
         h('a', { href: '/control' }, h('b', null, t('Steuerung')), h('span', null, t('Start, Pause, Zeit, Nachrichten, Ablauf'))),
-        ...timers.map(x => h('a', { href: '/timer' + x.id.slice(1) }, h('b', null, x.name), h('span', null, t('Display') + ' · /timer' + x.id.slice(1)))),
+        ...timers.map(x => h('a', { href: '/' + x.id.slice(1) }, h('b', null, x.name), h('span', null, t('Display') + ' · /' + x.id.slice(1)))),
         h('a', { href: '/agenda' }, h('b', null, t('Ablauf-Display')), h('span', null, 'Backstage · /agenda')),
         h('a', { href: '/clock' }, h('b', null, t('Uhr')), h('span', null, t('Nur Uhrzeit') + ' · /clock')));
     };
