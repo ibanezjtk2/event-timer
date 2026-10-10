@@ -15,7 +15,7 @@
     const a = s.agenda;
     if (a.mode === 'clock' && a.items.length) {
       const sv = E.scheduleView(s, now);
-      if (sv.current) return { title: sv.current.item.title, ms: sv.remainingMs, sub: sv.held ? t('Angehalten') : hm(sv.current.start) + '–' + hm(sv.current.end), progress: sv.progress, next: sv.next ? hm(sv.next.start) + ' ' + sv.next.item.title : '' };
+      if (sv.current) return { title: sv.current.item.title, ms: sv.remainingMs, sub: sv.held ? t('Hold aktiv') : hm(sv.current.start) + '–' + hm(sv.current.end), progress: sv.progress, next: sv.next ? hm(sv.next.start) + ' ' + sv.next.item.title : '' };
       if (sv.next) return { title: t('Pause'), ms: sv.gapMs, sub: t('Weiter um') + ' ' + hm(sv.next.start), progress: 0, next: sv.next.item.title };
       return { title: sv.ready ? t('Programm beendet') : s.event.title || 'Event Timer', ms: null, sub: '', progress: 0, next: '' };
     }
@@ -45,12 +45,22 @@
     const bar = h('i');
     const next = h('div', { class: 'mod-next' });
     const msg = h('div', { class: 'mod-msg', hidden: true });
+    // talkback from the Regie: big, impossible to miss, one tap to confirm
+    const talkText = h('div', { class: 'mod-talk-text' });
+    const talkMeta = h('small');
+    const talkBtn = h('button', { class: 'btn btn-go mod-talk-ok', onclick: () => tr.talkAck() }, icon('check'), t('Verstanden'));
+    const talk = h('section', { class: 'mod-talk', hidden: true, role: 'alert' },
+      h('div', { class: 'mod-talk-head' }, icon('talk'), h('b', null, t('Talkback')), talkMeta), talkText, talkBtn);
     const grid = h('div', { class: 'mod-grid' });
-    const input = h('input', { class: 'input', placeholder: t('Eigene Nachricht an die Regie'), maxlength: 120, enterkeyhint: 'send' });
+    const input = h('input', { class: 'input', placeholder: t('Freitext an die Regie'), maxlength: 120, enterkeyhint: 'send' });
     const mine = h('ol', { class: 'mod-mine' });
 
+    let lastSend = 0;
     const send = text => {
       if (!text || !text.trim()) return;
+      // the server accepts one message per 1.5 s per device – say so instead of losing it
+      if (Date.now() - lastSend < 1600) { toast(t('Bitte kurz warten')); return; }
+      lastSend = Date.now();
       tr.request(text.trim(), me);
       if (navigator.vibrate) { try { navigator.vibrate(30); } catch { /* ignore */ } }
       toast(t('Gesendet'));
@@ -68,9 +78,10 @@
 
     app.replaceChildren(h('div', { class: 'mod' },
       h('header', { class: 'mod-head' }, conn, event, who),
+      talk,
       h('section', { class: 'mod-now', 'aria-live': 'polite' }, title, time, sub, h('div', { class: 'mod-bar' }, bar), next),
       msg,
-      h('h2', { class: 'mod-h' }, t('An die Regie')),
+      h('h2', { class: 'mod-h' }, t('Meldung an die Regie')),
       grid,
       h('div', { class: 'row' }, h('div', { style: { flex: '1 1 200px' } }, input),
         h('button', { class: 'btn btn-go', onclick: () => { send(input.value); input.value = ''; } }, t('Senden'))),
@@ -78,6 +89,8 @@
       mine));
 
     let gridKey = '';
+    const seenTalk = new Set();
+    let talkInit = false;
     function render() {
       const s = tr.state;
       if (!s) return;
@@ -93,9 +106,25 @@
       const m = tm && tm.message;
       msg.hidden = !(m && m.visible && m.text);
       if (!msg.hidden) msg.textContent = m.text;
+      // talkback: everything not yet confirmed, newest last
+      const openTalk = (s.talkback || []).filter(k => k.ackAt == null);
+      const tkey = openTalk.map(k => k.id).join();
+      if (talk.dataset.key !== tkey) {
+        const fresh = openTalk.some(k => !seenTalk.has(k.id));
+        openTalk.forEach(k => seenTalk.add(k.id));
+        talk.dataset.key = tkey;
+        talk.hidden = !openTalk.length;
+        if (openTalk.length) {
+          const last = openTalk[openTalk.length - 1];
+          talkText.replaceChildren(...openTalk.slice(-3).reverse().map(k => h('p', null, k.text)));
+          talkMeta.textContent = hm(last.at) + (openTalk.length > 1 ? ' · ' + openTalk.length + ' ' + t('offen') : '');
+          if (fresh && talkInit && navigator.vibrate) { try { navigator.vibrate([80, 60, 80]); } catch { /* ignore */ } }
+        }
+      }
+      talkInit = true;
       const list = s.requests.filter(r => r.from === me).slice(-6).reverse();
       mine.replaceChildren(...(list.length ? list.map(r => h('li', { 'data-ack': r.ack ? 1 : 0 },
-        h('span', null, r.text), h('small', null, hm(r.at) + ' · ' + (r.ack ? t('gesehen') + ' ✓' : t('gesendet'))))) : [h('li', { class: 'muted' }, t('Noch nichts gesendet.'))]));
+        h('span', null, r.text), h('small', null, hm(r.at) + ' · ' + (r.ack ? t('bestätigt') + ' ✓' : t('gesendet'))))) : [h('li', { class: 'muted' }, t('Noch nichts gesendet.'))]));
     }
     const off = tr.subscribe(render);
     render();
@@ -140,11 +169,11 @@
         if (k !== sig) {
           sig = k;
           list.replaceChildren(...(shown.length ? shown.map(c => h('li', { 'data-status': c.status, 'data-cue': c.cue.id },
-            h('span', { class: 'cue-pill num' }), h('b', null, c.cue.text), h('span', null, c.item.title))) : [h('li', { class: 'muted' }, t('Keine offenen Cues.'))]));
+            h('span', { class: 'cue-pill num' }), h('b', null, c.cue.text), h('span', null, c.item.title))) : [h('li', { class: 'muted' }, t('Keine offenen Cues'))]));
         }
         shown.forEach(c => {
           const pill = list.querySelector(`[data-cue="${c.cue.id}"] .cue-pill`);
-          const txt = c.status === 'go' ? 'GO' : c.status === 'ready' ? t('bereit') : c.inMs != null ? E.formatMs(c.inMs) : t('wartet');
+          const txt = c.status === 'go' ? 'GO' : c.status === 'ready' ? t('Auf Abruf') : c.inMs != null ? E.formatMs(c.inMs) : t('wartet');
           if (pill && pill.textContent !== txt) pill.textContent = txt;
         });
       }

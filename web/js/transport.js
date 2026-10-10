@@ -98,6 +98,11 @@
       setName(name) { send({ type: 'setName', name }); },
       /** stage → control room; allowed without control rights */
       request(text, from) { send({ type: 'action', action: { type: 'request.send', text, from } }); },
+      /** presenter confirms talkback; allowed without control rights */
+      talkAck(id) {
+        const a = id ? { type: 'talkback.ack', talkbackId: id } : { type: 'talkback.ack' };
+        if (send({ type: 'action', action: a }) && state && E.apply(state, a, Date.now() + offset)) ev.emit();
+      },
       setPort80(on) { send({ type: 'setPort80', on: Boolean(on) }); },
       onAuth: authEv.on,
       subscribe: ev.on,
@@ -166,6 +171,7 @@
         pushToChildren();
       },
       request(text, from) { this.act({ type: 'request.send', text, from }); },
+      talkAck(id) { this.act(id ? { type: 'talkback.ack', talkbackId: id } : { type: 'talkback.ack' }); },
       auth() {}, setPin() {}, onAuth: () => () => {},
       subscribe: ev.on,
     };

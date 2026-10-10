@@ -38,7 +38,7 @@
     const r = parseRoute();
     document.body.dataset.view = r.view === 'display' ? (r.layout === 'agenda' ? 'agenda' : 'display') : r.view;
     document.documentElement.lang = root.ETUI.lang;
-    if (r.view === 'control') { document.title = 'Event Timer – ' + t('Steuerung'); cleanup = root.ETControl.mount(app, tr); }
+    if (r.view === 'control') { document.title = 'Event Timer – ' + t('Regie'); cleanup = root.ETControl.mount(app, tr); }
     else if (r.view === 'display') cleanup = mountDisplay(r);
     else if (r.view === 'moderation') cleanup = root.ETStage.mountModeration(app, tr, r.params);
     else if (r.view === 'cues') cleanup = root.ETStage.mountCues(app, tr);
@@ -56,7 +56,7 @@
     if (transparent) { document.body.style.background = 'transparent'; document.documentElement.style.background = 'transparent'; document.documentElement.style.colorScheme = 'normal'; }
     const stage = h('div', { class: 'stage' });
     const view = D.create(stage, {});
-    const offline = h('div', { class: 'stage-offline', hidden: true, role: 'status' }, t('Verbindung verloren – Zeit läuft lokal weiter'));
+    const offline = h('div', { class: 'stage-offline', hidden: true, role: 'status' }, t('Verbindung unterbrochen – Zeit läuft weiter'));
     const ui = h('div', { class: 'stage-ui', 'data-idle': '1' });
     if (chrome && document.fullscreenEnabled !== false && document.documentElement.requestFullscreen) {
       ui.appendChild(h('button', { class: 'btn btn-icon', 'aria-label': t('Vollbild'), title: t('Vollbild'), onclick: () => {
@@ -64,7 +64,7 @@
       } }, icon('full')));
     }
     if (standalone && p.get('here') === '1') {
-      ui.appendChild(h('button', { class: 'btn', onclick: () => { location.hash = 'control'; } }, icon('back'), t('Bühnenansicht verlassen')));
+      ui.appendChild(h('button', { class: 'btn', onclick: () => { location.hash = 'control'; } }, icon('back'), t('DSM-Ansicht verlassen')));
     }
     app.replaceChildren(stage, ui, offline);
 
@@ -118,10 +118,12 @@
       const s = tr.state;
       const timers = s ? s.timers : [];
       list.replaceChildren(
-        h('a', { href: '/control' }, h('b', null, t('Steuerung')), h('span', null, t('Start, Pause, Zeit, Nachrichten, Ablauf'))),
-        ...timers.map(x => h('a', { href: '/' + x.id.slice(1) }, h('b', null, x.name), h('span', null, t('Display') + ' · /' + x.id.slice(1)))),
+        h('a', { href: '/control' }, h('b', null, t('Regie')), h('span', null, t('Timer, Einblendungen, Ablaufplan, Cues'))),
+        ...timers.map(x => h('a', { href: '/' + x.id.slice(1) }, h('b', null, x.name), h('span', null, t('DSM') + ' · /' + x.id.slice(1)))),
         h('a', { href: '/agenda' }, h('b', null, t('Ablauf-Display')), h('span', null, 'Backstage · /agenda')),
-        h('a', { href: '/clock' }, h('b', null, t('Uhr')), h('span', null, t('Nur Uhrzeit') + ' · /clock')));
+        h('a', { href: '/clock' }, h('b', null, t('Uhr')), h('span', null, t('Nur Uhrzeit') + ' · /clock')),
+        h('a', { href: '/moderation' }, h('b', null, t('Moderation')), h('span', null, t('Talkback und Meldungen') + ' · /moderation')),
+        h('a', { href: '/cues' }, h('b', null, t('Cue-Display')), h('span', null, '/cues')));
     };
     const off = tr.subscribe(render);
     render();
