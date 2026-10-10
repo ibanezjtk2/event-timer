@@ -326,6 +326,19 @@ dialog.drawer::backdrop { background: rgba(5, 7, 10, .55); }
 .dsp[data-layout="clock"] .dsp-time { font-size: min(9cqw, 18cqh); opacity: .8; }
 .dsp[data-layout="clock"][data-state="idle"] .dsp-main { visibility: hidden; }
 
+/* layout: time – nothing but the wall clock */
+.dsp[data-layout="time"] .dsp-top, .dsp[data-layout="time"] .dsp-bottom, .dsp[data-layout="time"] .dsp-notice,
+.dsp[data-layout="time"] .dsp-msg, .dsp[data-layout="time"] .dsp-progress, .dsp[data-layout="time"] .dsp-sub { display: none; }
+.dsp[data-kind="time"] .dsp-time { color: var(--d-fg); opacity: 1; }
+.dsp[data-layout="time"] { grid-template-rows: minmax(0, 1fr); }
+
+/* overtime: the whole screen pulses (text only when keyed over video) */
+@keyframes dsp-over-bg { 50% { background-color: var(--d-crit); } }
+@keyframes dsp-over-txt { 50% { opacity: .2; } }
+.dsp[data-phase="over"][data-flashover="1"]:not([data-bgstyle="transparent"]):not([data-layout="lower"]) { animation: dsp-over-bg 1s steps(1) infinite; }
+.dsp[data-phase="over"][data-flashover="1"][data-bgstyle="transparent"] .dsp-time,
+.dsp[data-phase="over"][data-flashover="1"][data-layout="lower"] .dsp-time { animation: dsp-over-txt 1s steps(1) infinite; }
+
 /* layout: lower third strip for keying over video */
 .dsp[data-layout="lower"] { grid-template-rows: 1fr auto; background: transparent; }
 .dsp[data-layout="lower"] .dsp-top, .dsp[data-layout="lower"] .dsp-bottom, .dsp[data-layout="lower"] .dsp-notice { display: none; }

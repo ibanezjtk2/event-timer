@@ -63,7 +63,7 @@
     'Ablauf verbinden mit': 'Run of show drives', 'Dauer ändern': 'Change duration',
     'Live-Vorschau': 'Live preview', 'Keine Schnellnachrichten.': 'No quick messages.',
     'Eingebaut': 'Built-in', 'Eigenes': 'Custom', 'Uhrzeit (HH:MM)': 'Time (HH:MM)',
-    'Display öffnen': 'Open display', 'Neues Fenster wurde blockiert – nutze „Bühnenansicht hier“.': 'New window was blocked – use "Stage view here".', 'Start, Pause, Zeit, Nachrichten, Ablauf': 'Start, pause, time, messages, run of show', 'Diese Steuerung': 'This control page', 'Per Rechnername': 'By computer name',
+    'Display öffnen': 'Open display', 'Nur Uhrzeit': 'Clock only', 'Zeigt die Uhrzeit': 'Showing the time of day', 'Blinken beim Überziehen': 'Flash when over time', 'Neues Fenster wurde blockiert – nutze „Bühnenansicht hier“.': 'New window was blocked – use "Stage view here".', 'Start, Pause, Zeit, Nachrichten, Ablauf': 'Start, pause, time, messages, run of show', 'Diese Steuerung': 'This control page', 'Per Rechnername': 'By computer name',
   };
 
   let lang = 'de';

@@ -1,4 +1,4 @@
-# Event Timer 1.0
+# Event Timer 1.1
 
 Countdown, Redezeit und Ablaufplan für Bühne und Regie. Ein einzelnes Programm (unter 1 MB, keine Installation, keine Abhängigkeiten), bedient wird alles im Browser: am Rechner, auf dem Handy oder auf dem iPad.
 
@@ -34,6 +34,7 @@ event-timer [--port 2468] [--host 0.0.0.0] [--data datei.json] [--pin 1234] [--n
 | `/control` | Steuerung |
 | `/timer1` … `/timer8` | Vollbild-Display eines Timers |
 | `/agenda` | Backstage-Display mit Ablaufplan, Abweichung und Ende-Prognose |
+| `/clock` | nur die Uhrzeit, sonst nichts (`?sec=0` ohne Sekunden) |
 | `/display?t=2&layout=clock` | Uhrzeit groß, Timer klein |
 | `/display?t=1&layout=lower&bg=transparent` | Bauchbinde mit transparentem Hintergrund, für vMix/OBS als Browser-Input |
 | `&chrome=0` | blendet Vollbild-Knopf und Verbindungshinweis aus |
@@ -42,7 +43,8 @@ Displays brauchen nie eine PIN, halten den Bildschirm wach (Wake Lock) und synch
 
 ## Funktionen
 
-- **Bis zu 8 Timer**: Countdown, Hochzählen (mit optionalem Limit), bis Uhrzeit („Beginn um 14:30“)
+- **Bis zu 8 Timer**: Countdown, Hochzählen (mit optionalem Limit), bis Uhrzeit („Beginn um 14:30“) oder einfach **Uhrzeit**: Damit schaltest du ein Bühnen-Display in der Pause per Klick auf die Uhr um.
+- **Blinken beim Überziehen**: Der Bildschirm pulsiert rot, sobald die Zeit um ist. Abschaltbar pro Design.
 - **Ablaufplan**: Slots mit Titel, Sprecher*in und Dauer; *Weiter* lädt und startet den nächsten Slot. Zeigt die Abweichung zum Plan, die voraussichtliche Endzeit und mit *Planbeginn* die Uhrzeit jedes Slots. Import per Copy & Paste (`Titel; Sprecher*in; Minuten`, auch direkt aus Excel).
 - **Nachrichten an die Bühne** mit Schnellnachrichten und Blinken
 - **Designs**: 4 eingebaute (Stage, Daylight, Overlay zum Keying, Nur Ziffern) plus eigene, mit Live-Vorschau, frei pro Timer wählbar

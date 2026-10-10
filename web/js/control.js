@@ -43,7 +43,7 @@
     const nameInput = h('input', { class: 'name-input', maxlength: 40, 'aria-label': t('Name') });
     nameInput.addEventListener('change', () => act({ type: 'timer.update', id: sel, patch: { name: nameInput.value } }));
     const kindSeg = h('div', { class: 'seg', role: 'group' });
-    const kinds = [['countdown', 'Countdown'], ['countup', 'Hochzählen'], ['clock', 'Bis Uhrzeit']];
+    const kinds = [['countdown', 'Countdown'], ['countup', 'Hochzählen'], ['clock', 'Bis Uhrzeit'], ['time', 'Uhrzeit']];
     kinds.forEach(([k, label]) => kindSeg.appendChild(h('button', {
       'data-kind': k, 'aria-pressed': 'false',
       onclick: () => {
@@ -365,9 +365,10 @@
       const shownKind = kindForced || tm.kind;
       kindSeg.querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.kind === shownKind)));
       removeBtn.hidden = s.timers.length <= 1;
-      durSection.hidden = shownKind === 'clock';
+      durSection.hidden = shownKind === 'clock' || shownKind === 'time';
       targetSection.hidden = shownKind !== 'clock';
-      nudges.hidden = shownKind === 'clock';
+      nudges.hidden = shownKind === 'clock' || shownKind === 'time';
+      transport.hidden = shownKind === 'time';
       durSection.querySelector('[data-dur-title]').textContent = shownKind === 'countup' ? t('Optionales Limit') : t('Dauer');
       chips.querySelectorAll('.chip').forEach(c => c.setAttribute('aria-pressed', String(Number(c.dataset.ms) === tm.durationMs)));
       if (tm.kind === 'clock' && tm.targetLabel && !focused(targetInput)) targetInput.value = tm.targetLabel;
@@ -460,7 +461,7 @@
           if (!tv) continue;
           tv.view.update({ state: s, timer: tm, now, i18n: t });
           const v = E.timerView(tm, now);
-          const tally = v.state === 'running' || (tm.kind === 'clock' && v.state !== 'idle') ? (v.phase === 'normal' ? 'go' : v.phase === 'warn' ? 'warn' : 'stop') : v.state === 'finished' ? 'stop' : '';
+          const tally = tm.kind === 'time' ? '' : v.state === 'running' || (tm.kind === 'clock' && v.state !== 'idle') ? (v.phase === 'normal' ? 'go' : v.phase === 'warn' ? 'warn' : 'stop') : v.state === 'finished' ? 'stop' : '';
           if (tv.tile.dataset.tally !== tally) tv.tile.dataset.tally = tally;
           const badge = v.state === 'paused' ? t('Pausiert') : (tm.message.visible ? '✉' : '');
           tv.badge.hidden = !badge;
@@ -469,13 +470,14 @@
         const tm = timer();
         if (tm) {
           const v = E.timerView(tm, now);
-          const txt = E.formatMs(v.ms, { up: tm.kind === 'countup' });
+          const isTime = tm.kind === 'time';
+          const txt = isTime ? D.clockText(now, true) : E.formatMs(v.ms, { up: tm.kind === 'countup' });
           if (readTime.textContent !== txt) readTime.textContent = txt;
           readout.dataset.phase = v.phase;
           readout.dataset.state = v.state;
-          const st = stateLabel(v) + (v.over && v.state !== 'finished' ? ' · ' + t('Überzogen') : '');
+          const st = isTime ? t('Zeigt die Uhrzeit') : stateLabel(v) + (v.over && v.state !== 'finished' ? ' · ' + t('Überzogen') : '');
           if (readState.firstChild.textContent !== st) readState.firstChild.textContent = st;
-          const sub = tm.kind === 'clock' ? (tm.targetLabel ? t('bis') + ' ' + tm.targetLabel : '') : (tm.durationMs ? t('von') + ' ' + E.formatMs(tm.durationMs) : '');
+          const sub = isTime ? '' : tm.kind === 'clock' ? (tm.targetLabel ? t('bis') + ' ' + tm.targetLabel : '') : (tm.durationMs ? t('von') + ' ' + E.formatMs(tm.durationMs) : '');
           if (readState.lastChild.textContent !== sub) readState.lastChild.textContent = sub;
           readBar.style.width = (v.progress * 100).toFixed(2) + '%';
           const running = tm.running;
@@ -562,13 +564,14 @@
         out.push(linkLine(viewUrl('control')));
         s.timers.forEach(x => out.push(linkLine(displayUrl(x.id))));
         out.push(linkLine(viewUrl('agenda')));
+        out.push(linkLine(viewUrl('clock')));
         const m = tr.meta || {};
         if (m.hostname) out.push(h('p', { class: 'help' }, t('Per Rechnername') + ': ', h('b', null, `http://${m.hostname}:${m.port}/control`)));
         out.push(h('p', { class: 'help' }, t('Klappt der Link nicht? Beim ersten Start fragt Windows nach der Firewall – „Private Netzwerke“ erlauben.')));
       }
       // display link builder
       const layoutSel = h('select', { class: 'input' },
-        [['full', 'Vollbild-Timer'], ['clock', 'Uhrzeit groß'], ['lower', 'Bauchbinde (Keying)'], ['agenda', 'Ablauf (Backstage)']].map(([v, l]) => h('option', { value: v }, t(l))));
+        [['full', 'Vollbild-Timer'], ['time', 'Nur Uhrzeit'], ['clock', 'Uhrzeit groß'], ['lower', 'Bauchbinde (Keying)'], ['agenda', 'Ablauf (Backstage)']].map(([v, l]) => h('option', { value: v }, t(l))));
       const timerSel = h('select', { class: 'input' }, s.timers.map(x => h('option', { value: x.id.slice(1) }, x.name)));
       timerSel.value = sel.slice(1);
       const transp = h('input', { type: 'checkbox' });
@@ -675,7 +678,7 @@
           selField('bgStyle', 'Fläche', [['solid', 'Einfarbig'], ['glow', 'Leuchten'], ['transparent', 'Transparent']])),
         h('div', { class: 'grid2' },
           boolField('showProgress', 'Fortschrittsbalken'), boolField('showClock', 'Uhrzeit'), boolField('showTitle', 'Titel und Sprecher*in'),
-          boolField('showNext', 'Nächster Slot anzeigen'), boolField('showNotice', 'Hinweise')),
+          boolField('showNext', 'Nächster Slot anzeigen'), boolField('showNotice', 'Hinweise'), boolField('flashOver', 'Blinken beim Überziehen')),
         h('div', { class: 'grid2' }, textField('warnText', 'Text bei Warnung'), textField('expiredText', 'Text bei Ablauf'), textField('overText', 'Text beim Überziehen')),
         actions,
       ];
