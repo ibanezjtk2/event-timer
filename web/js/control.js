@@ -245,7 +245,96 @@
         h('button', { class: 'btn btn-quiet', onclick: () => copy(exportText()) }, t('Als Text kopieren')),
         armed(h('button', { class: 'btn btn-quiet' }, t('Ablauf zurücksetzen')), () => act({ type: 'agenda.reset' }))));
 
-    const desk = h('main', { class: 'desk' }, h('div', null, timerPanel), h('div', null, rosPanel));
+    // ------------------------------------------------------- cue bar
+    const cueList = h('ol', { class: 'cue-list' });
+    const cueCount = h('span', { class: 'help' });
+    const cuePanel = h('section', { class: 'panel cue-panel', 'aria-label': t('Cues'), hidden: true },
+      h('div', { class: 'panel-head' }, h('h2', null, t('Cues')), cueCount, h('div', { class: 'spacer' }),
+        h('button', { class: 'btn btn-quiet', onclick: () => openUrl(tr.mode === 'standalone' ? viewUrl('cues') : baseUrl() + '/cues') }, icon('open'), t('Cue-Display'))),
+      cueList);
+    const goCue = c => act({ type: 'cue.done', itemId: c.item.id, cueId: c.cue.id });
+    function cueWhen(c) {
+      const m = minutesLabel(Math.abs(c.offsetMs));
+      if (c.ref === 'end') return c.offsetMs < 0 ? m + ' ' + t('Min. vor Ende') : t('bei Ende');
+      return c.offsetMs < 0 ? m + ' ' + t('Min. vor Start') : c.offsetMs > 0 ? m + ' ' + t('Min. nach Start') : t('bei Start');
+    }
+    let cueSig = '';
+    let cueShown = [];
+    function tickCues(s, now) {
+      const all = E.cueView(s, now);
+      cuePanel.hidden = !all.length;
+      if (!all.length) return;
+      const active = all.filter(c => c.status === 'go' || c.status === 'standby' || c.status === 'ready');
+      const later = all.filter(c => c.status === 'later').slice(0, Math.max(0, 5 - active.length));
+      cueShown = active.concat(later);
+      const sig = cueShown.map(c => c.cue.id + c.status + c.cue.text + c.cue.offsetMs + c.cue.ref).join('|') + root.ETUI.lang;
+      if (sig !== cueSig) {
+        cueSig = sig;
+        const rows = cueShown.map(c => h('li', { class: 'cue-row', 'data-status': c.status, 'data-cue': c.cue.id },
+          h('span', { class: 'cue-pill num' }),
+          h('span', { class: 'cue-what' }, h('b', null, c.cue.text), h('span', null, c.item.title), h('small', null, cueWhen(c.cue))),
+          h('button', { class: 'btn ' + (c.status === 'go' ? 'btn-go' : ''), title: 'C', onclick: () => goCue(c) }, t('Go'))));
+        cueList.replaceChildren(...(rows.length ? rows : [h('li', { class: 'cue-empty' }, t('Keine offenen Cues.'))]));
+      }
+      const open = all.filter(c => c.status !== 'done' && c.status !== 'missed').length;
+      const ct = open + ' ' + t('offen');
+      if (cueCount.textContent !== ct) cueCount.textContent = ct;
+      cueShown.forEach(c => {
+        const pill = cueList.querySelector(`[data-cue="${c.cue.id}"] .cue-pill`);
+        if (!pill) return;
+        const txt = c.status === 'go' ? 'GO' : c.status === 'ready' ? t('bereit') : c.inMs != null ? E.formatMs(c.inMs) : t('wartet');
+        if (pill.textContent !== txt) pill.textContent = txt;
+      });
+    }
+
+    // ------------------------------------------- messages from the stage
+    const reqBox = h('div', { class: 'req-box', 'aria-live': 'assertive' });
+    const seenReq = new Set();
+    let reqInit = false;
+    let actx = null;
+    const soundOn = () => store.get('et-req-sound') !== '0';
+    const unlockAudio = () => {
+      try {
+        actx = actx || new (window.AudioContext || window.webkitAudioContext)();
+        if (actx.state === 'suspended') actx.resume();
+      } catch { /* no audio */ }
+    };
+    document.addEventListener('pointerdown', unlockAudio);
+    function beep() {
+      if (!actx) return;
+      try {
+        const t0 = actx.currentTime;
+        [[0, 880], [0.2, 660]].forEach(([d, f]) => {
+          const o = actx.createOscillator(), g = actx.createGain();
+          o.frequency.value = f;
+          g.gain.setValueAtTime(0.0001, t0 + d);
+          g.gain.exponentialRampToValueAtTime(0.25, t0 + d + 0.02);
+          g.gain.exponentialRampToValueAtTime(0.0001, t0 + d + 0.18);
+          o.connect(g).connect(actx.destination);
+          o.start(t0 + d);
+          o.stop(t0 + d + 0.2);
+        });
+      } catch { /* no audio */ }
+    }
+    function syncRequests(s) {
+      const open = s.requests.filter(r => !r.ack);
+      const key = open.map(r => r.id).join() + root.ETUI.lang;
+      if (reqBox.dataset.key !== key) {
+        reqBox.dataset.key = key;
+        const items = open.slice(-4).reverse().map(r => h('div', { class: 'req', role: 'alert' }, icon('bell'),
+          h('div', { class: 'req-text' }, h('b', null, r.text), h('span', null, r.from + ', ' + hhmm(r.at))),
+          h('button', { class: 'btn', onclick: () => act({ type: 'request.ack', requestId: r.id }) }, t('Gesehen'))));
+        if (open.length > 1) items.push(h('button', { class: 'btn btn-quiet', onclick: () => act({ type: 'request.ackAll' }) }, t('Alle gesehen')));
+        reqBox.replaceChildren(...items);
+      }
+      const fresh = open.filter(r => !seenReq.has(r.id));
+      open.forEach(r => seenReq.add(r.id));
+      if (reqInit && fresh.length && soundOn()) beep();
+      reqInit = true;
+      document.title = (open.length ? `(${open.length}) ` : '') + 'Event Timer – ' + t('Steuerung');
+    }
+
+    const desk = h('main', { class: 'desk' }, h('div', null, timerPanel), h('div', null, cuePanel, rosPanel));
 
     // gate (PIN)
     const pinInput = h('input', { class: 'input', type: 'password', inputmode: 'numeric', autocomplete: 'off', 'aria-label': t('PIN eingeben') });
@@ -268,7 +357,7 @@
       tabs, drawerBody);
     drawer.addEventListener('click', e => { if (e.target === drawer) drawer.close(); });
 
-    app.replaceChildren(topbar, banner, mv, desk, gate, drawer);
+    app.replaceChildren(topbar, banner, reqBox, mv, desk, gate, drawer);
 
     // ------------------------------------------------------- helpers
     function baseUrl() {
@@ -394,7 +483,8 @@
         ros.appendChild(h('li', { class: 'ros-row', 'data-status': status, 'data-item': it.id },
           clock && status === 'live' ? h('i', { class: 'ros-bar' }) : null,
           h('span', { class: 'ros-when' }, when, clock && row.end != null ? h('small', null, hhmm(row.end)) : null),
-          h('span', { class: 'ros-what' }, h('b', null, it.title || '—'), it.speaker ? h('span', null, it.speaker) : null),
+          h('span', { class: 'ros-what' }, h('b', null, it.title || '—'), it.speaker ? h('span', null, it.speaker) : null,
+            it.cues && it.cues.length ? h('span', { class: 'ros-cues' }, it.cues.length + ' ' + t(it.cues.length === 1 ? 'Cue' : 'Cues')) : null),
           h('span', { class: 'ros-dur' }, E.formatMs(it.durationMs), sub),
           h('span', { class: 'ros-actions' },
             clock ? null : h('button', { class: 'btn btn-quiet', title: t('Laden'), 'aria-label': t('Laden') + ': ' + it.title, onclick: () => act({ type: 'agenda.go', index: i }) }, icon('go')),
@@ -404,28 +494,59 @@
       });
     }
 
+    // typed but unsaved values survive list re-renders (e.g. while adding cues)
+    let editDraft = null;
+    const WHEN = [['start0', 'bei Start'], ['startB', 'vor Start'], ['startA', 'nach Start'], ['endB', 'vor Ende'], ['end0', 'bei Ende']];
+    function cueEditRow(it, c) {
+      const mode = c.ref === 'end' ? (c.offsetMs < 0 ? 'endB' : 'end0') : c.offsetMs < 0 ? 'startB' : c.offsetMs > 0 ? 'startA' : 'start0';
+      const tx = h('input', { class: 'input', value: c.text, maxlength: 80, 'aria-label': t('Cue') });
+      tx.addEventListener('change', () => act({ type: 'cue.update', itemId: it.id, cueId: c.id, patch: { text: tx.value } }));
+      const sel = h('select', { class: 'input', 'aria-label': t('Wann') }, WHEN.map(([v, l]) => h('option', { value: v }, t(l))));
+      sel.value = mode;
+      const mi = h('input', { class: 'input num', value: minutesLabel(Math.abs(c.offsetMs)), inputmode: 'decimal', 'aria-label': t('Minuten') });
+      mi.hidden = mode === 'start0' || mode === 'end0';
+      const push = () => {
+        const v = sel.value;
+        const ms = E.parseDuration(mi.value) || 0;
+        const sign = v.endsWith('B') ? -1 : v.endsWith('A') ? 1 : 0;
+        act({ type: 'cue.update', itemId: it.id, cueId: c.id, patch: { ref: v.startsWith('end') ? 'end' : 'start', offsetMs: sign * (ms || (sign ? MIN : 0)) } });
+      };
+      sel.addEventListener('change', push);
+      mi.addEventListener('change', push);
+      return h('div', { class: 'cue-edit-row' }, tx, sel, mi,
+        h('button', { class: 'btn btn-quiet btn-icon', 'aria-label': t('Entfernen'), onclick: () => act({ type: 'cue.remove', itemId: it.id, cueId: c.id }) }, icon('trash')));
+    }
+
     function editRow(it) {
-      const ti = h('input', { class: 'input', value: it.title, maxlength: 80, 'aria-label': t('Titel') });
-      const sp = h('input', { class: 'input', value: it.speaker, maxlength: 80, placeholder: t('Sprecher*in'), 'aria-label': t('Sprecher*in') });
-      const du = h('input', { class: 'input num', value: minutesLabel(it.durationMs), inputmode: 'decimal', 'aria-label': t('Dauer') });
-      const fr = h('input', { class: 'input num', type: 'time', value: it.start || '', 'aria-label': t('Von') });
-      const to = h('input', { class: 'input num', type: 'time', value: it.end || '', 'aria-label': t('Bis') });
+      if (!editDraft || editDraft.id !== it.id) editDraft = { id: it.id, title: it.title, speaker: it.speaker, dur: minutesLabel(it.durationMs), start: it.start || '', end: it.end || '' };
+      const dr = editDraft;
+      const ti = h('input', { class: 'input', value: dr.title, maxlength: 80, 'aria-label': t('Titel') });
+      const sp = h('input', { class: 'input', value: dr.speaker, maxlength: 80, placeholder: t('Sprecher*in'), 'aria-label': t('Sprecher*in') });
+      const du = h('input', { class: 'input num', value: dr.dur, inputmode: 'decimal', 'aria-label': t('Dauer') });
+      const fr = h('input', { class: 'input num', type: 'time', value: dr.start, 'aria-label': t('Von') });
+      const to = h('input', { class: 'input num', type: 'time', value: dr.end, 'aria-label': t('Bis') });
+      [[ti, 'title'], [sp, 'speaker'], [du, 'dur'], [fr, 'start'], [to, 'end']].forEach(([el, k]) => el.addEventListener('input', () => { dr[k] = el.value; }));
+      const cueEd = h('div', { class: 'cue-edit' },
+        h('span', { class: 'help' }, t('Cues für die Regie')),
+        ...(it.cues || []).map(c => cueEditRow(it, c)),
+        h('div', { class: 'row' }, h('button', { class: 'btn btn-quiet', onclick: () => act({ type: 'cue.add', itemId: it.id, text: t('Neuer Cue'), ref: 'start', offsetMs: 0 }) }, icon('plus'), t('Cue hinzufügen'))));
       const save = () => {
         const ms = E.parseDuration(du.value);
         act({ type: 'agenda.update', itemId: it.id, patch: { title: ti.value, speaker: sp.value, start: fr.value, end: to.value, durationMs: ms == null ? it.durationMs : ms } });
-        editingItem = null; buildAgenda();
+        editingItem = null; editDraft = null; buildAgenda();
       };
-      [ti, sp, du, fr, to].forEach(x => x.addEventListener('keydown', e => { if (e.key === 'Enter') save(); if (e.key === 'Escape') { editingItem = null; buildAgenda(); } }));
+      [ti, sp, du, fr, to].forEach(x => x.addEventListener('keydown', e => { if (e.key === 'Enter') save(); if (e.key === 'Escape') { editingItem = null; editDraft = null; buildAgenda(); } }));
       setTimeout(() => ti.focus(), 0);
       return h('li', { class: 'ros-edit' }, ti, sp,
         h('div', { class: 'ros-edit-times' },
           h('label', { class: 'field' }, h('span', null, t('Von')), fr),
           h('label', { class: 'field' }, h('span', null, t('Bis')), to),
           h('label', { class: 'field' }, h('span', null, t('oder Dauer (Min.)')), du)),
+        cueEd,
         h('div', { class: 'row' },
-          armed(h('button', { class: 'btn btn-quiet' }, icon('trash'), t('Entfernen')), () => { editingItem = null; act({ type: 'agenda.remove', itemId: it.id }); }),
+          armed(h('button', { class: 'btn btn-quiet' }, icon('trash'), t('Entfernen')), () => { editingItem = null; editDraft = null; act({ type: 'agenda.remove', itemId: it.id }); }),
           h('span', { style: { flex: 1 } }),
-          h('button', { class: 'btn btn-quiet', onclick: () => { editingItem = null; buildAgenda(); } }, t('Abbrechen')),
+          h('button', { class: 'btn btn-quiet', onclick: () => { editingItem = null; editDraft = null; buildAgenda(); } }, t('Abbrechen')),
           h('button', { class: 'btn btn-go', onclick: save }, t('Speichern'))));
     }
 
@@ -526,6 +647,7 @@
       desk.inert = locked;
       mv.inert = false;
 
+      syncRequests(s);
       buildTiles();
       syncPanel();
       buildAgenda();
@@ -538,6 +660,7 @@
       const s = S();
       if (s) {
         const now = tr.now();
+        tickCues(s, now);
         for (const tm of s.timers) {
           const tv = tileViews.get(tm.id);
           if (!tv) continue;
@@ -733,12 +856,14 @@
         out.push(h('div', { class: 'qr-grid' },
           qrCard(t('Steuerung'), viewUrl('control')),
           qrCard(timer().name, displayUrl(sel)),
-          qrCard(t('Ablauf-Display'), viewUrl('agenda'))));
+          qrCard(t('Moderation'), baseUrl() + '/moderation')));
         out.push(linkLine(viewUrl('control')));
         s.timers.forEach(x => out.push(linkLine(displayUrl(x.id))));
         out.push(linkLine(viewUrl('agenda')));
         out.push(linkLine(baseUrl() + '/uhr'));
         out.push(linkLine(baseUrl() + '/plan'));
+        out.push(linkLine(baseUrl() + '/moderation'));
+        out.push(linkLine(baseUrl() + '/cues'));
         const m = tr.meta || {};
         if (m.hostname) out.push(h('p', { class: 'help' }, t('Per Rechnername') + ': ', h('b', null, `http://${m.hostname}:${m.port}/control`)));
         out.push(h('p', { class: 'help' }, t('Klappt der Link nicht? Beim ersten Start fragt Windows nach der Firewall – „Private Netzwerke“ erlauben.')));
@@ -860,11 +985,15 @@
 
     function tabMessages() {
       const s = S();
-      const ta = h('textarea', { class: 'input', rows: 8 }, s.quickMessages.join('\n'));
+      const ta = h('textarea', { class: 'input', rows: 7 }, s.quickMessages.join('\n'));
+      const st = h('textarea', { class: 'input', rows: 7 }, (s.stageQuick || []).join('\n'));
       return [
-        h('label', { class: 'field' }, h('span', null, t('Schnellnachrichten')), ta),
-        h('p', { class: 'help' }, t('Eine pro Zeile, höchstens 12.')),
-        h('div', { class: 'row' }, h('button', { class: 'btn btn-go', onclick: () => { act({ type: 'quick.set', list: ta.value.split(/\r?\n/) }); toast(t('Speichern')); } }, t('Speichern'))),
+        h('label', { class: 'field' }, h('span', null, t('Schnellnachrichten an die Bühne')), ta),
+        h('div', { class: 'row' }, h('button', { class: 'btn btn-go', onclick: () => { act({ type: 'quick.set', list: ta.value.split(/\r?\n/) }); toast(t('Gespeichert')); } }, t('Speichern'))),
+        h('div', { class: 'section' },
+          h('label', { class: 'field' }, h('span', null, t('Knöpfe auf /moderation (Bühne → Regie)')), st),
+          h('p', { class: 'help', style: { margin: '6px 0 8px' } }, t('Eine pro Zeile, höchstens 12.')),
+          h('div', { class: 'row' }, h('button', { class: 'btn btn-go', onclick: () => { act({ type: 'stage.quickSet', list: st.value.split(/\r?\n/) }); toast(t('Gespeichert')); } }, t('Speichern')))),
       ];
     }
 
@@ -910,9 +1039,13 @@
       langSel.value = root.ETUI.lang;
       langSel.addEventListener('change', () => { root.ETUI.setLang(langSel.value); location.reload(); });
       const m = tr.meta || {};
-      const keys = [['Leertaste', 'Start/Pause'], ['R', 'Zurücksetzen'], ['↑ / ↓', '±1:00'], ['← / →', '±0:10'], ['G', 'Nächster Slot im Ablauf'], ['B', 'Blackout'], ['1 … 8', 'Timer wählen']];
+      const snd = h('input', { type: 'checkbox' });
+      snd.checked = soundOn();
+      snd.addEventListener('change', () => { store.set('et-req-sound', snd.checked ? '1' : '0'); if (snd.checked) { unlockAudio(); beep(); } });
+      const keys = [['Leertaste', 'Start/Pause'], ['R', 'Zurücksetzen'], ['↑ / ↓', '±1:00'], ['← / →', '±0:10'], ['G', 'Nächster Slot im Ablauf'], ['C', 'Nächsten Cue auslösen'], ['B', 'Blackout'], ['1 … 8', 'Timer wählen']];
       const out = [
         h('label', { class: 'field' }, h('span', null, t('Sprache')), langSel),
+        h('label', { class: 'switch' }, snd, t('Ton bei Meldungen von der Bühne')),
         h('div', null, h('h3', { class: 'section-title' }, t('Tastenkürzel')),
           h('div', { class: 'grid2' }, keys.map(([k, v]) => h('div', null, h('b', { class: 'num' }, t(k)), ' ', h('span', { class: 'muted' }, t(v)))))),
         h('p', { class: 'help' }, t('Version') + ' ' + (m.version || root.ET_VERSION || '1.0.0') + (m.dataPath ? ' · ' + t('Speicherort') + ': ' + m.dataPath : tr.mode === 'standalone' ? ' · ' + t('Speichert in diesem Browser.') : '')),
@@ -939,6 +1072,7 @@
       else if (k === 'ArrowLeft') act({ type: 'timer.adjust', id: sel, ms: -10000 });
       else if (k === 'g' || k === 'G') act({ type: 'agenda.next' });
       else if (k === 'b' || k === 'B') act({ type: 'blackout.toggle' });
+      else if (k === 'c' || k === 'C') { const c = cueShown.find(x => x.status === 'go' || x.status === 'standby' || x.status === 'ready'); if (c) goCue(c); }
       else if (/^[1-8]$/.test(k)) { const tm = S().timers[Number(k) - 1]; if (tm) select(tm.id); }
     };
     document.addEventListener('keydown', onKey);
@@ -948,7 +1082,7 @@
     let alive = true;
     const loop = () => { if (!alive) return; tick(); requestAnimationFrame(loop); };
     requestAnimationFrame(loop);
-    return () => { alive = false; unsubscribe(); document.removeEventListener('keydown', onKey); if (drawer.open) drawer.close(); };
+    return () => { alive = false; unsubscribe(); document.removeEventListener('keydown', onKey); document.removeEventListener('pointerdown', unlockAudio); if (drawer.open) drawer.close(); };
   }
 
   root.ETControl = { mount };

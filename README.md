@@ -49,6 +49,8 @@ event-timer.local/1               # dasselbe, wenn „Ohne Portnummer (Port 80)�
 | `/1` … `/8` (auch `/timer1`) | Vollbild-Display eines Timers |
 | `/agenda` | Backstage-Display mit Ablaufplan, Abweichung und Ende-Prognose |
 | `/plan` | Zeitplan für die Moderation: laufender Punkt mit Restzeit und Balken, ganzer Tagesablauf daneben |
+| `/moderation` | Handy der Moderation: Restzeit plus Knöpfe, die Meldungen an die Regie schicken (ohne PIN) |
+| `/cues` | Cue-Liste groß für weitere Operatoren (Licht, Video, Ton) |
 | `/uhr` (auch `/clock`) | nur die Uhrzeit, sonst nichts (`?sec=0` ohne Sekunden) |
 | `/display?t=2&layout=clock` | Uhrzeit groß, Timer klein |
 | `/display?t=1&layout=lower&bg=transparent` | Bauchbinde mit transparentem Hintergrund, für vMix/OBS als Browser-Input |
@@ -84,6 +86,24 @@ Im Ablaufplan oben rechts **„Nach Uhrzeit“** wählen. Dann läuft der Ablauf
   - **Anpassungen zurücksetzen:** zurück zum Originalplan
 - Der Import versteht Uhrzeiten: `13:00-15:00; Workshop A; Anna Schmidt`
 
+## Cues für die Regie
+
+Jeder Programmpunkt kann technische Cues haben, z. B. „Einspieler starten“ oder „Panel-Mikros auf“. Du legst sie im Ablaufplan über den Stift an der Zeile an.
+
+- **Wann:** bei Start, x Min. vor oder nach dem Start, x Min. vor dem Ende oder bei Ende.
+- **Cue-Leiste** in der Steuerung: 60 Sekunden vorher steht der Cue gelb auf *Standby*, zum Zeitpunkt rot blinkend auf **GO**, bis du **Go** drückst (oder die Taste **C**).
+- Nach Uhrzeit laufen die Cues vollautomatisch mit. Im Modus „Per Knopf“ zählen sie ab dem Moment, in dem der Punkt startet.
+- **`/cues`** zeigt die Liste groß, z. B. am Lichtpult.
+
+## Rückkanal Bühne → Regie
+
+Die Moderation öffnet **`/moderation`** auf dem Handy. Sie sieht die eigene Restzeit und den nächsten Punkt und hat große Knöpfe wie „Brauche 2 Minuten mehr“ oder „Mikrofon-Problem“, dazu ein Freitextfeld.
+
+- In der Steuerung erscheint die Meldung als rot pulsierendes Banner mit Ton, der Tab-Titel zeigt die Anzahl.
+- **Gesehen** quittiert die Meldung. Auf dem Handy steht dann „gesehen ✓“.
+- Es braucht **keine PIN**, aber pro Gerät höchstens eine Meldung alle 1,5 Sekunden.
+- Knöpfe anpassen unter *Einstellungen → Nachrichten*, Ton abschalten unter *Mehr*.
+
 ## Bitfocus Companion
 
 Modul **Generic HTTP**, GET-Requests (bei gesetzter PIN `?pin=…` anhängen):
@@ -96,7 +116,8 @@ Modul **Generic HTTP**, GET-Requests (bei gesetzter PIN `?pin=…` anhängen):
 /api/companion/timer1/{clear-message|flash}
 /api/companion/agenda/{next|prev|reset}   /api/companion/agenda/go/3
 /api/companion/blackout/{on|off|toggle}
-/api/companion/status                 → JSON inkl. timers[].display ("04:59"), phase, agenda.current, agenda.drift
+/api/companion/status                 → JSON inkl. timers[].display ("04:59"), phase, agenda.current, agenda.drift,
+                                        openRequests, lastRequest (Meldungen von der Bühne)
 ```
 
 Die Pfade aus v0.12 funktionieren weiter. Neu sind Timer 7–8, Ablauf, Blackout und Flash. Wichtig ist nur der neue Port.

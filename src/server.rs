@@ -19,6 +19,8 @@ pub struct Client {
     role: Mutex<String>,
     authed: AtomicBool,
     loopback: bool,
+    /// last stage request (rate limit for devices without control rights)
+    last_request: AtomicU64,
 }
 
 pub struct NetInfo {
@@ -328,6 +330,7 @@ fn ws_session(
         role: Mutex::new(String::from("unknown")),
         authed: AtomicBool::new(false),
         loopback,
+        last_request: AtomicU64::new(0),
     });
     lock(&app.clients).push(client.clone());
     app.send_state_to(&client);
@@ -382,6 +385,24 @@ fn handle_ws_message(app: &Arc<App>, c: &Client, text: &str) {
             app.send_state_to(c);
         }
         "action" => {
+            // the stage may always talk to the control room – even without the PIN –
+            // but only one message per 1.5 s per device
+            if msg.get("action").get("type").as_str() == Some("request.send") {
+                let now = now_ms() as u64;
+                if now.saturating_sub(c.last_request.load(Ordering::SeqCst)) < 1500 {
+                    send(
+                        c,
+                        &Json::obj()
+                            .with("type", "error")
+                            .with("code", "slow")
+                            .to_string(),
+                    );
+                    return;
+                }
+                c.last_request.store(now, Ordering::SeqCst);
+                app.act(msg.get("action"));
+                return;
+            }
             if !app.can_control(c) {
                 send(
                     c,
@@ -455,7 +476,15 @@ fn http_authorized(app: &App, req: &Request, loopback: bool) -> bool {
 fn is_app_route(path: &str) -> bool {
     matches!(
         path,
-        "/" | "/control" | "/display" | "/agenda" | "/plan" | "/clock" | "/uhr" | "/index.html"
+        "/" | "/control"
+            | "/display"
+            | "/agenda"
+            | "/plan"
+            | "/moderation"
+            | "/cues"
+            | "/clock"
+            | "/uhr"
+            | "/index.html"
     ) || (path.len() == 2 && (b'1'..=b'8').contains(&path.as_bytes()[1]))
         || (path.len() >= 7
             && (path.starts_with("/timer") || path.starts_with("/timer-"))
@@ -610,6 +639,18 @@ fn companion(app: &App, req: &Request) -> Response {
             .with("app", APP_ID)
             .with("version", VERSION)
             .with("blackout", st.blackout)
+            .with(
+                "openRequests",
+                st.requests.iter().filter(|r| !r.ack).count(),
+            )
+            .with(
+                "lastRequest",
+                st.requests
+                    .iter()
+                    .rev()
+                    .find(|r| !r.ack)
+                    .map(|r| format!("{}: {}", r.from, r.text)),
+            )
             .with(
                 "timers",
                 Json::Arr(st.timers.iter().map(|t| timer_snapshot(t, now)).collect()),

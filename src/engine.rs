@@ -23,6 +23,14 @@ const BOOL_KEYS: [&str; 6] = [
     "flashOver",
 ];
 const TEXT_KEYS: [&str; 3] = ["warnText", "expiredText", "overText"];
+const DEFAULT_STAGE: [&str; 6] = [
+    "Brauche 2 Minuten mehr",
+    "Mikrofon-Problem",
+    "Frage aus dem Saal",
+    "Technik bitte kommen",
+    "Bitte Pause einlegen",
+    "Alles okay",
+];
 const DEFAULT_QUICK: [&str; 5] = [
     "Bitte zum Ende kommen",
     "Lauter sprechen",
@@ -122,8 +130,29 @@ pub struct Item {
     /// live corrections: this slot longer/shorter, and how much later everything after it runs
     pub extra_ms: i64,
     pub ripple_ms: i64,
+    pub cues: Vec<Cue>,
     pub started_at: Option<i64>,
     pub ended_at: Option<i64>,
+}
+
+/// Technical cue for the control room, relative to a slot's start or end.
+#[derive(Clone, Debug)]
+pub struct Cue {
+    pub id: String,
+    pub text: String,
+    pub at_end: bool,
+    pub offset_ms: i64,
+    pub done: bool,
+}
+
+/// Message from the stage to the control room.
+#[derive(Clone, Debug)]
+pub struct Request {
+    pub id: String,
+    pub text: String,
+    pub from: String,
+    pub at: i64,
+    pub ack: bool,
 }
 
 #[derive(Clone, Debug)]
@@ -149,6 +178,8 @@ pub struct State {
     pub timers: Vec<Timer>,
     pub presets: Vec<Preset>,
     pub quick_messages: Vec<String>,
+    pub stage_quick: Vec<String>,
+    pub requests: Vec<Request>,
     pub agenda: Agenda,
 }
 
@@ -264,6 +295,8 @@ impl Default for State {
             timers: vec![new_timer(1)],
             presets: builtin_presets(),
             quick_messages: DEFAULT_QUICK.iter().map(|s| s.to_string()).collect(),
+            stage_quick: DEFAULT_STAGE.iter().map(|s| s.to_string()).collect(),
+            requests: Vec::new(),
             agenda: Agenda {
                 timer_id: "t1".into(),
                 planned_start: String::new(),
@@ -715,6 +748,7 @@ fn sanitize_item(s: &mut State, it: &Json) -> Item {
         end: hhmm(it.get("end")),
         extra_ms: 0,
         ripple_ms: 0,
+        cues: Vec::new(),
         started_at: None,
         ended_at: None,
     };
@@ -978,6 +1012,128 @@ fn apply_inner(s: &mut State, kind: &str, a: &Json, now: i64) -> bool {
             s.quick_messages = list
                 .iter()
                 .map(|x| text(x, 80))
+                .filter(|x| !x.is_empty())
+                .take(12)
+                .collect();
+            true
+        }
+        "cue.add" => {
+            let iid = a.get("itemId").as_str().unwrap_or("");
+            let Some(ii) = s.agenda.items.iter().position(|x| x.id == iid) else {
+                return false;
+            };
+            if s.agenda.items[ii].cues.len() >= 20 {
+                return false;
+            }
+            s.seq += 1;
+            let t = text(a.get("text"), 80);
+            let cue = Cue {
+                id: format!("c{}", s.seq),
+                text: if t.is_empty() { "Cue".into() } else { t },
+                at_end: a.get("ref").as_str() == Some("end"),
+                offset_ms: num(a.get("offsetMs"), -DAY, DAY, Some(0)).unwrap_or(0),
+                done: false,
+            };
+            s.agenda.items[ii].cues.push(cue);
+            true
+        }
+        "cue.update" | "cue.remove" | "cue.done" => {
+            let iid = a.get("itemId").as_str().unwrap_or("");
+            let cid = a.get("cueId").as_str().unwrap_or("");
+            let Some(it) = s.agenda.items.iter_mut().find(|x| x.id == iid) else {
+                return false;
+            };
+            let Some(ci) = it.cues.iter().position(|x| x.id == cid) else {
+                return false;
+            };
+            match kind {
+                "cue.remove" => {
+                    it.cues.remove(ci);
+                }
+                "cue.done" => {
+                    it.cues[ci].done = if a.has("done") {
+                        a.get("done").truthy()
+                    } else {
+                        true
+                    };
+                }
+                _ => {
+                    let p = a.get("patch");
+                    let c = &mut it.cues[ci];
+                    if p.has("text") {
+                        let t = text(p.get("text"), 80);
+                        if !t.is_empty() {
+                            c.text = t;
+                        }
+                    }
+                    if p.has("ref") {
+                        c.at_end = p.get("ref").as_str() == Some("end");
+                    }
+                    if p.has("offsetMs") {
+                        c.offset_ms = num(p.get("offsetMs"), -DAY, DAY, Some(c.offset_ms))
+                            .unwrap_or(c.offset_ms);
+                    }
+                }
+            }
+            true
+        }
+        "request.send" => {
+            let t = text(a.get("text"), 120);
+            if t.is_empty() {
+                return false;
+            }
+            let from = text(a.get("from"), 30);
+            s.seq += 1;
+            s.requests.push(Request {
+                id: format!("r{}", s.seq),
+                text: t,
+                from: if from.is_empty() {
+                    "Bühne".into()
+                } else {
+                    from
+                },
+                at: now,
+                ack: false,
+            });
+            while s.requests.len() > 30 {
+                let i = s.requests.iter().position(|x| x.ack).unwrap_or(0);
+                s.requests.remove(i);
+            }
+            true
+        }
+        "request.ack" => {
+            let rid = a.get("requestId").as_str().unwrap_or("");
+            match s.requests.iter_mut().find(|x| x.id == rid) {
+                Some(r) if !r.ack => {
+                    r.ack = true;
+                    true
+                }
+                _ => false,
+            }
+        }
+        "request.ackAll" => {
+            if !s.requests.iter().any(|x| !x.ack) {
+                return false;
+            }
+            for r in s.requests.iter_mut() {
+                r.ack = true;
+            }
+            true
+        }
+        "request.clear" => {
+            if s.requests.is_empty() {
+                return false;
+            }
+            s.requests.clear();
+            true
+        }
+        "stage.quickSet" => {
+            let Some(list) = a.get("list").as_array() else {
+                return false;
+            };
+            s.stage_quick = list
+                .iter()
+                .map(|x| text(x, 60))
                 .filter(|x| !x.is_empty())
                 .take(12)
                 .collect();
@@ -1262,6 +1418,9 @@ fn apply_inner(s: &mut State, kind: &str, a: &Json, now: i64) -> bool {
             for it in s.agenda.items.iter_mut() {
                 it.started_at = None;
                 it.ended_at = None;
+                for c in it.cues.iter_mut() {
+                    c.done = false;
+                }
             }
             for t in s.timers.iter_mut() {
                 if t.segment_id.is_some() {
@@ -1388,6 +1547,22 @@ impl Item {
             .with("end", &self.end)
             .with("extraMs", self.extra_ms)
             .with("rippleMs", self.ripple_ms)
+            .with(
+                "cues",
+                Json::Arr(
+                    self.cues
+                        .iter()
+                        .map(|c| {
+                            Json::obj()
+                                .with("id", &c.id)
+                                .with("text", &c.text)
+                                .with("ref", if c.at_end { "end" } else { "start" })
+                                .with("offsetMs", c.offset_ms)
+                                .with("done", c.done)
+                        })
+                        .collect(),
+                ),
+            )
             .with("startedAt", self.started_at)
             .with("endedAt", self.ended_at)
     }
@@ -1402,6 +1577,24 @@ impl Item {
             end: hhmm(j.get("end")),
             extra_ms: j.get("extraMs").as_i64().unwrap_or(0).clamp(-DAY, DAY),
             ripple_ms: j.get("rippleMs").as_i64().unwrap_or(0).clamp(-DAY, DAY),
+            cues: j
+                .get("cues")
+                .as_array()
+                .map(|l| {
+                    l.iter()
+                        .filter_map(|c| {
+                            Some(Cue {
+                                id: c.get("id").as_str()?.to_string(),
+                                text: c.get("text").as_str().unwrap_or("Cue").to_string(),
+                                at_end: c.get("ref").as_str() == Some("end"),
+                                offset_ms: c.get("offsetMs").as_i64().unwrap_or(0).clamp(-DAY, DAY),
+                                done: c.get("done").truthy(),
+                            })
+                        })
+                        .take(20)
+                        .collect()
+                })
+                .unwrap_or_default(),
             started_at: j.get("startedAt").as_i64(),
             ended_at: j.get("endedAt").as_i64(),
         })
@@ -1427,6 +1620,26 @@ impl State {
             .with(
                 "quickMessages",
                 Json::Arr(self.quick_messages.iter().map(Json::from).collect()),
+            )
+            .with(
+                "stageQuick",
+                Json::Arr(self.stage_quick.iter().map(Json::from).collect()),
+            )
+            .with(
+                "requests",
+                Json::Arr(
+                    self.requests
+                        .iter()
+                        .map(|r| {
+                            Json::obj()
+                                .with("id", &r.id)
+                                .with("text", &r.text)
+                                .with("from", &r.from)
+                                .with("at", r.at)
+                                .with("ack", r.ack)
+                        })
+                        .collect(),
+                ),
             )
             .with(
                 "agenda",
@@ -1495,6 +1708,28 @@ impl State {
                 .iter()
                 .filter_map(|x| x.as_str().map(String::from))
                 .take(12)
+                .collect();
+        }
+        if let Some(list) = j.get("stageQuick").as_array() {
+            s.stage_quick = list
+                .iter()
+                .filter_map(|x| x.as_str().map(String::from))
+                .take(12)
+                .collect();
+        }
+        if let Some(list) = j.get("requests").as_array() {
+            s.requests = list
+                .iter()
+                .filter_map(|r| {
+                    Some(Request {
+                        id: r.get("id").as_str()?.to_string(),
+                        text: r.get("text").as_str().unwrap_or("").to_string(),
+                        from: r.get("from").as_str().unwrap_or("").to_string(),
+                        at: r.get("at").as_i64().unwrap_or(0),
+                        ack: r.get("ack").truthy(),
+                    })
+                })
+                .take(30)
                 .collect();
         }
         let a = j.get("agenda");

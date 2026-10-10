@@ -96,6 +96,8 @@
       auth(pin) { session.set('et-pin', pin); send({ type: 'auth', pin }); },
       setPin(pin) { session.set('et-pin', pin); send({ type: 'setPin', pin }); },
       setName(name) { send({ type: 'setName', name }); },
+      /** stage → control room; allowed without control rights */
+      request(text, from) { send({ type: 'action', action: { type: 'request.send', text, from } }); },
       setPort80(on) { send({ type: 'setPort80', on: Boolean(on) }); },
       onAuth: authEv.on,
       subscribe: ev.on,
@@ -114,7 +116,7 @@
     function load() {
       const raw = store.get(KEY);
       if (!raw) return null;
-      try { const s = JSON.parse(raw); return s && Array.isArray(s.timers) ? s : null; } catch { return null; }
+      try { const s = JSON.parse(raw); return s && Array.isArray(s.timers) ? E.normalize(s) : null; } catch { return null; }
     }
     state = load();
     const isChild = role === 'display' && window.opener && window.opener !== window;
@@ -129,11 +131,11 @@
       const d = e.data;
       if (!d || typeof d !== 'object') return;
       if (d.et === 'hello' && e.source && state) { children.add(e.source); e.source.postMessage({ et: 'state', state }, '*'); }
-      if (d.et === 'state' && d.state && role === 'display') { state = d.state; ev.emit(); }
+      if (d.et === 'state' && d.state && role === 'display') { state = E.normalize(d.state); ev.emit(); }
     });
     window.addEventListener('storage', e => {
       if (e.key !== KEY || !e.newValue) return;
-      try { state = JSON.parse(e.newValue); ev.emit(); } catch { /* ignore */ }
+      try { state = E.normalize(JSON.parse(e.newValue)); ev.emit(); } catch { /* ignore */ }
     });
     if (isChild) { try { window.opener.postMessage({ et: 'hello' }, '*'); } catch { /* ignore */ } }
 
@@ -163,6 +165,7 @@
         ev.emit();
         pushToChildren();
       },
+      request(text, from) { this.act({ type: 'request.send', text, from }); },
       auth() {}, setPin() {}, onAuth: () => () => {},
       subscribe: ev.on,
     };
