@@ -10,7 +10,7 @@
       const raw = location.hash.replace(/^#\/?/, '');
       const [view, q] = raw.split('?');
       const params = new URLSearchParams(q || '');
-      if (view === 'display' || view === 'agenda' || view === 'clock') return { view: 'display', params, layout: view === 'display' ? params.get('layout') : view === 'clock' ? 'time' : view };
+      if (['display', 'agenda', 'clock', 'plan'].includes(view)) return { view: 'display', params, layout: view === 'display' ? params.get('layout') : view === 'clock' ? 'time' : view };
       if (!standalone && view === '') return { view: 'home', params };
       return { view: 'control', params };
     }
@@ -20,6 +20,7 @@
     if (short) { params.set('t', short[1]); return { view: 'display', params, layout: params.get('layout') }; }
     if (p === '/display') return { view: 'display', params, layout: params.get('layout') };
     if (p === '/agenda') return { view: 'display', params, layout: 'agenda' };
+    if (p === '/plan') return { view: 'display', params, layout: 'plan' };
     if (p === '/clock' || p === '/uhr') return { view: 'display', params, layout: 'time' };
     if (p === '/control') return { view: 'control', params };
     return { view: 'home', params };
@@ -43,7 +44,7 @@
   // ------------------------------------------------------------- display
   function mountDisplay(r) {
     const p = r.params;
-    const layout = ['full', 'clock', 'lower', 'agenda', 'time'].includes(r.layout) ? r.layout : 'full';
+    const layout = ['full', 'clock', 'lower', 'agenda', 'time', 'plan'].includes(r.layout) ? r.layout : 'full';
     const seconds = p.get('sec') !== '0';
     const slot = p.get('t');
     const transparent = p.get('bg') === 'transparent';

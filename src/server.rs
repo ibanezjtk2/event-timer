@@ -455,7 +455,7 @@ fn http_authorized(app: &App, req: &Request, loopback: bool) -> bool {
 fn is_app_route(path: &str) -> bool {
     matches!(
         path,
-        "/" | "/control" | "/display" | "/agenda" | "/clock" | "/uhr" | "/index.html"
+        "/" | "/control" | "/display" | "/agenda" | "/plan" | "/clock" | "/uhr" | "/index.html"
     ) || (path.len() == 2 && (b'1'..=b'8').contains(&path.as_bytes()[1]))
         || (path.len() >= 7
             && (path.starts_with("/timer") || path.starts_with("/timer-"))
@@ -575,15 +575,7 @@ fn timer_snapshot(t: &engine::Timer, now: i64) -> Json {
         .with("id", &t.id)
         .with("slot", slot)
         .with("name", &t.name)
-        .with(
-            "kind",
-            match t.kind {
-                Kind::Countdown => "countdown",
-                Kind::Countup => "countup",
-                Kind::Clock => "clock",
-                Kind::Time => "time",
-            },
-        )
+        .with("kind", t.kind.as_str())
         .with("mode", v.state)
         .with("state", v.state)
         .with("phase", v.phase)

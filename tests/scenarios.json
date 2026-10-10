@@ -1093,5 +1093,371 @@
         }
       }
     ]
+  },
+  {
+    "name": "schedule: slots with clock times",
+    "steps": [
+      {
+        "at": 0,
+        "do": {
+          "type": "agenda.replace",
+          "items": [
+            {
+              "title": "Workshop A",
+              "start": "13:00",
+              "end": "15:00"
+            },
+            {
+              "title": "Pause",
+              "start": " 15:00 ",
+              "durationMs": 1800000
+            },
+            {
+              "title": "Nacht",
+              "start": "23:30",
+              "end": "00:15"
+            },
+            {
+              "title": "Kaputt",
+              "start": "25:00",
+              "end": "x",
+              "durationMs": 600000
+            }
+          ]
+        }
+      },
+      {
+        "at": 0,
+        "expect": {
+          "agenda.items.0.durationMs": 7200000,
+          "agenda.items.0.start": "13:00",
+          "agenda.items.1.start": "15:00",
+          "agenda.items.1.end": "",
+          "agenda.items.1.durationMs": 1800000,
+          "agenda.items.2.durationMs": 2700000,
+          "agenda.items.3.start": "",
+          "agenda.items.3.durationMs": 600000
+        }
+      },
+      {
+        "at": 0,
+        "do": {
+          "type": "agenda.update",
+          "itemId": "s2",
+          "patch": {
+            "end": "15:45"
+          }
+        }
+      },
+      {
+        "at": 0,
+        "expect": {
+          "agenda.items.1.durationMs": 2700000
+        }
+      },
+      {
+        "at": 0,
+        "do": {
+          "type": "agenda.update",
+          "itemId": "s2",
+          "patch": {
+            "start": "",
+            "durationMs": 600000
+          }
+        }
+      },
+      {
+        "at": 0,
+        "expect": {
+          "agenda.items.1.start": "",
+          "agenda.items.1.end": "15:45",
+          "agenda.items.1.durationMs": 600000
+        }
+      },
+      {
+        "at": 0,
+        "do": {
+          "type": "agenda.add",
+          "item": {
+            "title": "Neu",
+            "start": "09:00",
+            "end": "09:20"
+          }
+        }
+      },
+      {
+        "at": 0,
+        "expect": {
+          "agenda.items.4.durationMs": 1200000
+        }
+      },
+      {
+        "at": 0,
+        "do": {
+          "type": "agenda.settings",
+          "mode": "clock"
+        }
+      },
+      {
+        "at": 0,
+        "expect": {
+          "agenda.mode": "clock"
+        }
+      },
+      {
+        "at": 0,
+        "do": {
+          "type": "agenda.settings",
+          "mode": "weird"
+        }
+      },
+      {
+        "at": 0,
+        "expect": {
+          "agenda.mode": "clock"
+        }
+      }
+    ]
+  },
+  {
+    "name": "timer kind schedule",
+    "steps": [
+      {
+        "at": 0,
+        "do": {
+          "type": "timer.update",
+          "id": "t1",
+          "patch": {
+            "kind": "schedule"
+          }
+        }
+      },
+      {
+        "at": 0,
+        "expect": {
+          "timers.0.kind": "schedule",
+          "view.t1.ms": 0,
+          "view.t1.phase": "normal"
+        }
+      },
+      {
+        "at": 0,
+        "do": {
+          "type": "timer.start",
+          "id": "t1"
+        }
+      },
+      {
+        "at": 1000,
+        "expect": {
+          "timers.0.running": false,
+          "view.t1.ms": 0
+        }
+      },
+      {
+        "at": 1000,
+        "do": {
+          "type": "timer.adjust",
+          "id": "t1",
+          "ms": 60000
+        },
+        "changed": false
+      },
+      {
+        "at": 1000,
+        "do": {
+          "type": "timer.set",
+          "id": "t1",
+          "ms": 300000
+        }
+      },
+      {
+        "at": 1000,
+        "expect": {
+          "timers.0.kind": "countdown",
+          "view.t1.ms": 300000
+        }
+      }
+    ]
+  },
+  {
+    "name": "schedule live corrections",
+    "steps": [
+      {
+        "at": 0,
+        "do": {
+          "type": "agenda.replace",
+          "items": [
+            {
+              "title": "A",
+              "start": "13:00",
+              "end": "15:00"
+            },
+            {
+              "title": "B",
+              "durationMs": 1800000
+            }
+          ]
+        }
+      },
+      {
+        "at": 0,
+        "expect": {
+          "agenda.items.0.extraMs": 0,
+          "agenda.items.0.rippleMs": 0,
+          "agenda.shiftMs": 0,
+          "agenda.holdAt": null
+        }
+      },
+      {
+        "at": 0,
+        "do": {
+          "type": "agenda.adjust",
+          "itemId": "s1",
+          "ms": 300000,
+          "ripple": true
+        }
+      },
+      {
+        "at": 0,
+        "do": {
+          "type": "agenda.adjust",
+          "itemId": "s1",
+          "ms": -60000
+        }
+      },
+      {
+        "at": 0,
+        "expect": {
+          "agenda.items.0.extraMs": 240000,
+          "agenda.items.0.rippleMs": 300000
+        }
+      },
+      {
+        "at": 0,
+        "do": {
+          "type": "agenda.adjust",
+          "itemId": "s1",
+          "ms": 0
+        },
+        "changed": false
+      },
+      {
+        "at": 0,
+        "do": {
+          "type": "agenda.adjust",
+          "itemId": "nope",
+          "ms": 1000
+        },
+        "changed": false
+      },
+      {
+        "at": 0,
+        "do": {
+          "type": "agenda.shift",
+          "ms": 600000
+        }
+      },
+      {
+        "at": 0,
+        "expect": {
+          "agenda.shiftMs": 600000
+        }
+      },
+      {
+        "at": 1000,
+        "do": {
+          "type": "agenda.hold"
+        }
+      },
+      {
+        "at": 2000,
+        "do": {
+          "type": "agenda.hold"
+        },
+        "changed": false
+      },
+      {
+        "at": 1000,
+        "expect": {
+          "agenda.holdAt": 1000
+        }
+      },
+      {
+        "at": 61000,
+        "do": {
+          "type": "agenda.resume",
+          "itemId": "s1"
+        }
+      },
+      {
+        "at": 61000,
+        "expect": {
+          "agenda.holdAt": null,
+          "agenda.items.0.extraMs": 300000,
+          "agenda.items.0.rippleMs": 360000
+        }
+      },
+      {
+        "at": 70000,
+        "do": {
+          "type": "agenda.hold"
+        }
+      },
+      {
+        "at": 100000,
+        "do": {
+          "type": "agenda.resume",
+          "itemId": "s1",
+          "mode": "after"
+        }
+      },
+      {
+        "at": 100000,
+        "expect": {
+          "agenda.items.0.extraMs": 300000,
+          "agenda.items.0.rippleMs": 390000
+        }
+      },
+      {
+        "at": 100000,
+        "do": {
+          "type": "agenda.hold"
+        }
+      },
+      {
+        "at": 110000,
+        "do": {
+          "type": "agenda.resume"
+        }
+      },
+      {
+        "at": 110000,
+        "expect": {
+          "agenda.shiftMs": 610000
+        }
+      },
+      {
+        "at": 110000,
+        "do": {
+          "type": "agenda.resume"
+        },
+        "changed": false
+      },
+      {
+        "at": 110000,
+        "do": {
+          "type": "agenda.clearAdjust"
+        }
+      },
+      {
+        "at": 110000,
+        "expect": {
+          "agenda.shiftMs": 0,
+          "agenda.items.0.extraMs": 0,
+          "agenda.items.0.rippleMs": 0
+        }
+      }
+    ]
   }
 ]

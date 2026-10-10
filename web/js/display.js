@@ -83,6 +83,7 @@
       const t = ctx.timer;
       if (!s || !t) { setAttr(r, 'data-empty', 1); return; }
       r.removeAttribute('data-empty');
+      const label = ctx.i18n || (x => x);
       const p = s.presets.find(x => x.id === t.presetId) || s.presets[0];
       const layout = ctx.layout || 'full';
       applyPreset(r, p, ctx.transparent);
@@ -90,48 +91,84 @@
       const wall = ctx.wallNow || Date.now();
       // wall-clock mode: timer kind "time" or the /clock layout
       const isTime = t.kind === 'time' || layout === 'time';
-      const txt = isTime ? clockText(wall, ctx.seconds !== false) : E.formatMs(v.ms, { up: t.kind === 'countup' });
-      const showOver = v.phase === 'over';
-      setAttr(r, 'data-kind', isTime ? 'time' : t.kind);
-      setAttr(r, 'data-flashover', p.flashOver === false ? 0 : 1);
+      // clock-driven schedule: timer kind "schedule" or the /plan layout
+      const isSched = !isTime && (t.kind === 'schedule' || layout === 'plan');
 
-      setAttr(r, 'data-layout', layout);
-      // the wall clock never warns or flashes, whatever the timer behind it does
-      setAttr(r, 'data-phase', isTime ? 'normal' : v.phase);
-      setAttr(r, 'data-state', isTime ? 'running' : v.state);
+      let txt = isTime ? clockText(wall, ctx.seconds !== false) : E.formatMs(v.ms, { up: t.kind === 'countup' });
+      let phase = isTime ? 'normal' : v.phase;
+      let state = isTime ? 'running' : v.state;
+      let progress = v.progress;
+      const seg = t.segmentId ? s.agenda.items.find(x => x.id === t.segmentId) : null;
+      let titleText = seg ? seg.title : (s.event.title || '');
+      let speakerText = seg ? seg.speaker : '';
+      let subText = t.kind === 'clock' && t.targetLabel ? label('bis') + ' ' + t.targetLabel : '';
+      let nextText = '';
+      if (seg) {
+        const n = s.agenda.items[s.agenda.items.indexOf(seg) + 1];
+        if (n) nextText = label('Danach') + ': ' + n.title + (n.speaker ? ' – ' + n.speaker : '');
+      }
+
+      let sv = null;
+      if (isSched) {
+        sv = E.scheduleView(s, wall);
+        const hm = ms => clockText(ms, false);
+        progress = 0;
+        nextText = '';
+        if (sv.current) {
+          const c = sv.current;
+          txt = E.formatMs(sv.remainingMs);
+          phase = sv.remainingMs <= t.critMs ? 'crit' : sv.remainingMs <= t.warnMs ? 'warn' : 'normal';
+          state = sv.held ? 'paused' : 'running';
+          progress = sv.progress;
+          titleText = c.item.title;
+          speakerText = c.item.speaker;
+          subText = sv.held ? label('Angehalten') : hm(c.start) + ' – ' + hm(c.end);
+          if (sv.next) nextText = label('Danach') + ' ' + hm(sv.next.start) + ': ' + sv.next.item.title;
+        } else if (sv.next) {
+          txt = E.formatMs(sv.gapMs);
+          phase = 'normal';
+          state = 'paused';
+          titleText = sv.rows.some(x => x.status === 'done') ? label('Pause') : (s.event.title || label('Gleich geht es los'));
+          speakerText = '';
+          subText = (sv.held ? label('Angehalten') + ' · ' : '') + label('Weiter um') + ' ' + hm(sv.next.start) + ': ' + sv.next.item.title;
+        } else {
+          txt = clockText(wall, false);
+          phase = 'normal';
+          state = 'idle';
+          titleText = sv.finished ? label('Programm beendet') : label('Zeitplan ohne Uhrzeiten');
+          speakerText = '';
+          subText = '';
+        }
+      }
+      const showOver = phase === 'over';
+      setAttr(r, 'data-kind', isTime ? 'time' : t.kind);
+      setAttr(r, 'data-sched', isSched ? 1 : 0);
+      setAttr(r, 'data-flashover', p.flashOver === false ? 0 : 1);
+      // the /plan view uses the backstage layout, filled from the schedule
+      setAttr(r, 'data-layout', layout === 'plan' ? 'agenda' : layout);
+      setAttr(r, 'data-phase', phase);
+      setAttr(r, 'data-state', state);
       setAttr(r, 'data-len', Math.min(9, txt.length));
       setAttr(r, 'data-blackout', s.blackout && !o.tile ? 1 : 0);
       setAttr(r, 'data-weight', p.weight);
       setText(time, txt);
-
-      // sub line: what this countdown counts towards
-      let subText = '';
-      if (t.kind === 'clock' && t.targetLabel) subText = (ctx.i18n ? ctx.i18n('bis') : 'bis') + ' ' + t.targetLabel;
       setText(sub, subText);
 
-      // segment / title
-      const seg = t.segmentId ? s.agenda.items.find(x => x.id === t.segmentId) : null;
-      const showTitle = layout !== 'time' && (ctx.show ? ctx.show.title : p.showTitle);
-      setText(title, showTitle ? (seg ? seg.title : (s.event.title || '')) : '');
-      setText(speaker, showTitle && seg ? seg.speaker : '');
+      const showTitle = layout !== 'time' && (isSched || (ctx.show ? ctx.show.title : p.showTitle));
+      setText(title, showTitle ? titleText : '');
+      setText(speaker, showTitle ? speakerText : '');
       const showClock = ctx.show ? ctx.show.clock : p.showClock;
-      setText(clock, showClock && !isTime ? clockText(wall, false) : '');
+      setText(clock, (showClock || layout === 'plan') && !isTime ? clockText(wall, false) : '');
 
-      const showNext = layout !== 'time' && (ctx.show ? ctx.show.next : p.showNext);
-      let nextText = '';
-      if (showNext && seg) {
-        const idx = s.agenda.items.indexOf(seg);
-        const n = s.agenda.items[idx + 1];
-        if (n) nextText = (ctx.i18n ? ctx.i18n('Danach') : 'Danach') + ': ' + n.title + (n.speaker ? ' – ' + n.speaker : '');
-      }
-      setText(next, nextText);
+      const showNext = layout !== 'time' && (isSched || (ctx.show ? ctx.show.next : p.showNext));
+      setText(next, showNext ? nextText : '');
 
       const showNotice = ctx.show ? ctx.show.notice : p.showNotice;
       let noticeText = '';
-      if (showNotice && !isTime) {
+      if (showNotice && !isTime && !isSched) {
         if (v.state === 'finished') noticeText = p.expiredText;
         else if (showOver) noticeText = p.overText;
-        else if (v.phase === 'warn' || v.phase === 'crit') noticeText = v.state === 'running' ? p.warnText : '';
+        else if (phase === 'warn' || phase === 'crit') noticeText = state === 'running' ? p.warnText : '';
       }
       setText(notice, noticeText);
       setAttr(notice, 'data-on', noticeText ? 1 : 0);
@@ -143,26 +180,53 @@
       setText(msgText, msgOn ? m.text : '');
       setAttr(msg, 'data-long', m.text.length > 60 ? 2 : m.text.length > 24 ? 1 : 0);
 
-      const showProgress = ctx.show ? ctx.show.progress : p.showProgress;
-      setAttr(prog, 'data-on', showProgress && !isTime && t.kind !== 'clock' && t.durationMs > 0 ? 1 : 0);
-      const w = (v.progress * 100).toFixed(2) + '%';
+      const showProgress = isSched ? Boolean(sv && sv.current) : (ctx.show ? ctx.show.progress : p.showProgress) && !isTime && t.kind !== 'clock' && t.durationMs > 0;
+      setAttr(prog, 'data-on', showProgress ? 1 : 0);
+      const w = (progress * 100).toFixed(2) + '%';
       if (bar.style.width !== w) bar.style.width = w;
 
-      if (layout === 'clock') {
-        setText(clock, clockText(ctx.wallNow || Date.now(), true));
-      }
+      if (layout === 'clock') setText(clock, clockText(wall, true));
       if (layout === 'agenda') renderList(s, ctx);
+      if (layout === 'plan') renderPlan(sv, ctx);
+    }
+
+    let liveBar = null;
+    function renderPlan(sv, ctx) {
+      const label = ctx.i18n || (x => x);
+      const key = JSON.stringify(sv.rows.map(x => [x.item.id, x.item.title, x.item.speaker, x.start, x.end, x.status]));
+      if (key !== listKey) {
+        listKey = key;
+        list.innerHTML = '';
+        liveBar = null;
+        sv.rows.forEach(row => {
+          const li = el('li', 'dsp-row', list);
+          li.dataset.status = row.status === 'unknown' ? 'todo' : row.status;
+          el('span', 'dsp-row-time', li).textContent = row.start != null ? clockText(row.start, false) : '–';
+          const tx = el('span', 'dsp-row-text', li);
+          el('b', null, tx).textContent = row.item.title || '—';
+          if (row.item.speaker) el('span', null, tx).textContent = row.item.speaker;
+          el('span', 'dsp-row-dur', li).textContent = row.end != null ? label('bis') + ' ' + clockText(row.end, false) : '';
+          if (row.status === 'live') liveBar = el('i', 'dsp-row-bar', li);
+        });
+        // keep the live slot in view on long programmes
+        const live = list.querySelector('[data-status="live"]');
+        if (live) list.scrollTop = Math.max(0, live.offsetTop - list.clientHeight / 3);
+      }
+      if (liveBar && sv.current) {
+        const w = (sv.progress * 100).toFixed(2) + '%';
+        if (liveBar.style.width !== w) liveBar.style.width = w;
+      }
     }
 
     function renderList(s, ctx) {
       const a = s.agenda;
-      const key = JSON.stringify([a.items.map(x => [x.id, x.title, x.speaker, x.durationMs, x.startedAt, x.endedAt]), a.cursor, a.plannedStart]);
+      const key = JSON.stringify([a.items.map(x => [x.id, x.title, x.speaker, x.durationMs, x.start, x.end, x.startedAt, x.endedAt]), a.cursor, a.plannedStart]);
       if (key !== listKey) {
         listKey = key;
         list.innerHTML = '';
-        let plan = null;
-        if (a.plannedStart) { const [h, mi] = a.plannedStart.split(':').map(Number); const d = new Date(ctx.wallNow || Date.now()); d.setHours(h, mi, 0, 0); plan = d.getTime(); }
+        const rows = E.scheduleView(s, ctx.wallNow || Date.now()).rows;
         a.items.forEach((it, i) => {
+          const plan = rows[i] && rows[i].start;
           const li = el('li', 'dsp-row', list);
           li.dataset.status = i < a.cursor ? 'done' : i === a.cursor ? 'live' : 'todo';
           const tm = el('span', 'dsp-row-time', li);
@@ -172,7 +236,6 @@
           if (it.speaker) { const sp = el('span', null, tx); sp.textContent = it.speaker; }
           const du = el('span', 'dsp-row-dur', li);
           du.textContent = E.formatMs(it.durationMs);
-          if (plan != null) plan += it.durationMs;
         });
       }
       const av = E.agendaView(s, ctx.now);
