@@ -1,0 +1,17 @@
+[package]
+name = "event-timer"
+version = "1.0.0"
+edition = "2021"
+description = "Event Timer – Countdown, Redezeit und Ablaufplan für Bühne und Regie"
+license = "MIT"
+build = "build.rs"
+
+# Bewusst ohne Abhängigkeiten: baut offline, überall, in Sekunden.
+[dependencies]
+
+[profile.release]
+opt-level = "s"
+lto = true
+codegen-units = 1
+strip = true
+panic = "unwind"
