@@ -87,12 +87,18 @@
       const layout = ctx.layout || 'full';
       applyPreset(r, p, ctx.transparent);
       const v = E.timerView(t, ctx.now);
-      const txt = E.formatMs(v.ms, { up: t.kind === 'countup' });
+      const wall = ctx.wallNow || Date.now();
+      // wall-clock mode: timer kind "time" or the /clock layout
+      const isTime = t.kind === 'time' || layout === 'time';
+      const txt = isTime ? clockText(wall, ctx.seconds !== false) : E.formatMs(v.ms, { up: t.kind === 'countup' });
       const showOver = v.phase === 'over';
+      setAttr(r, 'data-kind', isTime ? 'time' : t.kind);
+      setAttr(r, 'data-flashover', p.flashOver === false ? 0 : 1);
 
       setAttr(r, 'data-layout', layout);
-      setAttr(r, 'data-phase', v.phase);
-      setAttr(r, 'data-state', v.state);
+      // the wall clock never warns or flashes, whatever the timer behind it does
+      setAttr(r, 'data-phase', isTime ? 'normal' : v.phase);
+      setAttr(r, 'data-state', isTime ? 'running' : v.state);
       setAttr(r, 'data-len', Math.min(9, txt.length));
       setAttr(r, 'data-blackout', s.blackout && !o.tile ? 1 : 0);
       setAttr(r, 'data-weight', p.weight);
@@ -105,13 +111,13 @@
 
       // segment / title
       const seg = t.segmentId ? s.agenda.items.find(x => x.id === t.segmentId) : null;
-      const showTitle = ctx.show ? ctx.show.title : p.showTitle;
+      const showTitle = layout !== 'time' && (ctx.show ? ctx.show.title : p.showTitle);
       setText(title, showTitle ? (seg ? seg.title : (s.event.title || '')) : '');
       setText(speaker, showTitle && seg ? seg.speaker : '');
       const showClock = ctx.show ? ctx.show.clock : p.showClock;
-      setText(clock, showClock ? clockText(ctx.wallNow || Date.now(), false) : '');
+      setText(clock, showClock && !isTime ? clockText(wall, false) : '');
 
-      const showNext = ctx.show ? ctx.show.next : p.showNext;
+      const showNext = layout !== 'time' && (ctx.show ? ctx.show.next : p.showNext);
       let nextText = '';
       if (showNext && seg) {
         const idx = s.agenda.items.indexOf(seg);
@@ -122,7 +128,7 @@
 
       const showNotice = ctx.show ? ctx.show.notice : p.showNotice;
       let noticeText = '';
-      if (showNotice) {
+      if (showNotice && !isTime) {
         if (v.state === 'finished') noticeText = p.expiredText;
         else if (showOver) noticeText = p.overText;
         else if (v.phase === 'warn' || v.phase === 'crit') noticeText = v.state === 'running' ? p.warnText : '';
@@ -131,14 +137,14 @@
       setAttr(notice, 'data-on', noticeText ? 1 : 0);
 
       const m = t.message;
-      const msgOn = m.visible && m.text ? 1 : 0;
+      const msgOn = m.visible && m.text && layout !== 'time' ? 1 : 0;
       setAttr(r, 'data-msg', msgOn);
       setAttr(msg, 'data-flash', msgOn && m.flash ? 1 : 0);
       setText(msgText, msgOn ? m.text : '');
       setAttr(msg, 'data-long', m.text.length > 60 ? 2 : m.text.length > 24 ? 1 : 0);
 
       const showProgress = ctx.show ? ctx.show.progress : p.showProgress;
-      setAttr(prog, 'data-on', showProgress && t.kind !== 'clock' && t.durationMs > 0 ? 1 : 0);
+      setAttr(prog, 'data-on', showProgress && !isTime && t.kind !== 'clock' && t.durationMs > 0 ? 1 : 0);
       const w = (v.progress * 100).toFixed(2) + '%';
       if (bar.style.width !== w) bar.style.width = w;
 

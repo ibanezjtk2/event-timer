@@ -334,7 +334,7 @@ fn http_authorized(app: &App, req: &Request, loopback: bool) -> bool {
 fn is_app_route(path: &str) -> bool {
     matches!(
         path,
-        "/" | "/control" | "/display" | "/agenda" | "/index.html"
+        "/" | "/control" | "/display" | "/agenda" | "/clock" | "/index.html"
     ) || (path.len() >= 7
         && (path.starts_with("/timer") || path.starts_with("/timer-"))
         && path
@@ -459,6 +459,7 @@ fn timer_snapshot(t: &engine::Timer, now: i64) -> Json {
                 Kind::Countdown => "countdown",
                 Kind::Countup => "countup",
                 Kind::Clock => "clock",
+                Kind::Time => "time",
             },
         )
         .with("mode", v.state)
@@ -466,7 +467,14 @@ fn timer_snapshot(t: &engine::Timer, now: i64) -> Json {
         .with("phase", v.phase)
         .with("remainingMs", v.ms)
         .with("durationMs", t.duration_ms)
-        .with("display", format_ms(v.ms, t.kind == Kind::Countup))
+        .with(
+            "display",
+            if t.kind == Kind::Time {
+                String::new() // wall clock lives in the browser's time zone
+            } else {
+                format_ms(v.ms, t.kind == Kind::Countup)
+            },
+        )
         .with("message", &t.message.text)
         .with("messageVisible", t.message.visible)
 }

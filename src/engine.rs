@@ -14,12 +14,13 @@ const BG_STYLES: [&str; 3] = ["solid", "glow", "transparent"];
 const COLOR_KEYS: [&str; 9] = [
     "bg", "fg", "accent", "warn", "crit", "overBg", "overFg", "msgFg", "msgBg",
 ];
-const BOOL_KEYS: [&str; 5] = [
+const BOOL_KEYS: [&str; 6] = [
     "showProgress",
     "showClock",
     "showTitle",
     "showNext",
     "showNotice",
+    "flashOver",
 ];
 const TEXT_KEYS: [&str; 3] = ["warnText", "expiredText", "overText"];
 const DEFAULT_QUICK: [&str; 5] = [
@@ -37,6 +38,8 @@ pub enum Kind {
     Countdown,
     Countup,
     Clock,
+    /// shows the wall clock only
+    Time,
 }
 
 impl Kind {
@@ -45,6 +48,7 @@ impl Kind {
             Kind::Countdown => "countdown",
             Kind::Countup => "countup",
             Kind::Clock => "clock",
+            Kind::Time => "time",
         }
     }
     fn parse(s: &str) -> Option<Kind> {
@@ -52,6 +56,7 @@ impl Kind {
             "countdown" => Some(Kind::Countdown),
             "countup" => Some(Kind::Countup),
             "clock" => Some(Kind::Clock),
+            "time" => Some(Kind::Time),
             _ => None,
         }
     }
@@ -92,7 +97,7 @@ pub struct Preset {
     pub bg_style: String,
     pub font: String,
     pub weight: i64,
-    pub bools: [bool; 5],
+    pub bools: [bool; 6],
     pub texts: [String; 3],
 }
 
@@ -156,7 +161,7 @@ fn builtin(
     bg_style: &str,
     font: &str,
     weight: i64,
-    bools: [bool; 5],
+    bools: [bool; 6],
     texts: [&str; 3],
 ) -> Preset {
     Preset {
@@ -185,7 +190,7 @@ pub fn builtin_presets() -> Vec<Preset> {
             "solid",
             "din",
             700,
-            [true; 5],
+            [true; 6],
             de,
         ),
         builtin(
@@ -198,7 +203,7 @@ pub fn builtin_presets() -> Vec<Preset> {
             "solid",
             "grotesk",
             700,
-            [true; 5],
+            [true; 6],
             de,
         ),
         builtin(
@@ -211,7 +216,7 @@ pub fn builtin_presets() -> Vec<Preset> {
             "transparent",
             "din",
             700,
-            [false; 5],
+            [false; 6],
             ["", "", ""],
         ),
         builtin(
@@ -224,7 +229,7 @@ pub fn builtin_presets() -> Vec<Preset> {
             "solid",
             "mono",
             600,
-            [false; 5],
+            [false, false, false, false, false, true],
             ["", "", ""],
         ),
     ]
@@ -341,6 +346,9 @@ fn valid_hhmm(s: &str) -> bool {
 // ---------------------------------------------------------------- views
 
 pub fn raw_value(t: &Timer, now: i64) -> i64 {
+    if t.kind == Kind::Time {
+        return 0;
+    }
     if t.kind == Kind::Clock {
         return t.target_at.map(|at| at - now).unwrap_or(0);
     }
@@ -380,6 +388,16 @@ impl TimerView {
 }
 
 pub fn timer_view(t: &Timer, now: i64) -> TimerView {
+    if t.kind == Kind::Time {
+        return TimerView {
+            ms: 0,
+            over: false,
+            phase: "normal",
+            state: "running",
+            progress: 0.0,
+            remaining: None,
+        };
+    }
     let raw = raw_value(t, now);
     let (ms, over, remaining);
     if t.kind == Kind::Countup {
@@ -563,7 +581,7 @@ fn freeze(t: &mut Timer, now: i64) {
 
 fn start_timer(s: &mut State, ti: usize, now: i64) {
     let t = &mut s.timers[ti];
-    if t.kind == Kind::Clock || t.running {
+    if t.kind == Kind::Clock || t.kind == Kind::Time || t.running {
         return;
     }
     if t.kind == Kind::Countdown && t.base_ms <= 0 && !t.overtime {
@@ -581,7 +599,7 @@ fn start_timer(s: &mut State, ti: usize, now: i64) {
 }
 
 fn pause_timer(t: &mut Timer, now: i64) {
-    if t.kind == Kind::Clock || !t.running {
+    if t.kind == Kind::Clock || t.kind == Kind::Time || !t.running {
         return;
     }
     t.base_ms = raw_value(t, now);
@@ -819,7 +837,7 @@ fn apply_inner(s: &mut State, kind: &str, a: &Json, now: i64) -> bool {
                 return false;
             };
             let t = &mut s.timers[i];
-            if t.kind == Kind::Clock {
+            if t.kind == Kind::Clock || t.kind == Kind::Time {
                 t.kind = Kind::Countdown;
                 t.target_at = None;
                 t.target_label.clear();
@@ -836,7 +854,7 @@ fn apply_inner(s: &mut State, kind: &str, a: &Json, now: i64) -> bool {
         "timer.adjust" => {
             let i = timer!();
             let t = &mut s.timers[i];
-            if t.kind == Kind::Clock {
+            if t.kind == Kind::Clock || t.kind == Kind::Time {
                 return false;
             }
             let delta = num(a.get("ms"), -HOUR, HOUR, Some(0)).unwrap_or(0);

@@ -14,9 +14,9 @@
 
   const FONTS = ['din', 'grotesk', 'mono', 'serif', 'rounded'];
   const BG_STYLES = ['solid', 'glow', 'transparent'];
-  const KINDS = ['countdown', 'countup', 'clock'];
+  const KINDS = ['countdown', 'countup', 'clock', 'time'];
   const COLOR_KEYS = ['bg', 'fg', 'accent', 'warn', 'crit', 'overBg', 'overFg', 'msgFg', 'msgBg'];
-  const PRESET_BOOLS = ['showProgress', 'showClock', 'showTitle', 'showNext', 'showNotice'];
+  const PRESET_BOOLS = ['showProgress', 'showClock', 'showTitle', 'showNext', 'showNotice', 'flashOver'];
   const PRESET_TEXTS = ['warnText', 'expiredText', 'overText'];
 
   const BUILTIN_PRESETS = [
@@ -25,7 +25,7 @@
       bg: '#000000', bgStyle: 'solid', fg: '#f4f6f8', accent: '#2fd47a', warn: '#ffb020', crit: '#ff4757',
       overBg: '#4a0710', overFg: '#ffffff', msgFg: '#000000', msgBg: '#ffd84d',
       font: 'din', weight: 700,
-      showProgress: true, showClock: true, showTitle: true, showNext: true, showNotice: true,
+      showProgress: true, showClock: true, showTitle: true, showNext: true, showNotice: true, flashOver: true,
       warnText: 'Bitte zum Ende kommen', expiredText: 'Zeit abgelaufen', overText: 'Überzogen',
     },
     {
@@ -33,7 +33,7 @@
       bg: '#eef1f4', bgStyle: 'solid', fg: '#0d1620', accent: '#0f9d58', warn: '#c77700', crit: '#d0192e',
       overBg: '#d0192e', overFg: '#ffffff', msgFg: '#ffffff', msgBg: '#0d1620',
       font: 'grotesk', weight: 700,
-      showProgress: true, showClock: true, showTitle: true, showNext: true, showNotice: true,
+      showProgress: true, showClock: true, showTitle: true, showNext: true, showNotice: true, flashOver: true,
       warnText: 'Bitte zum Ende kommen', expiredText: 'Zeit abgelaufen', overText: 'Überzogen',
     },
     {
@@ -41,7 +41,7 @@
       bg: '#000000', bgStyle: 'transparent', fg: '#ffffff', accent: '#2fd47a', warn: '#ffb020', crit: '#ff4757',
       overBg: '#c4122b', overFg: '#ffffff', msgFg: '#000000', msgBg: '#ffd84d',
       font: 'din', weight: 700,
-      showProgress: false, showClock: false, showTitle: false, showNext: false, showNotice: false,
+      showProgress: false, showClock: false, showTitle: false, showNext: false, showNotice: false, flashOver: false,
       warnText: '', expiredText: '', overText: '',
     },
     {
@@ -49,7 +49,7 @@
       bg: '#000000', bgStyle: 'solid', fg: '#ffffff', accent: '#2fd47a', warn: '#ffb020', crit: '#ff4757',
       overBg: '#000000', overFg: '#ff4757', msgFg: '#000000', msgBg: '#ffffff',
       font: 'mono', weight: 600,
-      showProgress: false, showClock: false, showTitle: false, showNext: false, showNotice: false,
+      showProgress: false, showClock: false, showTitle: false, showNext: false, showNotice: false, flashOver: true,
       warnText: '', expiredText: '', overText: '',
     },
   ];
@@ -102,6 +102,7 @@
   // ---------- derived values ----------
   /** Raw signed value: remaining (countdown/clock) or elapsed (countup). */
   function rawValue(t, now) {
+    if (t.kind === 'time') return 0;
     if (t.kind === 'clock') return t.targetAt == null ? 0 : t.targetAt - now;
     if (!t.running || t.since == null) return t.baseMs;
     return t.kind === 'countup' ? t.baseMs + (now - t.since) : t.baseMs - (now - t.since);
@@ -112,6 +113,8 @@
    * overtime is off), over = beyond the limit, phase drives colours.
    */
   function timerView(t, now) {
+    // 'time' just shows the wall clock – nothing counts
+    if (t.kind === 'time') return { ms: 0, over: false, phase: 'normal', state: 'running', progress: 0, remaining: Infinity };
     const raw = rawValue(t, now);
     let ms, over, remaining;
     if (t.kind === 'countup') {
@@ -204,7 +207,7 @@
   }
 
   function startTimer(s, t, now) {
-    if (t.kind === 'clock' || t.running) return;
+    if (t.kind === 'clock' || t.kind === 'time' || t.running) return;
     if (t.kind === 'countdown' && t.baseMs <= 0 && !t.overtime) return;
     t.running = true;
     t.since = now;
@@ -212,7 +215,7 @@
   }
 
   function pauseTimer(t, now) {
-    if (t.kind === 'clock' || !t.running) return;
+    if (t.kind === 'clock' || t.kind === 'time' || !t.running) return;
     t.baseMs = rawValue(t, now);
     t.running = false;
     t.since = null;
@@ -317,7 +320,7 @@
         if ('critMs' in p) t.critMs = num(p.critMs, 0, HOUR, t.critMs);
         if (t.critMs > t.warnMs) { const w = t.warnMs; t.warnMs = t.critMs; t.critMs = w; }
         if ('presetId' in p && s.presets.some(x => x.id === p.presetId)) t.presetId = p.presetId;
-        if ('kind' in p && (p.kind === 'countdown' || p.kind === 'countup') && p.kind !== t.kind) {
+        if ('kind' in p && ['countdown', 'countup', 'time'].includes(p.kind) && p.kind !== t.kind) {
           t.kind = p.kind;
           t.targetAt = null;
           t.targetLabel = '';
@@ -339,7 +342,7 @@
         if (!t) return false;
         const ms = num(a.ms, 0, DAY, null);
         if (ms == null) return false;
-        if (t.kind === 'clock') { t.kind = 'countdown'; t.targetAt = null; t.targetLabel = ''; }
+        if (t.kind === 'clock' || t.kind === 'time') { t.kind = 'countdown'; t.targetAt = null; t.targetLabel = ''; }
         t.durationMs = ms;
         t.running = false;
         t.since = null;
@@ -348,7 +351,7 @@
         return true;
       }
       case 'timer.adjust': {
-        if (!t || t.kind === 'clock') return false;
+        if (!t || t.kind === 'clock' || t.kind === 'time') return false;
         const delta = num(a.ms, -HOUR, HOUR, 0);
         if (!delta) return false;
         freeze(t, now);

@@ -2,181 +2,1096 @@
   {
     "name": "start, pause, resume countdown",
     "steps": [
-      { "at": 1000, "do": { "type": "timer.set", "id": "t1", "ms": 300000 } },
-      { "at": 1000, "expect": { "view.t1.state": "idle", "view.t1.ms": 300000 } },
-      { "at": 2000, "do": { "type": "timer.start", "id": "t1" } },
-      { "at": 62000, "expect": { "view.t1.ms": 240000, "view.t1.state": "running", "timers.0.running": true } },
-      { "at": 62000, "do": { "type": "timer.pause", "id": "t1" } },
-      { "at": 99000, "expect": { "view.t1.ms": 240000, "view.t1.state": "paused" } },
-      { "at": 100000, "do": { "type": "timer.toggle", "id": "t1" } },
-      { "at": 110000, "expect": { "view.t1.ms": 230000 } },
-      { "at": 110000, "do": { "type": "timer.reset", "id": "t1" } },
-      { "at": 110000, "expect": { "view.t1.ms": 300000, "view.t1.state": "idle", "rev": 5 } }
+      {
+        "at": 1000,
+        "do": {
+          "type": "timer.set",
+          "id": "t1",
+          "ms": 300000
+        }
+      },
+      {
+        "at": 1000,
+        "expect": {
+          "view.t1.state": "idle",
+          "view.t1.ms": 300000
+        }
+      },
+      {
+        "at": 2000,
+        "do": {
+          "type": "timer.start",
+          "id": "t1"
+        }
+      },
+      {
+        "at": 62000,
+        "expect": {
+          "view.t1.ms": 240000,
+          "view.t1.state": "running",
+          "timers.0.running": true
+        }
+      },
+      {
+        "at": 62000,
+        "do": {
+          "type": "timer.pause",
+          "id": "t1"
+        }
+      },
+      {
+        "at": 99000,
+        "expect": {
+          "view.t1.ms": 240000,
+          "view.t1.state": "paused"
+        }
+      },
+      {
+        "at": 100000,
+        "do": {
+          "type": "timer.toggle",
+          "id": "t1"
+        }
+      },
+      {
+        "at": 110000,
+        "expect": {
+          "view.t1.ms": 230000
+        }
+      },
+      {
+        "at": 110000,
+        "do": {
+          "type": "timer.reset",
+          "id": "t1"
+        }
+      },
+      {
+        "at": 110000,
+        "expect": {
+          "view.t1.ms": 300000,
+          "view.t1.state": "idle",
+          "rev": 5
+        }
+      }
     ]
   },
   {
     "name": "phases and overtime",
     "steps": [
-      { "at": 0, "do": { "type": "timer.set", "id": "t1", "ms": 180000, "start": true } },
-      { "at": 30000, "expect": { "view.t1.phase": "normal" } },
-      { "at": 60000, "expect": { "view.t1.phase": "warn" } },
-      { "at": 120000, "expect": { "view.t1.phase": "crit" } },
-      { "at": 185000, "expect": { "view.t1.phase": "over", "view.t1.ms": -5000, "view.t1.state": "running", "view.t1.over": true } }
+      {
+        "at": 0,
+        "do": {
+          "type": "timer.set",
+          "id": "t1",
+          "ms": 180000,
+          "start": true
+        }
+      },
+      {
+        "at": 30000,
+        "expect": {
+          "view.t1.phase": "normal"
+        }
+      },
+      {
+        "at": 60000,
+        "expect": {
+          "view.t1.phase": "warn"
+        }
+      },
+      {
+        "at": 120000,
+        "expect": {
+          "view.t1.phase": "crit"
+        }
+      },
+      {
+        "at": 185000,
+        "expect": {
+          "view.t1.phase": "over",
+          "view.t1.ms": -5000,
+          "view.t1.state": "running",
+          "view.t1.over": true
+        }
+      }
     ]
   },
   {
     "name": "no overtime stops at zero",
     "steps": [
-      { "at": 0, "do": { "type": "timer.update", "id": "t1", "patch": { "overtime": false } } },
-      { "at": 0, "do": { "type": "timer.set", "id": "t1", "ms": 60000, "start": true } },
-      { "at": 70000, "expect": { "view.t1.ms": 0, "view.t1.state": "finished" } },
-      { "at": 71000, "do": { "type": "timer.message", "id": "t1", "text": "hi" } },
-      { "at": 71000, "expect": { "timers.0.running": false, "timers.0.baseMs": 0, "view.t1.state": "finished" } },
-      { "at": 72000, "do": { "type": "timer.start", "id": "t1" } },
-      { "at": 72000, "expect": { "timers.0.running": false } },
-      { "at": 72000, "do": { "type": "timer.adjust", "id": "t1", "ms": 30000 } },
-      { "at": 72000, "expect": { "view.t1.ms": 30000, "view.t1.state": "paused" } }
+      {
+        "at": 0,
+        "do": {
+          "type": "timer.update",
+          "id": "t1",
+          "patch": {
+            "overtime": false
+          }
+        }
+      },
+      {
+        "at": 0,
+        "do": {
+          "type": "timer.set",
+          "id": "t1",
+          "ms": 60000,
+          "start": true
+        }
+      },
+      {
+        "at": 70000,
+        "expect": {
+          "view.t1.ms": 0,
+          "view.t1.state": "finished"
+        }
+      },
+      {
+        "at": 71000,
+        "do": {
+          "type": "timer.message",
+          "id": "t1",
+          "text": "hi"
+        }
+      },
+      {
+        "at": 71000,
+        "expect": {
+          "timers.0.running": false,
+          "timers.0.baseMs": 0,
+          "view.t1.state": "finished"
+        }
+      },
+      {
+        "at": 72000,
+        "do": {
+          "type": "timer.start",
+          "id": "t1"
+        }
+      },
+      {
+        "at": 72000,
+        "expect": {
+          "timers.0.running": false
+        }
+      },
+      {
+        "at": 72000,
+        "do": {
+          "type": "timer.adjust",
+          "id": "t1",
+          "ms": 30000
+        }
+      },
+      {
+        "at": 72000,
+        "expect": {
+          "view.t1.ms": 30000,
+          "view.t1.state": "paused"
+        }
+      }
     ]
   },
   {
     "name": "adjust while running extends duration",
     "steps": [
-      { "at": 0, "do": { "type": "timer.set", "id": "t1", "ms": 60000, "start": true } },
-      { "at": 10000, "do": { "type": "timer.adjust", "id": "t1", "ms": 60000 } },
-      { "at": 10000, "expect": { "view.t1.ms": 110000, "timers.0.durationMs": 110000 } },
-      { "at": 20000, "expect": { "view.t1.ms": 100000 } },
-      { "at": 20000, "do": { "type": "timer.adjust", "id": "t1", "ms": -30000 } },
-      { "at": 20000, "expect": { "view.t1.ms": 70000, "timers.0.durationMs": 110000 } },
-      { "at": 20000, "do": { "type": "timer.adjust", "id": "t1", "ms": 0 }, "changed": false }
+      {
+        "at": 0,
+        "do": {
+          "type": "timer.set",
+          "id": "t1",
+          "ms": 60000,
+          "start": true
+        }
+      },
+      {
+        "at": 10000,
+        "do": {
+          "type": "timer.adjust",
+          "id": "t1",
+          "ms": 60000
+        }
+      },
+      {
+        "at": 10000,
+        "expect": {
+          "view.t1.ms": 110000,
+          "timers.0.durationMs": 110000
+        }
+      },
+      {
+        "at": 20000,
+        "expect": {
+          "view.t1.ms": 100000
+        }
+      },
+      {
+        "at": 20000,
+        "do": {
+          "type": "timer.adjust",
+          "id": "t1",
+          "ms": -30000
+        }
+      },
+      {
+        "at": 20000,
+        "expect": {
+          "view.t1.ms": 70000,
+          "timers.0.durationMs": 110000
+        }
+      },
+      {
+        "at": 20000,
+        "do": {
+          "type": "timer.adjust",
+          "id": "t1",
+          "ms": 0
+        },
+        "changed": false
+      }
     ]
   },
   {
     "name": "count up with soft limit",
     "steps": [
-      { "at": 0, "do": { "type": "timer.update", "id": "t1", "patch": { "kind": "countup" } } },
-      { "at": 0, "expect": { "view.t1.ms": 0, "view.t1.state": "idle" } },
-      { "at": 0, "do": { "type": "timer.set", "id": "t1", "ms": 300000, "start": true } },
-      { "at": 45000, "expect": { "view.t1.ms": 45000, "view.t1.phase": "normal", "view.t1.state": "running" } },
-      { "at": 245000, "expect": { "view.t1.phase": "crit" } },
-      { "at": 310000, "expect": { "view.t1.phase": "over", "view.t1.ms": 310000 } },
-      { "at": 130000, "do": { "type": "timer.reset", "id": "t1" } },
-      { "at": 130000, "expect": { "view.t1.ms": 0 } }
+      {
+        "at": 0,
+        "do": {
+          "type": "timer.update",
+          "id": "t1",
+          "patch": {
+            "kind": "countup"
+          }
+        }
+      },
+      {
+        "at": 0,
+        "expect": {
+          "view.t1.ms": 0,
+          "view.t1.state": "idle"
+        }
+      },
+      {
+        "at": 0,
+        "do": {
+          "type": "timer.set",
+          "id": "t1",
+          "ms": 300000,
+          "start": true
+        }
+      },
+      {
+        "at": 45000,
+        "expect": {
+          "view.t1.ms": 45000,
+          "view.t1.phase": "normal",
+          "view.t1.state": "running"
+        }
+      },
+      {
+        "at": 245000,
+        "expect": {
+          "view.t1.phase": "crit"
+        }
+      },
+      {
+        "at": 310000,
+        "expect": {
+          "view.t1.phase": "over",
+          "view.t1.ms": 310000
+        }
+      },
+      {
+        "at": 130000,
+        "do": {
+          "type": "timer.reset",
+          "id": "t1"
+        }
+      },
+      {
+        "at": 130000,
+        "expect": {
+          "view.t1.ms": 0
+        }
+      }
     ]
   },
   {
     "name": "count to time of day",
     "steps": [
-      { "at": 1000000, "do": { "type": "timer.target", "id": "t1", "at": 1600000, "label": "14:30" } },
-      { "at": 1000000, "expect": { "view.t1.ms": 600000, "view.t1.state": "running", "timers.0.kind": "clock" } },
-      { "at": 1000000, "do": { "type": "timer.pause", "id": "t1" } },
-      { "at": 1300000, "expect": { "view.t1.ms": 300000 } },
-      { "at": 1700000, "expect": { "view.t1.ms": -100000, "view.t1.phase": "over" } },
-      { "at": 1700000, "do": { "type": "timer.reset", "id": "t1" } },
-      { "at": 1700000, "expect": { "timers.0.kind": "countdown", "view.t1.state": "idle" } }
+      {
+        "at": 1000000,
+        "do": {
+          "type": "timer.target",
+          "id": "t1",
+          "at": 1600000,
+          "label": "14:30"
+        }
+      },
+      {
+        "at": 1000000,
+        "expect": {
+          "view.t1.ms": 600000,
+          "view.t1.state": "running",
+          "timers.0.kind": "clock"
+        }
+      },
+      {
+        "at": 1000000,
+        "do": {
+          "type": "timer.pause",
+          "id": "t1"
+        }
+      },
+      {
+        "at": 1300000,
+        "expect": {
+          "view.t1.ms": 300000
+        }
+      },
+      {
+        "at": 1700000,
+        "expect": {
+          "view.t1.ms": -100000,
+          "view.t1.phase": "over"
+        }
+      },
+      {
+        "at": 1700000,
+        "do": {
+          "type": "timer.reset",
+          "id": "t1"
+        }
+      },
+      {
+        "at": 1700000,
+        "expect": {
+          "timers.0.kind": "countdown",
+          "view.t1.state": "idle"
+        }
+      }
     ]
   },
   {
     "name": "messages",
     "steps": [
-      { "at": 0, "do": { "type": "timer.message", "id": "t1", "text": "  Bitte zum Ende  ", "flash": true } },
-      { "at": 0, "expect": { "timers.0.message.text": "Bitte zum Ende", "timers.0.message.visible": true, "timers.0.message.flash": true } },
-      { "at": 0, "do": { "type": "timer.message", "id": "t1", "visible": false } },
-      { "at": 0, "expect": { "timers.0.message.visible": false } },
-      { "at": 0, "do": { "type": "timer.messageClear", "id": "t1" } },
-      { "at": 0, "expect": { "timers.0.message.text": "", "timers.0.message.flash": false } },
-      { "at": 0, "do": { "type": "timer.message", "id": "t9", "text": "x" }, "changed": false }
+      {
+        "at": 0,
+        "do": {
+          "type": "timer.message",
+          "id": "t1",
+          "text": "  Bitte zum Ende  ",
+          "flash": true
+        }
+      },
+      {
+        "at": 0,
+        "expect": {
+          "timers.0.message.text": "Bitte zum Ende",
+          "timers.0.message.visible": true,
+          "timers.0.message.flash": true
+        }
+      },
+      {
+        "at": 0,
+        "do": {
+          "type": "timer.message",
+          "id": "t1",
+          "visible": false
+        }
+      },
+      {
+        "at": 0,
+        "expect": {
+          "timers.0.message.visible": false
+        }
+      },
+      {
+        "at": 0,
+        "do": {
+          "type": "timer.messageClear",
+          "id": "t1"
+        }
+      },
+      {
+        "at": 0,
+        "expect": {
+          "timers.0.message.text": "",
+          "timers.0.message.flash": false
+        }
+      },
+      {
+        "at": 0,
+        "do": {
+          "type": "timer.message",
+          "id": "t9",
+          "text": "x"
+        },
+        "changed": false
+      }
     ]
   },
   {
     "name": "timers add and remove",
     "steps": [
-      { "at": 0, "do": { "type": "timer.add" } },
-      { "at": 0, "do": { "type": "timer.add" } },
-      { "at": 0, "expect": { "timers.2.id": "t3", "timers.2.name": "Timer 3" } },
-      { "at": 0, "do": { "type": "timer.remove", "id": "t2" } },
-      { "at": 0, "do": { "type": "timer.add" } },
-      { "at": 0, "expect": { "timers.1.id": "t2" } },
-      { "at": 0, "do": { "type": "timer.update", "id": "t2", "patch": { "name": "  Saal   B ", "warnMs": 30000, "critMs": 90000 } } },
-      { "at": 0, "expect": { "timers.1.name": "Saal B", "timers.1.warnMs": 90000, "timers.1.critMs": 30000 } },
-      { "at": 0, "do": { "type": "timer.remove", "id": "t1" } },
-      { "at": 0, "do": { "type": "timer.remove", "id": "t2" } },
-      { "at": 0, "do": { "type": "timer.remove", "id": "t3" }, "changed": false },
-      { "at": 0, "expect": { "agenda.timerId": "t3" } }
+      {
+        "at": 0,
+        "do": {
+          "type": "timer.add"
+        }
+      },
+      {
+        "at": 0,
+        "do": {
+          "type": "timer.add"
+        }
+      },
+      {
+        "at": 0,
+        "expect": {
+          "timers.2.id": "t3",
+          "timers.2.name": "Timer 3"
+        }
+      },
+      {
+        "at": 0,
+        "do": {
+          "type": "timer.remove",
+          "id": "t2"
+        }
+      },
+      {
+        "at": 0,
+        "do": {
+          "type": "timer.add"
+        }
+      },
+      {
+        "at": 0,
+        "expect": {
+          "timers.1.id": "t2"
+        }
+      },
+      {
+        "at": 0,
+        "do": {
+          "type": "timer.update",
+          "id": "t2",
+          "patch": {
+            "name": "  Saal   B ",
+            "warnMs": 30000,
+            "critMs": 90000
+          }
+        }
+      },
+      {
+        "at": 0,
+        "expect": {
+          "timers.1.name": "Saal B",
+          "timers.1.warnMs": 90000,
+          "timers.1.critMs": 30000
+        }
+      },
+      {
+        "at": 0,
+        "do": {
+          "type": "timer.remove",
+          "id": "t1"
+        }
+      },
+      {
+        "at": 0,
+        "do": {
+          "type": "timer.remove",
+          "id": "t2"
+        }
+      },
+      {
+        "at": 0,
+        "do": {
+          "type": "timer.remove",
+          "id": "t3"
+        },
+        "changed": false
+      },
+      {
+        "at": 0,
+        "expect": {
+          "agenda.timerId": "t3"
+        }
+      }
     ]
   },
   {
     "name": "run of show with drift",
     "steps": [
-      { "at": 0, "do": { "type": "agenda.replace", "items": [
-        { "title": "Begrüßung", "speaker": "Anna", "durationMs": 300000 },
-        { "title": "Keynote", "speaker": "Ben", "durationMs": 1200000 },
-        { "title": "Panel", "durationMs": 900000 }
-      ] } },
-      { "at": 0, "expect": { "agenda.items.0.id": "s1", "agenda.items.2.id": "s3", "agenda.cursor": -1, "agendaView.totalPlanned": 2400000 } },
-      { "at": 1000, "do": { "type": "agenda.next" } },
-      { "at": 1000, "expect": { "agenda.cursor": 0, "timers.0.segmentId": "s1", "timers.0.running": true, "agenda.items.0.startedAt": 1000 } },
-      { "at": 421000, "expect": { "view.t1.ms": -120000, "agendaView.drift": 120000 } },
-      { "at": 421000, "do": { "type": "agenda.next" } },
-      { "at": 421000, "expect": { "agenda.items.0.endedAt": 421000, "agenda.cursor": 1, "view.t1.ms": 1200000, "agendaView.drift": 120000, "agendaView.projectedEnd": 2521000 } },
-      { "at": 1021000, "expect": { "agendaView.drift": 120000, "agendaView.projectedEnd": 2521000 } },
-      { "at": 1021000, "do": { "type": "agenda.next" } },
-      { "at": 1021000, "expect": { "agendaView.drift": -480000 } },
-      { "at": 1021000, "do": { "type": "agenda.prev" } },
-      { "at": 1021000, "expect": { "agenda.cursor": 1, "agenda.items.1.startedAt": 1021000, "agenda.items.2.startedAt": null } },
-      { "at": 1021000, "do": { "type": "agenda.next" } },
-      { "at": 1021000, "do": { "type": "agenda.next" } },
-      { "at": 1021000, "expect": { "agenda.cursor": 3, "agendaView.done": true, "timers.0.segmentId": null, "timers.0.running": false } },
-      { "at": 1021000, "do": { "type": "agenda.next" }, "changed": false },
-      { "at": 1021000, "do": { "type": "agenda.reset" } },
-      { "at": 1021000, "expect": { "agenda.cursor": -1, "agenda.items.0.startedAt": null, "view.t1.state": "idle" } }
+      {
+        "at": 0,
+        "do": {
+          "type": "agenda.replace",
+          "items": [
+            {
+              "title": "Begrüßung",
+              "speaker": "Anna",
+              "durationMs": 300000
+            },
+            {
+              "title": "Keynote",
+              "speaker": "Ben",
+              "durationMs": 1200000
+            },
+            {
+              "title": "Panel",
+              "durationMs": 900000
+            }
+          ]
+        }
+      },
+      {
+        "at": 0,
+        "expect": {
+          "agenda.items.0.id": "s1",
+          "agenda.items.2.id": "s3",
+          "agenda.cursor": -1,
+          "agendaView.totalPlanned": 2400000
+        }
+      },
+      {
+        "at": 1000,
+        "do": {
+          "type": "agenda.next"
+        }
+      },
+      {
+        "at": 1000,
+        "expect": {
+          "agenda.cursor": 0,
+          "timers.0.segmentId": "s1",
+          "timers.0.running": true,
+          "agenda.items.0.startedAt": 1000
+        }
+      },
+      {
+        "at": 421000,
+        "expect": {
+          "view.t1.ms": -120000,
+          "agendaView.drift": 120000
+        }
+      },
+      {
+        "at": 421000,
+        "do": {
+          "type": "agenda.next"
+        }
+      },
+      {
+        "at": 421000,
+        "expect": {
+          "agenda.items.0.endedAt": 421000,
+          "agenda.cursor": 1,
+          "view.t1.ms": 1200000,
+          "agendaView.drift": 120000,
+          "agendaView.projectedEnd": 2521000
+        }
+      },
+      {
+        "at": 1021000,
+        "expect": {
+          "agendaView.drift": 120000,
+          "agendaView.projectedEnd": 2521000
+        }
+      },
+      {
+        "at": 1021000,
+        "do": {
+          "type": "agenda.next"
+        }
+      },
+      {
+        "at": 1021000,
+        "expect": {
+          "agendaView.drift": -480000
+        }
+      },
+      {
+        "at": 1021000,
+        "do": {
+          "type": "agenda.prev"
+        }
+      },
+      {
+        "at": 1021000,
+        "expect": {
+          "agenda.cursor": 1,
+          "agenda.items.1.startedAt": 1021000,
+          "agenda.items.2.startedAt": null
+        }
+      },
+      {
+        "at": 1021000,
+        "do": {
+          "type": "agenda.next"
+        }
+      },
+      {
+        "at": 1021000,
+        "do": {
+          "type": "agenda.next"
+        }
+      },
+      {
+        "at": 1021000,
+        "expect": {
+          "agenda.cursor": 3,
+          "agendaView.done": true,
+          "timers.0.segmentId": null,
+          "timers.0.running": false
+        }
+      },
+      {
+        "at": 1021000,
+        "do": {
+          "type": "agenda.next"
+        },
+        "changed": false
+      },
+      {
+        "at": 1021000,
+        "do": {
+          "type": "agenda.reset"
+        }
+      },
+      {
+        "at": 1021000,
+        "expect": {
+          "agenda.cursor": -1,
+          "agenda.items.0.startedAt": null,
+          "view.t1.state": "idle"
+        }
+      }
     ]
   },
   {
     "name": "run of show without autostart",
     "steps": [
-      { "at": 0, "do": { "type": "agenda.settings", "autoStart": false, "plannedStart": "09:30" } },
-      { "at": 0, "do": { "type": "agenda.add", "item": { "title": "A", "durationMs": 60000 } } },
-      { "at": 0, "do": { "type": "agenda.add", "item": { "title": "B", "durationMs": 120000 }, "index": 0 } },
-      { "at": 0, "expect": { "agenda.items.0.title": "B", "agenda.plannedStart": "09:30" } },
-      { "at": 5000, "do": { "type": "agenda.go", "index": 1 } },
-      { "at": 5000, "expect": { "timers.0.running": false, "agenda.items.1.startedAt": null, "view.t1.ms": 60000 } },
-      { "at": 9000, "do": { "type": "timer.start", "id": "t1" } },
-      { "at": 9000, "expect": { "agenda.items.1.startedAt": 9000 } },
-      { "at": 9000, "do": { "type": "agenda.move", "itemId": "s1", "to": 0 } },
-      { "at": 9000, "expect": { "agenda.cursor": 0, "agenda.items.0.title": "A" } },
-      { "at": 9000, "do": { "type": "agenda.update", "itemId": "s2", "patch": { "durationMs": 30000, "title": "B2" } } },
-      { "at": 9000, "expect": { "agenda.items.1.durationMs": 30000, "agenda.items.1.title": "B2" } },
-      { "at": 9000, "do": { "type": "agenda.remove", "itemId": "s1" } },
-      { "at": 9000, "expect": { "agenda.cursor": -1, "timers.0.segmentId": null } },
-      { "at": 9000, "do": { "type": "agenda.settings", "plannedStart": "25:00" } },
-      { "at": 9000, "expect": { "agenda.plannedStart": "" } }
+      {
+        "at": 0,
+        "do": {
+          "type": "agenda.settings",
+          "autoStart": false,
+          "plannedStart": "09:30"
+        }
+      },
+      {
+        "at": 0,
+        "do": {
+          "type": "agenda.add",
+          "item": {
+            "title": "A",
+            "durationMs": 60000
+          }
+        }
+      },
+      {
+        "at": 0,
+        "do": {
+          "type": "agenda.add",
+          "item": {
+            "title": "B",
+            "durationMs": 120000
+          },
+          "index": 0
+        }
+      },
+      {
+        "at": 0,
+        "expect": {
+          "agenda.items.0.title": "B",
+          "agenda.plannedStart": "09:30"
+        }
+      },
+      {
+        "at": 5000,
+        "do": {
+          "type": "agenda.go",
+          "index": 1
+        }
+      },
+      {
+        "at": 5000,
+        "expect": {
+          "timers.0.running": false,
+          "agenda.items.1.startedAt": null,
+          "view.t1.ms": 60000
+        }
+      },
+      {
+        "at": 9000,
+        "do": {
+          "type": "timer.start",
+          "id": "t1"
+        }
+      },
+      {
+        "at": 9000,
+        "expect": {
+          "agenda.items.1.startedAt": 9000
+        }
+      },
+      {
+        "at": 9000,
+        "do": {
+          "type": "agenda.move",
+          "itemId": "s1",
+          "to": 0
+        }
+      },
+      {
+        "at": 9000,
+        "expect": {
+          "agenda.cursor": 0,
+          "agenda.items.0.title": "A"
+        }
+      },
+      {
+        "at": 9000,
+        "do": {
+          "type": "agenda.update",
+          "itemId": "s2",
+          "patch": {
+            "durationMs": 30000,
+            "title": "B2"
+          }
+        }
+      },
+      {
+        "at": 9000,
+        "expect": {
+          "agenda.items.1.durationMs": 30000,
+          "agenda.items.1.title": "B2"
+        }
+      },
+      {
+        "at": 9000,
+        "do": {
+          "type": "agenda.remove",
+          "itemId": "s1"
+        }
+      },
+      {
+        "at": 9000,
+        "expect": {
+          "agenda.cursor": -1,
+          "timers.0.segmentId": null
+        }
+      },
+      {
+        "at": 9000,
+        "do": {
+          "type": "agenda.settings",
+          "plannedStart": "25:00"
+        }
+      },
+      {
+        "at": 9000,
+        "expect": {
+          "agenda.plannedStart": ""
+        }
+      }
     ]
   },
   {
     "name": "presets",
     "steps": [
-      { "at": 0, "do": { "type": "preset.save", "preset": { "baseId": "daylight", "name": "Saal 1", "fg": "#ABCDEF", "bg": "red", "font": "comic", "showClock": false }, "assignTo": "t1" } },
-      { "at": 0, "expect": { "presets.4.id": "p1", "presets.4.fg": "#abcdef", "presets.4.bg": "#eef1f4", "presets.4.font": "grotesk", "presets.4.showClock": false, "presets.4.builtin": false, "timers.0.presetId": "p1" } },
-      { "at": 0, "do": { "type": "preset.save", "preset": { "id": "p1", "name": "Saal 1b", "weight": 2000 } } },
-      { "at": 0, "expect": { "presets.4.name": "Saal 1b", "presets.4.weight": 900, "presets.4.fg": "#abcdef" } },
-      { "at": 0, "do": { "type": "preset.remove", "presetId": "stage" }, "changed": false },
-      { "at": 0, "do": { "type": "preset.remove", "presetId": "p1" } },
-      { "at": 0, "expect": { "timers.0.presetId": "stage" } }
+      {
+        "at": 0,
+        "do": {
+          "type": "preset.save",
+          "preset": {
+            "baseId": "daylight",
+            "name": "Saal 1",
+            "fg": "#ABCDEF",
+            "bg": "red",
+            "font": "comic",
+            "showClock": false
+          },
+          "assignTo": "t1"
+        }
+      },
+      {
+        "at": 0,
+        "expect": {
+          "presets.4.id": "p1",
+          "presets.4.fg": "#abcdef",
+          "presets.4.bg": "#eef1f4",
+          "presets.4.font": "grotesk",
+          "presets.4.showClock": false,
+          "presets.4.builtin": false,
+          "timers.0.presetId": "p1"
+        }
+      },
+      {
+        "at": 0,
+        "do": {
+          "type": "preset.save",
+          "preset": {
+            "id": "p1",
+            "name": "Saal 1b",
+            "weight": 2000
+          }
+        }
+      },
+      {
+        "at": 0,
+        "expect": {
+          "presets.4.name": "Saal 1b",
+          "presets.4.weight": 900,
+          "presets.4.fg": "#abcdef"
+        }
+      },
+      {
+        "at": 0,
+        "do": {
+          "type": "preset.remove",
+          "presetId": "stage"
+        },
+        "changed": false
+      },
+      {
+        "at": 0,
+        "do": {
+          "type": "preset.remove",
+          "presetId": "p1"
+        }
+      },
+      {
+        "at": 0,
+        "expect": {
+          "timers.0.presetId": "stage"
+        }
+      }
     ]
   },
   {
     "name": "misc and validation",
     "steps": [
-      { "at": 0, "do": { "type": "blackout.toggle" } },
-      { "at": 0, "expect": { "blackout": true } },
-      { "at": 0, "do": { "type": "event.update", "title": "Fachtag Saal A" } },
-      { "at": 0, "do": { "type": "quick.set", "list": ["  A ", "", "B"] } },
-      { "at": 0, "expect": { "event.title": "Fachtag Saal A", "quickMessages.1": "B", "quickMessages.length": 2 } },
-      { "at": 0, "do": { "type": "timer.set", "id": "t1", "ms": "abc" }, "changed": false },
-      { "at": 0, "do": { "type": "timer.set", "id": "t1", "ms": 999999999999 } },
-      { "at": 0, "expect": { "timers.0.durationMs": 86400000 } },
-      { "at": 0, "do": { "type": "nope" }, "changed": false },
-      { "at": 0, "expect": { "rev": 4 } }
+      {
+        "at": 0,
+        "do": {
+          "type": "blackout.toggle"
+        }
+      },
+      {
+        "at": 0,
+        "expect": {
+          "blackout": true
+        }
+      },
+      {
+        "at": 0,
+        "do": {
+          "type": "event.update",
+          "title": "Fachtag Saal A"
+        }
+      },
+      {
+        "at": 0,
+        "do": {
+          "type": "quick.set",
+          "list": [
+            "  A ",
+            "",
+            "B"
+          ]
+        }
+      },
+      {
+        "at": 0,
+        "expect": {
+          "event.title": "Fachtag Saal A",
+          "quickMessages.1": "B",
+          "quickMessages.length": 2
+        }
+      },
+      {
+        "at": 0,
+        "do": {
+          "type": "timer.set",
+          "id": "t1",
+          "ms": "abc"
+        },
+        "changed": false
+      },
+      {
+        "at": 0,
+        "do": {
+          "type": "timer.set",
+          "id": "t1",
+          "ms": 999999999999
+        }
+      },
+      {
+        "at": 0,
+        "expect": {
+          "timers.0.durationMs": 86400000
+        }
+      },
+      {
+        "at": 0,
+        "do": {
+          "type": "nope"
+        },
+        "changed": false
+      },
+      {
+        "at": 0,
+        "expect": {
+          "rev": 4
+        }
+      }
+    ]
+  },
+  {
+    "name": "wall clock kind",
+    "steps": [
+      {
+        "at": 0,
+        "do": {
+          "type": "timer.set",
+          "id": "t1",
+          "ms": 120000,
+          "start": true
+        }
+      },
+      {
+        "at": 5000,
+        "do": {
+          "type": "timer.update",
+          "id": "t1",
+          "patch": {
+            "kind": "time"
+          }
+        }
+      },
+      {
+        "at": 5000,
+        "expect": {
+          "timers.0.kind": "time",
+          "timers.0.running": false,
+          "view.t1.state": "running",
+          "view.t1.phase": "normal",
+          "view.t1.ms": 0
+        }
+      },
+      {
+        "at": 6000,
+        "do": {
+          "type": "timer.start",
+          "id": "t1"
+        }
+      },
+      {
+        "at": 6000,
+        "expect": {
+          "timers.0.running": false
+        }
+      },
+      {
+        "at": 6000,
+        "do": {
+          "type": "timer.adjust",
+          "id": "t1",
+          "ms": 60000
+        },
+        "changed": false
+      },
+      {
+        "at": 6000,
+        "do": {
+          "type": "timer.reset",
+          "id": "t1"
+        }
+      },
+      {
+        "at": 6000,
+        "expect": {
+          "timers.0.kind": "time"
+        }
+      },
+      {
+        "at": 7000,
+        "do": {
+          "type": "timer.set",
+          "id": "t1",
+          "ms": 300000
+        }
+      },
+      {
+        "at": 7000,
+        "expect": {
+          "timers.0.kind": "countdown",
+          "view.t1.ms": 300000,
+          "view.t1.state": "idle"
+        }
+      },
+      {
+        "at": 7000,
+        "do": {
+          "type": "timer.update",
+          "id": "t1",
+          "patch": {
+            "kind": "time"
+          }
+        }
+      },
+      {
+        "at": 7000,
+        "do": {
+          "type": "timer.update",
+          "id": "t1",
+          "patch": {
+            "kind": "countup"
+          }
+        }
+      },
+      {
+        "at": 7000,
+        "expect": {
+          "timers.0.kind": "countup",
+          "view.t1.ms": 0
+        }
+      }
+    ]
+  },
+  {
+    "name": "flash on overtime flag",
+    "steps": [
+      {
+        "at": 0,
+        "expect": {
+          "presets.0.flashOver": true,
+          "presets.2.flashOver": false,
+          "presets.3.flashOver": true
+        }
+      },
+      {
+        "at": 0,
+        "do": {
+          "type": "preset.save",
+          "preset": {
+            "baseId": "stage",
+            "name": "Ruhig",
+            "flashOver": false
+          }
+        }
+      },
+      {
+        "at": 0,
+        "expect": {
+          "presets.4.flashOver": false,
+          "presets.4.showClock": true
+        }
+      }
     ]
   }
 ]

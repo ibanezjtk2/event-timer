@@ -10,7 +10,7 @@
       const raw = location.hash.replace(/^#\/?/, '');
       const [view, q] = raw.split('?');
       const params = new URLSearchParams(q || '');
-      if (view === 'display' || view === 'agenda' || view === 'clock') return { view: 'display', params, layout: view === 'display' ? params.get('layout') : view };
+      if (view === 'display' || view === 'agenda' || view === 'clock') return { view: 'display', params, layout: view === 'display' ? params.get('layout') : view === 'clock' ? 'time' : view };
       if (!standalone && view === '') return { view: 'home', params };
       return { view: 'control', params };
     }
@@ -20,6 +20,7 @@
     if (short) { params.set('t', short[1]); return { view: 'display', params, layout: params.get('layout') }; }
     if (p === '/display') return { view: 'display', params, layout: params.get('layout') };
     if (p === '/agenda') return { view: 'display', params, layout: 'agenda' };
+    if (p === '/clock') return { view: 'display', params, layout: 'time' };
     if (p === '/control') return { view: 'control', params };
     return { view: 'home', params };
   }
@@ -42,7 +43,8 @@
   // ------------------------------------------------------------- display
   function mountDisplay(r) {
     const p = r.params;
-    const layout = ['full', 'clock', 'lower', 'agenda'].includes(r.layout) ? r.layout : 'full';
+    const layout = ['full', 'clock', 'lower', 'agenda', 'time'].includes(r.layout) ? r.layout : 'full';
+    const seconds = p.get('sec') !== '0';
     const slot = p.get('t');
     const transparent = p.get('bg') === 'transparent';
     const chrome = p.get('chrome') !== '0';
@@ -81,7 +83,7 @@
         if (!tm && layout === 'agenda') tm = s.timers.find(x => x.id === s.agenda.timerId) || s.timers[0];
         document.title = (tm ? tm.name : 'Event Timer') + ' – Display';
       }
-      view.update({ state: s, timer: tm, now, wallNow: now, layout, transparent, i18n: t });
+      view.update({ state: s, timer: tm, now, wallNow: now, layout, transparent, seconds, i18n: t });
       if (tr.mode === 'server') {
         if (tr.status !== 'online') { offlineSince = offlineSince || Date.now(); } else offlineSince = null;
         offline.hidden = !chrome || !offlineSince || Date.now() - offlineSince < 2500;
@@ -114,7 +116,7 @@
         h('a', { href: '/control' }, h('b', null, t('Steuerung')), h('span', null, t('Start, Pause, Zeit, Nachrichten, Ablauf'))),
         ...timers.map(x => h('a', { href: '/timer' + x.id.slice(1) }, h('b', null, x.name), h('span', null, t('Display') + ' · /timer' + x.id.slice(1)))),
         h('a', { href: '/agenda' }, h('b', null, t('Ablauf-Display')), h('span', null, 'Backstage · /agenda')),
-        h('a', { href: '/display?layout=clock' }, h('b', null, t('Uhr')), h('span', null, t('Uhrzeit groß'))));
+        h('a', { href: '/clock' }, h('b', null, t('Uhr')), h('span', null, t('Nur Uhrzeit') + ' · /clock')));
     };
     const off = tr.subscribe(render);
     render();
