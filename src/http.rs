@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 Felix Spindler <f-spindler@pm.me>
+
 //! Tiny HTTP/1.1 + WebSocket layer on top of std::net (one thread per connection).
 
 use crate::util::{base64, sha1};

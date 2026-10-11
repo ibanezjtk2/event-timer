@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 Felix Spindler <f-spindler@pm.me>
+
 //! Minimal mDNS responder (RFC 6762), so devices can open
 //! http://event-timer.local instead of typing an IP address.
 //! Answers A queries for "<name>.local" with the LAN address that sits in
@@ -30,7 +33,7 @@ pub fn spawn(app: Arc<App>) -> bool {
     let sock = match sys::bind_reuse(PORT) {
         Ok(s) => s,
         Err(e) => {
-            eprintln!("  Netzwerkname nicht verfügbar (mDNS-Port 5353: {e}).");
+            crate::logx::error!("  Netzwerkname nicht verfügbar (mDNS-Port 5353: {e}).");
             return false;
         }
     };

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 Felix Spindler <f-spindler@pm.me>
+
 //! Small helpers: SHA-1, Base64, time, URL decoding.
 
 use std::time::{SystemTime, UNIX_EPOCH};

@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>CFBundleName</key><string>Event Timer</string>
+  <key>CFBundleDisplayName</key><string>Event Timer</string>
+  <key>CFBundleIdentifier</key><string>io.github.ibanezjtk2.event-timer</string>
+  <key>CFBundleExecutable</key><string>event-timer</string>
+  <key>CFBundleIconFile</key><string>AppIcon</string>
+  <key>CFBundlePackageType</key><string>APPL</string>
+  <key>CFBundleShortVersionString</key><string>__VERSION__</string>
+  <key>CFBundleVersion</key><string>__VERSION__</string>
+  <key>CFBundleInfoDictionaryVersion</key><string>6.0</string>
+  <key>LSMinimumSystemVersion</key><string>10.13</string>
+  <!-- runs in the background: no Dock icon; quit via Regie → Menü → System -->
+  <key>LSUIElement</key><true/>
+  <key>NSHumanReadableCopyright</key><string>© 2026 Felix Spindler &lt;f-spindler@pm.me&gt; · GPL-3.0-or-later</string>
+</dict>
+</plist>

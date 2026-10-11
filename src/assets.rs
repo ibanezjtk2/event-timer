@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 Felix Spindler <f-spindler@pm.me>
+
 //! Web UI files, embedded at compile time by build.rs.
 include!(concat!(env!("OUT_DIR"), "/assets.rs"));
 

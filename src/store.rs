@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 Felix Spindler <f-spindler@pm.me>
+
 //! Persistence: the whole show is one JSON file, written atomically.
 
 use crate::engine::State;
@@ -54,12 +57,28 @@ fn config_dir() -> Option<PathBuf> {
     }
 }
 
+/// macOS: inside "Event Timer.app/Contents/MacOS" the data belongs next to the .app,
+/// never inside the bundle (that would break its signature and get lost on updates).
+fn app_bundle_dir(exe_dir: &Path) -> Option<PathBuf> {
+    let contents = exe_dir.parent()?;
+    let bundle = contents.parent()?;
+    let is_bundle = exe_dir.file_name()? == "MacOS"
+        && contents.file_name()? == "Contents"
+        && bundle.extension()? == "app";
+    if is_bundle {
+        bundle.parent().map(Path::to_path_buf)
+    } else {
+        None
+    }
+}
+
 /// Portable first: next to the program if that folder is writable and
 /// not a temp/translocated location, otherwise the user's config folder.
 pub fn default_path() -> PathBuf {
     if let Some(dir) = std::env::current_exe()
         .ok()
         .and_then(|p| p.parent().map(Path::to_path_buf))
+        .map(|d| app_bundle_dir(&d).unwrap_or(d))
     {
         let s = dir.to_string_lossy().to_lowercase();
         let suspicious =
@@ -135,4 +154,22 @@ pub fn save(path: &Path, state: &State, cfg: &ServerCfg, version: &str) -> std::
         f.sync_all()?;
     }
     fs::rename(&tmp, path)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::app_bundle_dir;
+    use std::path::Path;
+
+    #[test]
+    fn data_next_to_mac_app() {
+        assert_eq!(
+            app_bundle_dir(Path::new(
+                "/Users/felix/Programme/Event Timer.app/Contents/MacOS"
+            )),
+            Some(Path::new("/Users/felix/Programme").to_path_buf())
+        );
+        assert_eq!(app_bundle_dir(Path::new("/media/usb/event-timer")), None);
+        assert_eq!(app_bundle_dir(Path::new("/x/Contents/MacOS")), None);
+    }
 }

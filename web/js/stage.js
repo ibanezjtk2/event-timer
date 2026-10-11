@@ -1,3 +1,5 @@
+/* SPDX-License-Identifier: GPL-3.0-or-later
+   Copyright (C) 2026 Felix Spindler <f-spindler@pm.me> */
 /*
  * Pages for people outside the control room:
  *  /moderation – the presenter's phone/tablet: time left, programme, talkback, buttons that talk to the Regie

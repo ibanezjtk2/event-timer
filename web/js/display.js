@@ -1,3 +1,5 @@
+/* SPDX-License-Identifier: GPL-3.0-or-later
+   Copyright (C) 2026 Felix Spindler <f-spindler@pm.me> */
 /*
  * Display renderer. The same code draws the full-screen stage display and
  * the small live tiles in the control room, so what you see is what the

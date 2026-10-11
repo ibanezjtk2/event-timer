@@ -1,3 +1,5 @@
+/* SPDX-License-Identifier: GPL-3.0-or-later
+   Copyright (C) 2026 Felix Spindler <f-spindler@pm.me> */
 /*
  * Minimal QR code encoder (byte mode, error correction level M, versions 1–10).
  * Enough for URLs up to ~200 characters. Returns an SVG string.
