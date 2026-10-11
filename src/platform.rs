@@ -26,6 +26,21 @@ pub fn install_stop_handlers() {
     win::install();
 }
 
+/// Opens a URL in the default browser. Windows uses the regular shell API
+/// (ShellExecuteW) – a windowless program that starts helper processes such
+/// as rundll32 looks like malware to virus scanners and browser download checks.
+pub fn open_url(url: &str) -> bool {
+    #[cfg(windows)]
+    {
+        win::open_url(url)
+    }
+    #[cfg(not(windows))]
+    {
+        let _ = url;
+        false
+    }
+}
+
 /// Shows a message where the user will actually see it. `wait` = block
 /// until it is closed (use for fatal errors right before exiting).
 pub fn alert(text: &str, wait: bool) {
@@ -116,6 +131,17 @@ mod win {
             add: Bool,
         ) -> Bool;
     }
+    #[link(name = "shell32")]
+    extern "system" {
+        fn ShellExecuteW(
+            hwnd: Handle,
+            operation: *const u16,
+            file: *const u16,
+            parameters: *const u16,
+            directory: *const u16,
+            show: i32,
+        ) -> Handle;
+    }
     #[link(name = "user32")]
     extern "system" {
         fn MessageBoxW(owner: Handle, text: *const u16, caption: *const u16, kind: u32) -> i32;
@@ -158,6 +184,22 @@ mod win {
         unsafe {
             SetConsoleCtrlHandler(Some(on_ctrl), 1);
         }
+    }
+
+    pub fn open_url(url: &str) -> bool {
+        let (op, target) = (wide("open"), wide(url));
+        const SW_SHOWNORMAL: i32 = 1;
+        let r = unsafe {
+            ShellExecuteW(
+                std::ptr::null_mut(),
+                op.as_ptr(),
+                target.as_ptr(),
+                std::ptr::null(),
+                std::ptr::null(),
+                SW_SHOWNORMAL,
+            )
+        };
+        r as isize > 32 // documented: values above 32 mean success
     }
 
     pub fn message_box(text: &str) {

@@ -87,9 +87,8 @@ pub fn local_hostname() -> Option<String> {
 
 pub fn open_browser(url: &str) {
     let _ = if cfg!(windows) {
-        Command::new("rundll32.exe")
-            .args(["url.dll,FileProtocolHandler", url])
-            .spawn()
+        crate::platform::open_url(url);
+        return;
     } else if cfg!(target_os = "macos") {
         Command::new("open").arg(url).spawn()
     } else {
