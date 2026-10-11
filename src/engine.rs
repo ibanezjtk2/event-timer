@@ -70,8 +70,6 @@ pub enum Kind {
     Clock,
     /// shows the wall clock only
     Time,
-    /// mirrors the running run of show (rendered by the clients)
-    Schedule,
 }
 
 impl Kind {
@@ -81,12 +79,11 @@ impl Kind {
             Kind::Countup => "countup",
             Kind::Clock => "clock",
             Kind::Time => "time",
-            Kind::Schedule => "schedule",
         }
     }
     /// kinds that don't count by themselves
     pub fn is_static(&self) -> bool {
-        matches!(self, Kind::Time | Kind::Schedule)
+        matches!(self, Kind::Time)
     }
     fn parse(s: &str) -> Option<Kind> {
         match s {
@@ -94,7 +91,6 @@ impl Kind {
             "countup" => Some(Kind::Countup),
             "clock" => Some(Kind::Clock),
             "time" => Some(Kind::Time),
-            "schedule" => Some(Kind::Schedule),
             _ => None,
         }
     }
@@ -205,21 +201,21 @@ pub struct State {
     pub talk_quick: Vec<String>,
     pub talkback: Vec<Talk>,
     pub agenda: Agenda,
-    /// output pages built from modules
-    pub pages: Vec<Page>,
-    /// standard addresses ("moderation", "1"…"8") → custom page id
-    pub routes: Vec<(String, String)>,
-    /// DSM overlays per DSM page id ("d1"…"d8", "plan" or a custom page id)
+    /// outputs: what the devices show, each with an address /1…/16
+    pub screens: Vec<Screen>,
+    /// screens that show the same thing
+    pub groups: Vec<Group>,
+    /// overlays per screen id (or "plan" for the fixed /plan page)
     pub dsm_msg: Vec<(String, Message)>,
 }
 
-// ------------------------------------------------------------------ pages
+// ------------------------------------------------------------------ screens
 
-pub const MAX_PAGES: usize = 16;
+pub const MAX_SCREENS: usize = 16;
+const MAX_GROUPS: usize = 8;
 const MAX_SLOT_MODULES: usize = 8;
-const ROUTE_KEYS: [&str; 9] = ["moderation", "1", "2", "3", "4", "5", "6", "7", "8"];
 
-/// One building block on a page; only the options of its type are kept.
+/// One building block on a screen; only the options of its type are kept.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Module {
     pub id: String,
@@ -230,13 +226,27 @@ pub struct Module {
     pub page: String,
 }
 
-/// DSM page (display only) or presenter page ("mod", touch).
+/// An output with an address /num: "show" (display only) or "mod" (presenter, touch).
+/// In a group it shows the group's layout unless `own` is set.
 #[derive(Clone, Debug, PartialEq)]
-pub struct Page {
+pub struct Screen {
     pub id: String,
+    pub num: i64,
     pub kind: String,
     pub name: String,
     pub slug: String,
+    pub group: String,
+    pub own: bool,
+    pub layout: String,
+    pub slots: Vec<Vec<Module>>,
+}
+
+/// Screens that show the same thing (e.g. two DSMs in front of the stage).
+#[derive(Clone, Debug, PartialEq)]
+pub struct Group {
+    pub id: String,
+    pub name: String,
+    pub kind: String,
     pub layout: String,
     pub slots: Vec<Vec<Module>>,
 }
@@ -256,7 +266,7 @@ fn slot_count(layout: &str) -> usize {
     }
 }
 
-/// DSMs are not touch screens: nothing interactive there.
+/// Display screens are no touch screens: nothing interactive there.
 fn module_allowed(typ: &str, kind: &str) -> bool {
     match typ {
         "timer" | "clock" | "next" | "agenda" | "message" => true,
@@ -279,6 +289,38 @@ fn valid_slug(s: &str) -> bool {
             .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || *c == b'-')
 }
 
+/// Starting layouts as raw JSON (same as engine.js templateAufbau).
+fn template(name: &str, timer: &str) -> Json {
+    let m = |t: &str| Json::obj().with("type", t).with("opts", Json::obj());
+    let tm = Json::obj().with("type", "timer").with(
+        "opts",
+        Json::obj().with("timer", timer).with("variant", "full"),
+    );
+    let (kind, layout, slots) = match name {
+        "agenda" => ("show", "side", vec![vec![tm], vec![m("agenda")]]),
+        "clock" => (
+            "show",
+            "full",
+            vec![vec![Json::obj()
+                .with("type", "clock")
+                .with("opts", Json::obj().with("seconds", true))]],
+        ),
+        "mod" => (
+            "mod",
+            "two",
+            vec![
+                vec![tm, m("note"), m("agenda")],
+                vec![m("talkback"), m("request")],
+            ],
+        ),
+        _ => ("show", "full", vec![vec![tm]]),
+    };
+    Json::obj().with("kind", kind).with("layout", layout).with(
+        "slots",
+        Json::Arr(slots.into_iter().map(Json::Arr).collect()),
+    )
+}
+
 impl Module {
     pub fn to_json(&self) -> Json {
         let opts = match self.typ.as_str() {
@@ -296,23 +338,38 @@ impl Module {
     }
 }
 
-impl Page {
+fn slots_json(slots: &[Vec<Module>]) -> Json {
+    Json::Arr(
+        slots
+            .iter()
+            .map(|sl| Json::Arr(sl.iter().map(Module::to_json).collect()))
+            .collect(),
+    )
+}
+
+impl Screen {
     pub fn to_json(&self) -> Json {
         Json::obj()
             .with("id", &self.id)
+            .with("num", self.num)
             .with("kind", &self.kind)
             .with("name", &self.name)
             .with("slug", &self.slug)
+            .with("group", &self.group)
+            .with("own", self.own)
             .with("layout", &self.layout)
-            .with(
-                "slots",
-                Json::Arr(
-                    self.slots
-                        .iter()
-                        .map(|sl| Json::Arr(sl.iter().map(Module::to_json).collect()))
-                        .collect(),
-                ),
-            )
+            .with("slots", slots_json(&self.slots))
+    }
+}
+
+impl Group {
+    pub fn to_json(&self) -> Json {
+        Json::obj()
+            .with("id", &self.id)
+            .with("name", &self.name)
+            .with("kind", &self.kind)
+            .with("layout", &self.layout)
+            .with("slots", slots_json(&self.slots))
     }
 }
 
@@ -354,30 +411,9 @@ fn sanitize_module(seq: &mut i64, raw: &Json, kind: &str, used: &mut Vec<String>
     })
 }
 
-/// `old` = (id, kind) of the page being replaced; the kind never changes.
-fn sanitize_page(s: &mut State, raw: &Json, old: Option<(String, String)>) -> Page {
-    let (id, kind) = match old {
-        Some(o) => o,
-        None => {
-            s.seq += 1;
-            (format!("p{}", s.seq), pick(raw.get("kind"), &["dsm", "mod"], "dsm"))
-        }
-    };
-    let mut name = text(raw.get("name"), 40);
-    if name.is_empty() {
-        name = if kind == "dsm" { "DSM" } else { "Moderation" }.to_string();
-    }
-    let want = match raw.get("slug").as_str() {
-        Some(sl) if valid_slug(sl) => sl.to_string(),
-        _ => format!("seite-{}", &id[1..]),
-    };
-    let mut slug = want.clone();
-    let mut n = 2;
-    while s.pages.iter().any(|p| p.id != id && p.slug == slug) {
-        slug = format!("{}-{}", want.chars().take(36).collect::<String>(), n);
-        n += 1;
-    }
-    let layouts = page_layouts(&kind);
+/// layout + slots, cleaned for the given kind
+fn sanitize_aufbau(seq: &mut i64, raw: &Json, kind: &str) -> (String, Vec<Vec<Module>>) {
+    let layouts = page_layouts(kind);
     let layout = pick(raw.get("layout"), layouts, layouts[0]);
     let mut used = Vec::new();
     let mut slots = Vec::new();
@@ -393,39 +429,86 @@ fn sanitize_page(s: &mut State, raw: &Json, old: Option<(String, String)>) -> Pa
                 if out.len() >= MAX_SLOT_MODULES {
                     break;
                 }
-                if let Some(md) = sanitize_module(&mut s.seq, m, &kind, &mut used) {
+                if let Some(md) = sanitize_module(seq, m, kind, &mut used) {
                     out.push(md);
                 }
             }
         }
         slots.push(out);
     }
-    Page { id, kind, name, slug, layout, slots }
+    (layout, slots)
 }
 
-/// route "" removes this page's standard address; "moderation" needs a presenter page, "1"…"8" a DSM.
-fn set_route(s: &mut State, page_id: &str, kind: &str, route: &Json) {
-    s.routes.retain(|(_, v)| v != page_id);
-    let Some(r) = route.as_str() else { return };
-    if !ROUTE_KEYS.contains(&r) || (r == "moderation") != (kind == "mod") {
-        return;
+/// next free id like "p7" – skips ids that already exist
+fn new_id(seq: &mut i64, prefix: char, taken: &[&str]) -> String {
+    loop {
+        *seq += 1;
+        let id = format!("{}{}", prefix, seq);
+        if !taken.contains(&id.as_str()) {
+            return id;
+        }
     }
-    s.routes.retain(|(k, _)| k != r);
-    s.routes.push((r.to_string(), page_id.to_string()));
-    // the built-in /N is hidden behind this page now – its overlay must not pop up again later
-    if r != "moderation" {
-        let hidden = format!("d{}", r);
-        s.dsm_msg.retain(|(k, _)| *k != hidden);
+}
+
+/// lowest address 1…16 no other screen uses
+fn free_num(screens: &[Screen], except: &str) -> i64 {
+    (1..=MAX_SCREENS as i64)
+        .find(|n| !screens.iter().any(|x| x.id != except && x.num == *n))
+        .unwrap_or(0)
+}
+
+/// `old` = (id, kind, num) of the screen being replaced; id and kind never change.
+fn sanitize_screen(s: &mut State, raw: &Json, old: Option<(String, String, i64)>) -> Screen {
+    let (id, kind, old_num) = match old {
+        Some(o) => o,
+        None => {
+            let ids: Vec<&str> = s.screens.iter().map(|x| x.id.as_str()).collect();
+            let id = new_id(&mut s.seq, 'p', &ids);
+            (id, pick(raw.get("kind"), &["show", "mod"], "show"), 0)
+        }
+    };
+    let mut name = text(raw.get("name"), 40);
+    if name.is_empty() {
+        name = if kind == "show" { "Screen" } else { "Moderation" }.to_string();
     }
+    let taken = |n: i64| s.screens.iter().any(|x| x.id != id && x.num == n);
+    let want_num = raw
+        .get("num")
+        .as_f64()
+        .filter(|f| f.fract() == 0.0 && *f >= 1.0 && *f <= MAX_SCREENS as f64)
+        .map(|f| f as i64)
+        .filter(|n| !taken(*n));
+    let num = match want_num {
+        Some(n) => n,
+        None if old_num > 0 && !taken(old_num) => old_num,
+        None => free_num(&s.screens, &id),
+    };
+    let want = match raw.get("slug").as_str() {
+        Some(sl) if valid_slug(sl) => sl.to_string(),
+        _ => format!("screen-{}", &id[1..]),
+    };
+    let mut slug = want.clone();
+    let mut n = 2;
+    while s.screens.iter().any(|p| p.id != id && p.slug == slug) {
+        slug = format!("{}-{}", want.chars().take(36).collect::<String>(), n);
+        n += 1;
+    }
+    let group = raw
+        .get("group")
+        .as_str()
+        .filter(|g| s.groups.iter().any(|x| x.id == *g && x.kind == kind))
+        .unwrap_or("")
+        .to_string();
+    let own = !group.is_empty() && raw.get("own").truthy();
+    let (layout, slots) = sanitize_aufbau(&mut s.seq, raw, &kind);
+    Screen { id, num, kind, name, slug, group, own, layout, slots }
 }
 
 fn is_dsm_target(s: &State, id: &str) -> bool {
-    (id.len() == 2 && id.starts_with('d') && (b'1'..=b'8').contains(&id.as_bytes()[1]))
-        || id == "plan"
-        || s.pages.iter().any(|p| p.id == id && p.kind == "dsm")
+    id == "plan" || s.screens.iter().any(|p| p.id == id && p.kind == "show")
 }
 
-/// valid, de-duplicated DSM page ids from an action
+/// valid, de-duplicated overlay targets from an action
 fn dsm_ids(s: &State, list: &Json) -> Vec<String> {
     let mut out: Vec<String> = Vec::new();
     if let Some(l) = list.as_array() {
@@ -440,18 +523,147 @@ fn dsm_ids(s: &State, list: &Json) -> Vec<String> {
     out
 }
 
-/// The DSM page behind "/N": its standard page or the built-in "dN".
-pub fn dsm_page_for(s: &State, n: &str) -> String {
-    s.routes
-        .iter()
-        .find(|(k, _)| k == n)
-        .map(|(_, v)| v.clone())
-        .unwrap_or_else(|| format!("d{}", n))
+/// The screen behind "/N" (for Companion's timerN/message), if there is one.
+pub fn dsm_page_for(s: &State, n: &str) -> Option<String> {
+    let n: i64 = n.parse().ok()?;
+    s.screens.iter().find(|x| x.num == n).map(|x| x.id.clone())
 }
 
 impl State {
     pub fn dsm_message(&self, page: &str) -> Option<&Message> {
         self.dsm_msg.iter().find(|(k, _)| k == page).map(|(_, m)| m)
+    }
+}
+
+fn default_screen(id: &str, num: i64, name: &str, slug: &str, tpl: Json, base: usize) -> Screen {
+    // fixed module ids "m10", "m11" … like engine.js
+    let mut n = 0;
+    let mut raw = tpl.clone();
+    if let Json::Arr(slots) = tpl.get("slots").clone() {
+        let ids: Vec<Json> = slots
+            .into_iter()
+            .map(|sl| {
+                let list = sl.as_array().cloned().unwrap_or_default();
+                Json::Arr(
+                    list.into_iter()
+                        .map(|mut m| {
+                            m.set("id", format!("m{}{}", base, n).as_str());
+                            n += 1;
+                            m
+                        })
+                        .collect(),
+                )
+            })
+            .collect();
+        raw.set("slots", Json::Arr(ids));
+    }
+    let kind = tpl.get("kind").as_str().unwrap_or("show").to_string();
+    let mut seq = 0;
+    let (layout, slots) = sanitize_aufbau(&mut seq, &raw, &kind);
+    Screen {
+        id: id.into(),
+        num,
+        kind,
+        name: name.into(),
+        slug: slug.into(),
+        group: String::new(),
+        own: false,
+        layout,
+        slots,
+    }
+}
+
+/// Up to 1.6.0-beta.1 timers had addresses (/N) and custom pages could stand in for them.
+/// Now every address is a screen (same rules as engine.js migrateScreens).
+fn migrate_screens(s: &mut State, j: &Json) {
+    let pages: Vec<Json> = j.get("pages").as_array().cloned().unwrap_or_default();
+    let routes = j.get("routes");
+    let msg = |m: &Json| Message {
+        text: m.get("text").as_str().unwrap_or("").chars().take(280).collect(),
+        flash: m.get("flash").truthy(),
+        visible: m.get("visible").truthy(),
+    };
+    // overlays by old page id ("dN" for the built-in /N); 1.5.x kept them on the timer
+    let mut old: Vec<(String, Message)> = Vec::new();
+    if let Json::Obj(items) = j.get("dsmMsg") {
+        for (k, m) in items {
+            old.push((k.clone(), msg(m)));
+        }
+    } else if let Some(list) = j.get("timers").as_array() {
+        for tj in list {
+            if let Some(id) = tj.get("id").as_str() {
+                old.push((format!("d{}", &id[1.min(id.len())..]), msg(tj.get("message"))));
+            }
+        }
+    }
+    let find_old = |k: &str| old.iter().find(|(x, m)| x == k && !m.text.is_empty()).map(|(_, m)| m.clone());
+    s.screens.clear();
+    s.groups.clear();
+    s.dsm_msg.clear();
+    let add = |s: &mut State, raw: &Json, num: i64, keep: Option<&str>| -> String {
+        let mut r = raw.clone();
+        r.set("num", num);
+        r.set("kind", if raw.get("kind").as_str() == Some("mod") { "mod" } else { "show" });
+        r.set("group", "");
+        let mut sc = sanitize_screen(s, &r, None);
+        if let Some(k) = keep {
+            if digits_id(k, 'p') && !s.screens.iter().any(|x| x.id == k) {
+                sc.id = k.to_string();
+            }
+        }
+        let id = sc.id.clone();
+        s.screens.push(sc);
+        id
+    };
+    let mut used: Vec<String> = Vec::new();
+    let timers: Vec<String> = s.timers.iter().map(|t| t.id.clone()).collect();
+    for tid in &timers {
+        let n: i64 = tid[1..].parse().unwrap_or(0);
+        let pg = routes
+            .get(&n.to_string())
+            .as_str()
+            .and_then(|pid| pages.iter().find(|p| p.get("id").as_str() == Some(pid)));
+        let id = match pg {
+            Some(p) => {
+                let pid = p.get("id").as_str().unwrap_or("").to_string();
+                used.push(pid.clone());
+                add(s, p, n, Some(&pid))
+            }
+            None => {
+                let mut raw = template("dsm", tid);
+                raw.set("name", format!("DSM {}", n).as_str());
+                raw.set("slug", format!("dsm-{}", n).as_str());
+                add(s, &raw, n, None)
+            }
+        };
+        let key = pg
+            .and_then(|p| p.get("id").as_str())
+            .map(String::from)
+            .unwrap_or_else(|| format!("d{}", n));
+        if let Some(m) = find_old(&key) {
+            s.dsm_msg.push((id, m));
+        }
+    }
+    for p in &pages {
+        let pid = p.get("id").as_str().unwrap_or("").to_string();
+        if used.contains(&pid) || s.screens.len() >= MAX_SCREENS {
+            continue;
+        }
+        let n = free_num(&s.screens, "");
+        let id = add(s, p, n, Some(&pid));
+        if let Some(m) = find_old(&pid) {
+            s.dsm_msg.push((id, m));
+        }
+    }
+    if !s.screens.iter().any(|x| x.kind == "mod") && s.screens.len() < MAX_SCREENS {
+        let mut raw = template("mod", &s.agenda.timer_id.clone());
+        raw.set("name", "Moderation");
+        raw.set("slug", "moderation");
+        let n = free_num(&s.screens, "");
+        add(s, &raw, n, None);
+    }
+    if let Some(m) = find_old("plan") {
+        s.dsm_msg.push(("plan".into(), m));
     }
 }
 
@@ -570,8 +782,11 @@ impl Default for State {
             requests: Vec::new(),
             talk_quick: DEFAULT_TALK.iter().map(|s| s.to_string()).collect(),
             talkback: Vec::new(),
-            pages: Vec::new(),
-            routes: Vec::new(),
+            screens: vec![
+                default_screen("p1", 1, "DSM", "dsm", template("dsm", "t1"), 1),
+                default_screen("p2", 2, "Moderation", "moderation", template("mod", "t1"), 2),
+            ],
+            groups: Vec::new(),
             dsm_msg: Vec::new(),
             agenda: Agenda {
                 timer_id: "t1".into(),
@@ -1280,41 +1495,94 @@ fn apply_inner(s: &mut State, kind: &str, a: &Json, now: i64) -> bool {
             s.dsm_msg.retain(|(k, _)| !ids.contains(k));
             s.dsm_msg.len() != before
         }
-        "page.save" => {
-            let raw = a.get("page");
+        "screen.save" => {
+            let raw = a.get("screen");
             if !matches!(raw, Json::Obj(_)) {
                 return false;
             }
             let pos = raw
                 .get("id")
                 .as_str()
-                .and_then(|id| s.pages.iter().position(|p| p.id == id));
-            if pos.is_none() && s.pages.len() >= MAX_PAGES {
+                .and_then(|id| s.screens.iter().position(|p| p.id == id));
+            if pos.is_none() && s.screens.len() >= MAX_SCREENS {
                 return false;
             }
-            let old = pos.map(|i| (s.pages[i].id.clone(), s.pages[i].kind.clone()));
-            let pg = sanitize_page(s, raw, old);
-            let (pid, kind) = (pg.id.clone(), pg.kind.clone());
-            match pos {
-                Some(i) => s.pages[i] = pg,
-                None => s.pages.push(pg),
+            let old = pos.map(|i| (s.screens[i].id.clone(), s.screens[i].kind.clone(), s.screens[i].num));
+            let mut sc = sanitize_screen(s, raw, old);
+            // "+ neue Gruppe": the group starts with this screen's layout, the screen follows it
+            let ng = a.get("newGroup");
+            if matches!(ng, Json::Obj(_) | Json::Arr(_)) && s.groups.len() < MAX_GROUPS {
+                let ids: Vec<&str> = s.groups.iter().map(|x| x.id.as_str()).collect();
+                let gid = new_id(&mut s.seq, 'g', &ids);
+                let mut name = text(ng.get("name"), 40);
+                if name.is_empty() {
+                    name = sc.name.clone();
+                }
+                s.groups.push(Group {
+                    id: gid.clone(),
+                    name,
+                    kind: sc.kind.clone(),
+                    layout: sc.layout.clone(),
+                    slots: sc.slots.clone(),
+                });
+                sc.group = gid;
+                sc.own = false;
             }
-            if a.has("route") {
-                set_route(s, &pid, &kind, a.get("route"));
+            match pos {
+                Some(i) => s.screens[i] = sc,
+                None => s.screens.push(sc),
             }
             true
         }
-        "page.remove" => {
-            let Some(id) = a.get("pageId").as_str().map(String::from) else {
+        "screen.remove" => {
+            let Some(id) = a.get("screenId").as_str().map(String::from) else {
                 return false;
             };
-            let before = s.pages.len();
-            s.pages.retain(|p| p.id != id);
-            if s.pages.len() == before {
+            let before = s.screens.len();
+            s.screens.retain(|p| p.id != id);
+            if s.screens.len() == before {
                 return false;
             }
-            s.routes.retain(|(_, v)| *v != id);
             s.dsm_msg.retain(|(k, _)| *k != id);
+            true
+        }
+        "group.save" => {
+            let raw = a.get("group");
+            let Some(gi) = raw
+                .get("id")
+                .as_str()
+                .and_then(|id| s.groups.iter().position(|g| g.id == id))
+            else {
+                return false;
+            };
+            let name = text(raw.get("name"), 40);
+            if !name.is_empty() {
+                s.groups[gi].name = name;
+            }
+            let kind = s.groups[gi].kind.clone();
+            let (layout, slots) = sanitize_aufbau(&mut s.seq, raw, &kind);
+            s.groups[gi].layout = layout;
+            s.groups[gi].slots = slots;
+            true
+        }
+        "group.remove" => {
+            let Some(gi) = a
+                .get("groupId")
+                .as_str()
+                .and_then(|id| s.groups.iter().position(|g| g.id == id))
+            else {
+                return false;
+            };
+            // members keep what they showed: they get the group's layout as their own
+            let g = s.groups.remove(gi);
+            for sc in s.screens.iter_mut().filter(|x| x.group == g.id) {
+                if !sc.own {
+                    sc.layout = g.layout.clone();
+                    sc.slots = g.slots.clone();
+                }
+                sc.group.clear();
+                sc.own = false;
+            }
             true
         }
         "blackout.set" => {
@@ -1974,17 +2242,12 @@ impl State {
                     ),
             )
             .with(
-                "pages",
-                Json::Arr(self.pages.iter().map(Page::to_json).collect()),
+                "screens",
+                Json::Arr(self.screens.iter().map(Screen::to_json).collect()),
             )
             .with(
-                "routes",
-                Json::Obj(
-                    self.routes
-                        .iter()
-                        .map(|(k, v)| (k.clone(), Json::from(v.as_str())))
-                        .collect(),
-                ),
+                "groups",
+                Json::Arr(self.groups.iter().map(Group::to_json).collect()),
             )
             .with(
                 "dsmMsg",
@@ -2130,54 +2393,54 @@ impl State {
         }
         let len = s.agenda.items.len() as i64;
         s.agenda.cursor = a.get("cursor").as_i64().unwrap_or(-1).clamp(-1, len);
-        if let Some(list) = j.get("pages").as_array() {
-            for pj in list {
-                if s.pages.len() >= MAX_PAGES {
-                    break;
-                }
-                let Some(id) = pj.get("id").as_str().filter(|id| digits_id(id, 'p')) else {
+        if let Some(list) = j.get("screens").as_array() {
+            s.screens.clear();
+            s.groups.clear();
+            for gj in j.get("groups").as_array().cloned().unwrap_or_default() {
+                let Some(id) = gj.get("id").as_str().filter(|id| digits_id(id, 'g')) else {
                     continue;
                 };
-                if s.pages.iter().any(|p| p.id == id) {
+                if s.groups.len() >= MAX_GROUPS || s.groups.iter().any(|g| g.id == id) {
                     continue;
                 }
-                let kind = pick(pj.get("kind"), &["dsm", "mod"], "dsm");
-                let pg = sanitize_page(&mut s, pj, Some((id.to_string(), kind)));
-                s.pages.push(pg);
+                let kind = pick(gj.get("kind"), &["show", "mod"], "show");
+                let mut name = text(gj.get("name"), 40);
+                if name.is_empty() {
+                    name = "Gruppe".into();
+                }
+                let (layout, slots) = sanitize_aufbau(&mut s.seq, &gj, &kind);
+                s.groups.push(Group { id: id.to_string(), name, kind, layout, slots });
             }
-        }
-        if let Json::Obj(items) = j.get("routes") {
-            for (k, v) in items {
-                if let Some(pid) = v.as_str() {
-                    let kind = s.pages.iter().find(|p| p.id == pid).map(|p| p.kind.clone());
-                    if let Some(kind) = kind {
-                        set_route(&mut s, pid, &kind, &Json::from(k.as_str()));
+            for sj in list {
+                if s.screens.len() >= MAX_SCREENS {
+                    break;
+                }
+                let Some(id) = sj.get("id").as_str().filter(|id| digits_id(id, 'p')) else {
+                    continue;
+                };
+                if s.screens.iter().any(|p| p.id == id) {
+                    continue;
+                }
+                let kind = pick(sj.get("kind"), &["show", "mod"], "show");
+                let sc = sanitize_screen(&mut s, sj, Some((id.to_string(), kind, 0)));
+                s.screens.push(sc);
+            }
+            if let Json::Obj(items) = j.get("dsmMsg") {
+                for (k, m) in items {
+                    if is_dsm_target(&s, k) && !s.dsm_msg.iter().any(|(x, _)| x == k) {
+                        s.dsm_msg.push((
+                            k.clone(),
+                            Message {
+                                text: m.get("text").as_str().unwrap_or("").chars().take(280).collect(),
+                                flash: m.get("flash").truthy(),
+                                visible: m.get("visible").truthy(),
+                            },
+                        ));
                     }
                 }
             }
-        }
-        let msg = |m: &Json| Message {
-            text: m.get("text").as_str().unwrap_or("").chars().take(280).collect(),
-            flash: m.get("flash").truthy(),
-            visible: m.get("visible").truthy(),
-        };
-        if let Json::Obj(items) = j.get("dsmMsg") {
-            for (k, m) in items {
-                if is_dsm_target(&s, k) && !s.dsm_msg.iter().any(|(x, _)| x == k) {
-                    s.dsm_msg.push((k.clone(), msg(m)));
-                }
-            }
-        } else if let Some(list) = j.get("timers").as_array() {
-            // up to 1.5.x the overlay belonged to the timer: timer N → DSM page dN
-            for tj in list {
-                let m = msg(tj.get("message"));
-                if let Some(id) = tj.get("id").as_str() {
-                    let page = format!("d{}", &id[1.min(id.len())..]);
-                    if !m.text.is_empty() && is_dsm_target(&s, &page) {
-                        s.dsm_msg.push((page, m));
-                    }
-                }
-            }
+        } else {
+            migrate_screens(&mut s, j);
         }
         s
     }
@@ -2294,16 +2557,17 @@ mod tests {
         );
         apply(
             &mut s,
-            &json::parse(r#"{"type":"page.save","route":"3","page":{"kind":"dsm","name":"DSM links","slug":"dsm-links","layout":"side","slots":[[{"type":"timer","opts":{"timer":"t2"}}],[{"type":"agenda"},{"type":"clock","opts":{"seconds":false}}]]}}"#)
+            &json::parse(r#"{"type":"screen.save","newGroup":{"name":"DSM"},"screen":{"kind":"show","name":"DSM links","slug":"dsm-links","num":3,"layout":"side","slots":[[{"type":"timer","opts":{"timer":"t2"}}],[{"type":"agenda"},{"type":"clock","opts":{"seconds":false}}]]}}"#)
                 .unwrap(),
             0,
         );
         apply(
             &mut s,
-            &json::parse(r#"{"type":"dsm.message","pages":["d1","p3"],"text":"Hallo","flash":true}"#).unwrap(),
+            &json::parse(r#"{"type":"dsm.message","pages":["p1","p3"],"text":"Hallo","flash":true}"#).unwrap(),
             0,
         );
-        assert_eq!(s.pages.len(), 1);
+        assert_eq!(s.screens.len(), 3);
+        assert_eq!(s.groups.len(), 1);
         assert_eq!(s.dsm_msg.len(), 2);
         let j = s.to_json();
         let back = State::from_json(&json::parse(&j.to_string()).unwrap());
@@ -2324,10 +2588,28 @@ mod tests {
         // 1.5.x: the overlay sat on the timer → now on DSM page dN
         let old15 = r#"{"timers":[{"id":"t1","message":{"text":"Bitte zum Ende","flash":true,"visible":true}},{"id":"t2","message":{"text":"","visible":false}}]}"#;
         let s15 = State::from_json(&json::parse(old15).unwrap());
+        let nums: Vec<(i64, &str, &str)> = s15.screens.iter().map(|x| (x.num, x.kind.as_str(), x.name.as_str())).collect();
+        assert_eq!(nums, vec![(1, "show", "DSM 1"), (2, "show", "DSM 2"), (3, "mod", "Moderation")]);
+        assert_eq!(s15.screens[1].slots[0][0].timer, "t2");
         assert_eq!(s15.dsm_msg.len(), 1);
-        let m = s15.dsm_message("d1").unwrap();
+        let m = s15.dsm_message(&s15.screens[0].id).unwrap();
         assert!(m.visible && m.flash && m.text == "Bitte zum Ende");
         assert!(!s15.to_json().get("timers").get("0").has("message"));
+        // 1.6.0-beta.1: page standing in for /1, extra presenter page, overlay on built-in /2
+        let b1 = r#"{"seq":10,"timers":[{"id":"t1"},{"id":"t2","kind":"schedule"}],
+            "pages":[{"id":"p5","kind":"dsm","name":"DSM Ablauf","slug":"dsm-ablauf","layout":"side","slots":[[{"id":"m6","type":"timer","opts":{"timer":"t1"}}],[{"id":"m7","type":"agenda"}]]},
+                     {"id":"p8","kind":"mod","name":"Moderation Lea","slug":"moderation-lea","layout":"two","slots":[[{"id":"m9","type":"talkback"}],[]]}],
+            "routes":{"1":"p5","moderation":"p8"},
+            "dsmMsg":{"d2":{"text":"Hallo","visible":true},"p5":{"text":"Eins","visible":true}}}"#;
+        let sb = State::from_json(&json::parse(b1).unwrap());
+        let got: Vec<(i64, &str, &str)> = sb.screens.iter().map(|x| (x.num, x.kind.as_str(), x.slug.as_str())).collect();
+        assert_eq!(got, vec![(1, "show", "dsm-ablauf"), (2, "show", "dsm-2"), (3, "mod", "moderation-lea")]);
+        assert_eq!(sb.screens[0].id, "p5");
+        assert_eq!(sb.dsm_message("p5").unwrap().text, "Eins");
+        assert_eq!(sb.dsm_message(&sb.screens[1].id).unwrap().text, "Hallo");
+        assert_eq!(sb.timers[1].kind, Kind::Countdown);
+        let out = sb.to_json().to_string();
+        assert!(!out.contains("\"routes\"") && !out.contains("\"pages\""));
         // an edited list stays as it is
         let own = State::from_json(&json::parse(r#"{"talkQuick":["Eigene"]}"#).unwrap());
         assert_eq!(own.talk_quick, vec!["Eigene".to_string()]);

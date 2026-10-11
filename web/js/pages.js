@@ -1,11 +1,12 @@
 /* SPDX-License-Identifier: GPL-3.0-or-later
    Copyright (C) 2026 Felix Spindler <f-spindler@pm.me> */
 /*
- * Pages built from modules.
- *  DSM pages  – display only (stage monitors, no touch): nothing can be sent or confirmed there
- *  mod pages  – the presenter's phone/tablet: everything, including talkback and messages to the Regie
- * The old addresses (/1…/8, /plan, /uhr, /moderation) are built-in pages; a custom page can stand in
- * for /moderation or /1…/8 ("standard address"), so bookmarks and kiosk browsers keep working.
+ * Screens: the outputs. Every device outside the Regie opens a screen (/1 … /16, or /p/<name>).
+ *  show – display only (DSM, backstage, foyer): nothing can be sent or confirmed there
+ *  mod  – the presenter's phone/tablet: everything, including talkback and messages to the Regie
+ * A screen is built from modules (timer, agenda, …). Screens in a group show the group's layout
+ * unless they have their own ("Eigener Aufbau"). /plan and /uhr are fixed pages; /moderation shows
+ * the first presenter screen.
  */
 (function (root) {
   'use strict';
@@ -19,87 +20,78 @@
     timer: { label: 'Timer', help: 'Zeit groß mit Titel, Fortschrittsbalken, Vorwarnung und Kritisch.' },
     clock: { label: 'Uhr', help: 'Die aktuelle Uhrzeit.' },
     next: { label: 'Nächster Punkt', help: '„Danach: …“ mit Planzeit.' },
-    agenda: { label: 'Ablaufplan', help: 'Der ganze Ablauf, laufender Punkt mit Balken, Restzeit, Vorwarnung und Kritisch.' },
-    message: { label: 'Einblendung', help: 'Die Einblendung der Regie für diesen DSM.', helpMod: 'Spiegel: zeigt, was gerade auf einem DSM steht.' },
+    agenda: { label: 'Agenda', help: 'Die ganze Agenda, laufender Punkt mit Balken, Restzeit, Vorwarnung und Kritisch.' },
+    message: { label: 'Einblendung', help: 'Die Einblendung der Regie für diesen Screen.', helpMod: 'Spiegel: zeigt, was gerade auf einem Screen eingeblendet ist.' },
     note: { label: 'Hinweis', help: 'Der Hinweis der Regie zum laufenden Programmpunkt. Privat, nur für die Moderation.' },
     talkback: { label: 'Von der Regie', help: 'Talkback der Regie mit „Verstanden“.' },
     request: { label: 'An die Regie', help: 'Meldungen an die Regie: Schnelltasten, Freitext und ob sie bestätigt sind.' },
   };
   const LAYOUTS = { full: 'Vollbild', side: 'Haupt + Seite', bottom: 'Haupt + Leiste unten', two: 'Zwei Spalten', one: 'Eine Spalte' };
   const SLOT_NAMES = { full: ['Bild'], side: ['Haupt', 'Seite'], bottom: ['Haupt', 'Leiste unten'], two: ['Spalte A', 'Spalte B'], one: ['Spalte'] };
-  const KIND_NAMES = { dsm: 'DSM', mod: 'Moderation' };
+  const KIND_NAMES = { show: 'Anzeige', mod: 'Moderation' };
+  /** starting points for "Neuer Screen" */
+  const TEMPLATES = [
+    ['dsm', 'DSM (Vorschau-Monitor)', 'Vollbild-Timer mit Einblendung – für die Monitore vor der Bühne.'],
+    ['agenda', 'Agenda-Monitor', 'Timer und Agenda nebeneinander – z. B. Backstage.'],
+    ['clock', 'Uhr', 'Nur die Uhrzeit – z. B. Foyer.'],
+    ['mod', 'Moderation', 'Restzeit, Hinweis und Agenda, dazu Talkback und Meldungen an die Regie.'],
+    ['empty-show', 'Leere Anzeige', 'Ohne Module – selbst zusammenstellen.'],
+    ['empty-mod', 'Leere Moderation', 'Ohne Module – selbst zusammenstellen.'],
+  ];
 
-  // ------------------------------------------------------- built-in pages
   const agendaTimerId = s => (s.timers.find(x => x.id === s.agenda.timerId) || s.timers[0] || { id: 't1' }).id;
-  function mk(id, kind, name, route, layout, slots) {
+  /** A screen as it is shown: members of a group get the group's layout unless they have their own. */
+  function effective(s, sc) {
+    if (!sc) return null;
+    const g = sc.group && !sc.own ? s.groups.find(x => x.id === sc.group) : null;
+    return g ? Object.assign({}, sc, { layout: g.layout, slots: g.slots, groupName: g.name }) : sc;
+  }
+  /** fixed pages: /plan, /uhr and /moderation when there is no presenter screen */
+  function fixedPage(s, key) {
+    const tpl = { plan: ['agenda', 'Agenda-Monitor'], uhr: ['clock', 'Uhr'], moderation: ['mod', 'Moderation'] }[key];
+    if (!tpl) return null;
+    const a = E.templateAufbau(tpl[0], agendaTimerId(s));
     return {
-      id, kind, name, route, builtin: true, slug: '', layout,
-      slots: slots.map((sl, i) => sl.map((m, j) => ({ id: 'b' + i + j, type: m[0], opts: m[1] || {} }))),
+      id: key === 'moderation' ? 'mod' : key, kind: a.kind, name: tpl[1], fixed: true, slug: '', num: 0, layout: a.layout,
+      slots: a.slots.map((sl, i) => sl.map((m, j) => ({ id: 'b' + i + j, type: m.type, opts: m.opts }))),
     };
   }
-  const builtinDsm = (n, name) => mk('d' + n, 'dsm', 'DSM ' + n + (name ? ' · ' + name : ''), n, 'full', [[['timer', { timer: 't' + n, variant: 'full' }]]]);
-  /** The pages that always exist – shown as templates in the editor. */
-  function builtins(s) {
-    const at = agendaTimerId(s);
-    const list = s.timers.map(tm => builtinDsm(tm.id.slice(1), tm.name));
-    list.push(mk('plan', 'dsm', 'Ablaufplan', 'plan', 'side', [[['timer', { timer: at, variant: 'full' }]], [['agenda']]]));
-    list.push(mk('uhr', 'dsm', 'Uhr', 'uhr', 'full', [[['clock', { seconds: true }]]]));
-    list.push(mk('mod', 'mod', 'Moderation', 'moderation', 'two', [
-      [['timer', { timer: at, variant: 'full' }], ['note'], ['agenda']],
-      [['talkback'], ['request']],
-    ]));
-    return list;
-  }
+  const byNum = s => s.screens.slice().sort((a, b) => a.num - b.num);
 
-  /** r = { route: "moderation" | "1"…"8" | "plan" | "uhr" } or { slug } → page definition or null */
+  /** r = { num } | { slug } | { route: "moderation" | "plan" | "uhr" } → what to show, or null */
   function resolvePage(s, r) {
     if (!s) return null;
-    if (r.slug != null) return s.pages.find(p => p.slug === r.slug) || null;
-    const key = String(r.route);
-    const customId = s.routes && s.routes[key];
-    const custom = customId && s.pages.find(p => p.id === customId);
-    if (custom) return custom;
-    const id = key === 'moderation' ? 'mod' : /^[1-8]$/.test(key) ? 'd' + key : key;
-    const b = builtins(s).find(p => p.id === id) || (/^[1-8]$/.test(key) ? builtinDsm(key, '') : null);
-    // old links: /moderation?t=2 follows timer 2
-    if (b && b.id === 'mod' && r.params && /^[1-8]$/.test(r.params.get('t') || '')) {
-      b.slots[0][0].opts.timer = 't' + r.params.get('t');
-    }
-    return b;
+    if (r.slug != null) return effective(s, s.screens.find(p => p.slug === r.slug));
+    if (r.num != null) return effective(s, s.screens.find(p => p.num === Number(r.num)));
+    if (r.route === 'moderation') return effective(s, byNum(s).find(p => p.kind === 'mod')) || fixedPage(s, 'moderation');
+    return fixedPage(s, r.route);
   }
 
-  /** Address of a page, relative to the server root ("/p/slug", "/moderation", "/3"). */
+  /** "/3" for a screen, "/plan" for a fixed page */
   function pagePath(pg) {
-    if (!pg.builtin) return '/p/' + pg.slug;
-    return { moderation: '/moderation', plan: '/plan', uhr: '/uhr' }[pg.route] || '/' + pg.route;
+    if (pg.fixed) return { mod: '/moderation', plan: '/plan', uhr: '/uhr' }[pg.id];
+    return '/' + pg.num;
   }
-  /** "/moderation" or "/1"… this custom page stands in for, or "" */
-  function standardOf(s, pg) {
-    const k = Object.keys(s.routes || {}).find(x => s.routes[x] === pg.id);
-    return k ? (k === 'moderation' ? '/moderation' : '/' + k) : '';
-  }
+  const screenLabel = sc => sc.num + ' · ' + sc.name;
 
-  const showsOverlay = pg => pg.kind === 'dsm' && pg.slots.some(sl => sl.some(m => m.type === 'timer' || m.type === 'message'));
-  /**
-   * DSM pages the Regie can send overlays to. Built-in /N counts unless a custom page stands in for it.
-   * The built-in /plan is not a chip of its own but gets everything sent to "Alle".
-   */
+  /** display screens the Regie can send overlays to (+ the fixed /plan, which gets everything sent to "Alle") */
   function dsmTargets(s, withHidden) {
-    const out = [];
-    for (const tm of s.timers) {
-      const n = tm.id.slice(1);
-      if (!s.routes[n]) out.push({ id: 'd' + n, name: 'DSM ' + n, sub: tm.name });
-    }
-    for (const pg of s.pages) {
-      if (!showsOverlay(pg)) continue;
-      const std = standardOf(s, pg);
-      out.push({ id: pg.id, name: pg.name, sub: std || pagePath(pg) });
-    }
-    if (withHidden) out.push({ id: 'plan', name: 'Ablaufplan', sub: '/plan', hidden: true });
+    const out = byNum(s).filter(x => x.kind === 'show').map(x => ({ id: x.id, name: screenLabel(x), sub: '/' + x.num }));
+    if (withHidden) out.push({ id: 'plan', name: 'Agenda-Monitor', sub: '/plan', hidden: true });
     return out;
   }
-  /** The DSM page behind "/N" (custom stand-in or built-in dN). */
-  const dsmPageFor = (s, n) => (s.routes && s.routes[n]) || 'd' + n;
+  /** screens that show a timer, in address order */
+  function screensWithTimer(s, timerId) {
+    return byNum(s).filter(sc => effective(s, sc).slots.some(sl => sl.some(m => m.type === 'timer' && m.opts.timer === timerId)));
+  }
+  /** timers a screen shows, in order */
+  function timersOf(s, sc) {
+    const out = [];
+    effective(s, sc).slots.forEach(sl => sl.forEach(m => { if (m.type === 'timer' && !out.includes(m.opts.timer)) out.push(m.opts.timer); }));
+    return out;
+  }
+  /** The screen behind "/N", or a pseudo id that matches nothing. */
+  const dsmPageFor = (s, n) => { const sc = s.screens.find(x => x.num === Number(n)); return sc ? sc.id : '-'; };
   const overlayOf = (s, pageId) => (s.dsmMsg && s.dsmMsg[pageId]) || null;
 
   // ---------------------------------------------------------- helpers
@@ -181,7 +173,7 @@
                 right);
               if (r.status === 'live') { bar = h('i', { class: 'pgm-ros-bar' }); li.prepend(bar); rest = right; live = li; }
               return li;
-            }) : [h('li', { class: 'pgm-ros-empty' }, t('Noch kein Ablauf'))]));
+            }) : [h('li', { class: 'pgm-ros-empty' }, t('Noch keine Agenda'))]));
             if (live) setTimeout(() => { list.scrollTop = Math.max(0, live.offsetTop - list.clientHeight / 3); }, 0);
           }
           if (live && rv.current) {
@@ -256,6 +248,7 @@
       const bar = h('i');
       const next = h('div', { class: 'mod-next' });
       box.append(h('div', { class: 'mod-now-head' }, title, drift), time, sub, h('div', { class: 'mod-bar' }, bar), next);
+      let fitKey = '';
       return {
         tick(s, now) {
           const a = s.agenda;
@@ -267,6 +260,14 @@
           setText(title, seg ? seg.title : tm.name);
           const txt = E.isStatic(tm.kind) ? D.clockText(now, false) : E.formatMs(v.ms, { up: tm.kind === 'countup' });
           setText(time, txt);
+          // long times (1:02:16, +12:00) must not run out of the card
+          const fk = txt.length + '|' + box.clientWidth;
+          if (fk !== fitKey) {
+            fitKey = fk;
+            time.style.fontSize = '';
+            const avail = box.clientWidth - 32, need = time.scrollWidth;
+            if (avail > 0 && need > avail) time.style.fontSize = (parseFloat(getComputedStyle(time).fontSize) * avail / need).toFixed(1) + 'px';
+          }
           setData(time, 'phase', v.phase || 'normal');
           setText(sub, { running: t('Läuft'), paused: t('Pausiert'), idle: t('Bereit'), finished: t('Abgelaufen') }[v.state] || '');
           bar.style.width = ((v.progress || 0) * 100).toFixed(1) + '%';
@@ -336,7 +337,7 @@
                 right);
               if (r.status === 'live') { bar = h('i', { class: 'mod-prog-bar' }); li.prepend(bar); rest = right; live = li; }
               return li;
-            }) : [h('li', { class: 'muted' }, t('Noch kein Ablauf'))]));
+            }) : [h('li', { class: 'muted' }, t('Noch keine Agenda'))]));
             if (live) setTimeout(() => { list.scrollTop = Math.max(0, live.offsetTop - list.offsetTop - 40); }, 0);
           }
           if (live && rv.current) {
@@ -350,11 +351,16 @@
     },
     message(box, m) {
       const txt = h('div', { class: 'mpg-dsm-text' });
-      const head = h('div', { class: 'mpg-dsm-head' }, icon('screen'), h('span', null, t('Steht auf dem DSM')));
+      const where = h('span');
+      const head = h('div', { class: 'mpg-dsm-head' }, icon('screen'), where);
       box.append(head, txt);
       return {
         tick(s) {
-          const pid = m.opts.page || dsmPageFor(s, agendaTimerId(s).slice(1));
+          // automatic: the first display screen that shows the agenda's timer
+          const auto = screensWithTimer(s, agendaTimerId(s)).find(x => x.kind === 'show');
+          const pid = m.opts.page || (auto ? auto.id : '-');
+          const sc = s.screens.find(x => x.id === pid);
+          setText(where, t('Eingeblendet auf') + ' ' + (sc ? sc.name : t('Screen')));
           const msg = overlayOf(s, pid);
           const on = msg && msg.visible && msg.text ? 1 : 0;
           setData(box, 'on', on);
@@ -429,7 +435,7 @@
   };
 
   function buildMod(host, tr, pg, params, o) {
-    const nameKey = pg.builtin ? 'et-from' : 'et-from-' + pg.id;
+    const nameKey = pg.fixed ? 'et-from' : 'et-from-' + pg.id;
     let me = store.get(nameKey) || pg.name;
     const conn = h('i', { class: 'mod-dot' });
     const event = h('span', { class: 'mod-event' });
@@ -507,16 +513,16 @@
       if (!o.preview) {
         document.body.dataset.view = pg && pg.kind === 'mod' ? 'moderation' : 'display';
         document.title = (pg ? pg.name : t('Seite nicht gefunden')) + ' – Event Timer';
-        if (pg && pg.kind === 'dsm' && params.get('bg') === 'transparent') {
+        if (pg && pg.kind === 'show' && params.get('bg') === 'transparent') {
           document.body.style.background = 'transparent'; document.documentElement.style.background = 'transparent'; document.documentElement.style.colorScheme = 'normal';
         }
         ui.replaceChildren();
-        if (pg && pg.kind === 'dsm' && chrome && document.fullscreenEnabled !== false && document.documentElement.requestFullscreen) {
+        if (pg && pg.kind === 'show' && chrome && document.fullscreenEnabled !== false && document.documentElement.requestFullscreen) {
           ui.append(h('button', { class: 'btn btn-icon', 'aria-label': t('Vollbild'), title: t('Vollbild'), onclick: () => {
             if (document.fullscreenElement) document.exitFullscreen(); else document.documentElement.requestFullscreen().catch(() => {});
           } }, icon('full')));
         }
-        if (pg && pg.kind === 'dsm' && tr.mode === 'standalone' && params.get('here') === '1') {
+        if (pg && pg.kind === 'show' && tr.mode === 'standalone' && params.get('here') === '1') {
           ui.append(h('button', { class: 'btn', onclick: () => { location.hash = 'control'; } }, icon('back'), t('DSM-Ansicht verlassen')));
         }
       }
@@ -525,13 +531,13 @@
           h('span', null, t('Sie erscheint automatisch, sobald sie in der Regie angelegt ist.'))));
         return;
       }
-      inst = pg.kind === 'dsm' ? buildDsm(host, tr, pg, params, o) : buildMod(host, tr, pg, params, o);
+      inst = pg.kind === 'show' ? buildDsm(host, tr, pg, params, o) : buildMod(host, tr, pg, params, o);
     }
     const wake = () => {
       ui.dataset.idle = '0';
       clearTimeout(idle);
       idle = setTimeout(() => { ui.dataset.idle = '1'; }, 2500);
-      if (kind === 'dsm') keepAwake();
+      if (kind === 'show') keepAwake();
     };
     if (!o.preview) ['pointermove', 'pointerdown', 'keydown'].forEach(ev => document.addEventListener(ev, wake));
     const loop = () => {
@@ -545,7 +551,7 @@
       }
       if (!o.preview && tr.mode === 'server') {
         if (tr.status !== 'online') offlineSince = offlineSince || Date.now(); else offlineSince = null;
-        offline.hidden = !chrome || kind !== 'dsm' || !offlineSince || Date.now() - offlineSince < 2500;
+        offline.hidden = !chrome || kind !== 'show' || !offlineSince || Date.now() - offlineSince < 2500;
       }
       raf = requestAnimationFrame(loop);
     };
@@ -568,6 +574,7 @@
   }
 
   root.ETPages = {
-    MODULES, LAYOUTS, SLOT_NAMES, KIND_NAMES, builtins, resolvePage, pagePath, standardOf, dsmTargets, dsmPageFor, overlayOf, mountPage, slugify,
+    MODULES, LAYOUTS, SLOT_NAMES, KIND_NAMES, TEMPLATES, effective, fixedPage, resolvePage, pagePath, screenLabel, byNum,
+    dsmTargets, screensWithTimer, timersOf, dsmPageFor, overlayOf, mountPage, slugify, agendaTimerId,
   };
 })(globalThis);
