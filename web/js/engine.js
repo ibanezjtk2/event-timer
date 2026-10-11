@@ -17,7 +17,7 @@
   const FONTS = ['din', 'grotesk', 'mono', 'serif', 'rounded'];
   const BG_STYLES = ['solid', 'glow', 'transparent'];
   const KINDS = ['countdown', 'countup', 'clock', 'time', 'schedule'];
-  // kinds that don't count by themselves (wall clock, clock-driven schedule)
+  // kinds that don't count by themselves (wall clock, mirror of the run of show)
   const isStatic = k => k === 'time' || k === 'schedule';
   const COLOR_KEYS = ['bg', 'fg', 'accent', 'warn', 'crit', 'overBg', 'overFg', 'msgFg', 'msgBg'];
   const PRESET_BOOLS = ['showProgress', 'showClock', 'showTitle', 'showNext', 'showNotice', 'flashOver'];
@@ -59,7 +59,9 @@
   ];
 
   const DEFAULT_STAGE = ['Brauche 2 Minuten mehr', 'Mikrofon-Problem', 'Frage aus dem Saal', 'Technik bitte kommen', 'Bitte Pause einlegen', 'Alles okay'];
-  const DEFAULT_TALK = ['Noch 5 Minuten', 'Bitte zum Ende kommen', 'Letzte Frage', 'Mikrofon ist aus', 'Fragen aus dem Saal nehmen', 'Pause wird verlängert'];
+  const DEFAULT_TALK = ['Noch 5 Minuten', 'Noch 1 Minute', 'Bitte zum Ende kommen', 'Bitte strecken', 'Keine Fragen mehr', 'Einspieler kommt', 'Mikrofon ist aus', 'Technisches Problem – bitte überbrücken'];
+  // talkback defaults up to 1.5.2 – an untouched old list is swapped for the new one
+  const OLD_TALK = ['Noch 5 Minuten', 'Bitte zum Ende kommen', 'Letzte Frage', 'Mikrofon ist aus', 'Fragen aus dem Saal nehmen', 'Pause wird verlängert'];
   const DEFAULT_QUICK = ['Bitte zum Ende kommen', 'Lauter sprechen', 'Näher ans Mikrofon', 'Letzte Frage', 'Langsamer sprechen'];
 
   // ---------- helpers ----------
@@ -111,7 +113,7 @@
       requests: [],
       talkQuick: DEFAULT_TALK.slice(),
       talkback: [],
-      agenda: { timerId: 't1', plannedStart: '', autoStart: true, mode: 'manual', shiftMs: 0, holdAt: null, cursor: -1, items: [] },
+      agenda: { timerId: 't1', plannedStart: '', autoStart: true, cursor: -1, items: [] },
     };
   }
 
@@ -265,8 +267,6 @@
       note: text(it.note, 300),
       start: hhmm(it.start),
       end: hhmm(it.end),
-      extraMs: 0,
-      rippleMs: 0,
       cues: [],
       startedAt: null,
       endedAt: null,
@@ -445,7 +445,6 @@
         if ('timerId' in a && findTimer(s, a.timerId)) ag.timerId = a.timerId;
         if ('plannedStart' in a) ag.plannedStart = /^([01]\d|2[0-3]):[0-5]\d$/.test(String(a.plannedStart)) ? String(a.plannedStart) : '';
         if ('autoStart' in a) ag.autoStart = Boolean(a.autoStart);
-        if ('mode' in a && (a.mode === 'manual' || a.mode === 'clock')) ag.mode = a.mode;
         return true;
       }
       case 'agenda.replace': {
@@ -523,47 +522,6 @@
         for (let i = target; i < ag.items.length; i++) { ag.items[i].startedAt = null; ag.items[i].endedAt = null; }
         ag.cursor = -1;
         loadSegment(s, target, now);
-        return true;
-      }
-      // ----- clock-driven schedule: live corrections from the control room
-      case 'agenda.adjust': {
-        const it = s.agenda.items.find(x => x.id === a.itemId);
-        const ms = num(a.ms, -12 * HOUR, 12 * HOUR, 0);
-        if (!it || !ms) return false;
-        it.extraMs = clamp((it.extraMs || 0) + ms, -DAY, DAY);
-        if (a.ripple) it.rippleMs = clamp((it.rippleMs || 0) + ms, -DAY, DAY);
-        return true;
-      }
-      case 'agenda.shift': {
-        const ms = num(a.ms, -DAY, DAY, 0);
-        if (!ms) return false;
-        s.agenda.shiftMs = clamp((s.agenda.shiftMs || 0) + ms, -DAY, DAY);
-        return true;
-      }
-      case 'agenda.hold': {
-        if (s.agenda.holdAt != null) return false;
-        s.agenda.holdAt = now;
-        return true;
-      }
-      case 'agenda.resume': {
-        const ag = s.agenda;
-        if (ag.holdAt == null) return false;
-        const ms = clamp(now - ag.holdAt, 0, DAY);
-        ag.holdAt = null;
-        const it = ag.items.find(x => x.id === a.itemId);
-        if (it) {
-          it.rippleMs = clamp((it.rippleMs || 0) + ms, -DAY, DAY);
-          if (a.mode !== 'after') it.extraMs = clamp((it.extraMs || 0) + ms, -DAY, DAY);
-        } else {
-          ag.shiftMs = clamp((ag.shiftMs || 0) + ms, -DAY, DAY);
-        }
-        return true;
-      }
-      case 'agenda.clearAdjust': {
-        const ag = s.agenda;
-        ag.shiftMs = 0;
-        ag.holdAt = null;
-        ag.items.forEach(it => { it.extraMs = 0; it.rippleMs = 0; });
         return true;
       }
       // ----- technical cues per slot (Regie only)
@@ -667,77 +625,84 @@
   }
 
   /**
-   * Clock-driven run of show. Each slot starts at its own "start" time or,
-   * without one, when the previous slot ends (first slot: planned start).
-   * Ends at "end" or start + duration. Uses the device's local time zone.
+   * Planned clock times of the run of show. Each slot starts at its own
+   * "start" time or, without one, when the previous slot ends (first slot:
+   * planned start). Ends at "end" or start + duration. Local time zone.
+   * Times are for orientation only – the show itself runs GO by GO.
    */
-  function scheduleView(s, wallNow) {
+  function planView(s, wallNow) {
     const a = s.agenda;
-    const held = a.holdAt != null;
-    const now = held ? a.holdAt : wallNow; // on hold the whole plan stands still
-    const d = new Date(now);
+    const d = new Date(wallNow);
     const dayAt = min => new Date(d.getFullYear(), d.getMonth(), d.getDate(), 0, min).getTime();
-    let shift = a.shiftMs || 0;
-    let prevEnd = minutesOf(a.plannedStart) != null ? dayAt(minutesOf(a.plannedStart)) + shift : null;
+    let prevEnd = minutesOf(a.plannedStart) != null ? dayAt(minutesOf(a.plannedStart)) : null;
     let prevStart = null;
     const rows = a.items.map((item, index) => {
       const sm = minutesOf(item.start);
-      let start = sm != null ? dayAt(sm) + shift : prevEnd;
+      let start = sm != null ? dayAt(sm) : prevEnd;
       if (start != null && prevStart != null && start < prevStart - 12 * HOUR) start += DAY; // past midnight
       if (start != null && prevEnd != null && start < prevEnd) start = prevEnd; // one stage: never overlap
       let end = null;
       if (start != null) {
         const em = minutesOf(item.end);
         if (em != null && sm == null) {
-          end = dayAt(em) + shift;
+          end = dayAt(em);
           while (end <= start - 12 * HOUR) end += DAY;
           if (end <= start) end = start + item.durationMs;
         } else {
           end = start + item.durationMs;
         }
-        end = Math.max(start, end + (item.extraMs || 0));
         prevStart = start;
       }
-      shift += item.rippleMs || 0;
       prevEnd = end;
-      return { item, index, start, end, status: start == null ? 'unknown' : now >= end ? 'done' : now >= start ? 'live' : 'todo' };
+      return { item, index, start, end };
     });
     const timed = rows.filter(r => r.start != null);
-    const current = timed.find(r => r.status === 'live') || null;
-    const next = timed.find(r => r.status === 'todo') || null;
-    const view = { rows, current, next, held, heldMs: held ? wallNow - a.holdAt : 0, ready: timed.length > 0, finished: timed.length > 0 && !current && !next };
+    return { rows, endAt: timed.length ? Math.max(...timed.map(r => r.end)) : null };
+  }
+  /**
+   * The run of show as it is running (GO by GO): planned times, status per
+   * slot and the live slot's remaining time. While the linked timer carries
+   * the slot its time counts (pause and ± follow along); otherwise the time
+   * since the slot was started.
+   * status: done · live · next · todo
+   */
+  function runView(s, now) {
+    const a = s.agenda;
+    const n = a.items.length;
+    const plan = planView(s, now);
+    const rows = plan.rows.map((r, i) => Object.assign(r, { status: i < a.cursor ? 'done' : i === a.cursor ? 'live' : i === a.cursor + 1 ? 'next' : 'todo' }));
+    const current = a.cursor >= 0 && a.cursor < n ? rows[a.cursor] : null;
+    const view = { rows, current, next: rows[a.cursor + 1] || null, ready: n > 0, started: a.cursor >= 0, finished: n > 0 && a.cursor >= n, endAt: plan.endAt, running: false, remainingMs: null, progress: 0 };
     if (current) {
-      const total = current.end - current.start;
-      view.remainingMs = current.end - now;
-      view.elapsedMs = now - current.start;
-      view.progress = total > 0 ? clamp(view.elapsedMs / total, 0, 1) : 1;
-    } else if (next) {
-      view.gapMs = next.start - now;
+      const it = current.item;
+      const tm = findTimer(s, a.timerId);
+      if (tm && tm.segmentId === it.id && tm.kind === 'countdown') {
+        const tv = timerView(tm, now);
+        view.remainingMs = tv.remaining;
+        view.progress = tv.progress;
+        view.running = tm.running;
+      } else {
+        const el = it.startedAt != null ? (it.endedAt != null ? it.endedAt : now) - it.startedAt : 0;
+        view.remainingMs = it.durationMs - el;
+        view.progress = it.durationMs > 0 ? clamp(el / it.durationMs, 0, 1) : 0;
+        view.running = it.startedAt != null && it.endedAt == null;
+      }
     }
-    view.endAt = timed.length ? Math.max(...timed.map(r => r.end)) : null;
     return view;
   }
   /**
-   * Cues with their due time. Times come from the clock schedule or, in
-   * manual mode, from when the slot was actually started.
+   * Cues with their due time, counted from when the slot was actually started.
    * status: go (due, waiting for GO) · standby (≤ 60 s) · ready (untimed, slot live/next)
    *         · later · missed (slot over, never fired) · done
    */
   function cueView(s, now) {
     const a = s.agenda;
-    const sv = a.mode === 'clock' ? scheduleView(s, now) : null;
     const out = [];
     a.items.forEach((it, i) => {
       if (!it.cues || !it.cues.length) return;
-      let start = null, end = null, live, next, over;
-      if (sv) {
-        const r = sv.rows[i];
-        start = r.start; end = r.end;
-        live = r.status === 'live'; next = sv.next === r; over = r.status === 'done';
-      } else {
-        if (it.startedAt != null) { start = it.startedAt; end = it.endedAt != null ? it.endedAt : it.startedAt + it.durationMs; }
-        live = i === a.cursor; next = i === a.cursor + 1; over = i < a.cursor;
-      }
+      let start = null, end = null;
+      if (it.startedAt != null) { start = it.startedAt; end = it.endedAt != null ? it.endedAt : it.startedAt + it.durationMs; }
+      const live = i === a.cursor, next = i === a.cursor + 1, over = i < a.cursor;
       it.cues.forEach(c => {
         const base = c.ref === 'end' ? end : start;
         const dueAt = base == null ? null : base + c.offsetMs;
@@ -765,8 +730,12 @@
     st.timers.forEach(t => { if (!st.presets.some(p => p.id === t.presetId)) t.presetId = 'stage'; });
     st.agenda.items.forEach(it => {
       if (!Array.isArray(it.cues)) it.cues = [];
-      for (const [k, v] of [['start', ''], ['end', ''], ['extraMs', 0], ['rippleMs', 0]]) if (!(k in it)) it[k] = v;
+      for (const [k, v] of [['start', ''], ['end', '']]) if (!(k in it)) it[k] = v;
+      delete it.extraMs; delete it.rippleMs;
     });
+    // 1.5.3: the run of show always runs GO by GO ("by the clock" is gone)
+    for (const k of ['mode', 'shiftMs', 'holdAt']) delete st.agenda[k];
+    if (Array.isArray(st.talkQuick) && st.talkQuick.join('\n') === OLD_TALK.join('\n')) st.talkQuick = DEFAULT_TALK.slice();
     return st;
   }
   function toHHMM(ms) { const x = new Date(ms); return String(x.getHours()).padStart(2, '0') + ':' + String(x.getMinutes()).padStart(2, '0'); }
@@ -808,7 +777,7 @@
 
   const api = {
     MAX_TIMERS, BUILTIN_PRESETS, FONTS, KINDS,
-    defaultState, apply, timerView, agendaView, scheduleView, cueView, normalize, toHHMM, isStatic, rawValue, formatMs, parseDuration, clone,
+    defaultState, apply, timerView, agendaView, planView, runView, cueView, normalize, toHHMM, isStatic, rawValue, formatMs, parseDuration, clone,
   };
   root.ETEngine = api;
   if (typeof module !== 'undefined' && module.exports) module.exports = api;

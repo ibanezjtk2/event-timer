@@ -264,9 +264,6 @@ details.opt[open] .opt-summary { display: none; }
 .ros-add .field { grid-column: span 2; }
 .ros-add .ros-add-btn { grid-column: 5 / -1; }
 input[type="time"].input { min-width: 0; }
-.sched-ctl { display: grid; gap: 10px; margin-top: 12px; }
-.sched-main { display: grid; grid-template-columns: 1fr 1.4fr; gap: 10px; }
-.sched-ctl .row .btn { min-width: 46px; }
 .ros-empty { padding: 22px 16px; text-align: center; color: var(--muted); background: var(--sunken); border-radius: var(--r-m); border: 1px dashed var(--line); }
 .ros-go { display: grid; grid-template-columns: auto 1fr; gap: 10px; margin-top: 12px; }
 .ros-go .btn-go { font-size: 19px; }
@@ -306,11 +303,12 @@ dialog.drawer::backdrop { background: rgba(5, 7, 10, .55); }
 .cue-what { min-width: 0; display: grid; }
 .cue-what b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .cue-what span, .cue-what small { color: var(--muted); font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.cue-row[data-status="standby"] { border-color: var(--standby); }
-.cue-row[data-status="standby"] .cue-pill { background: var(--standby); color: #2b1b00; }
-.cue-row[data-status="go"] { border-color: var(--stop); background: #2a1216; }
-.cue-row[data-status="go"] .cue-pill { background: var(--stop); color: #fff; animation: blink 1s steps(2) infinite; }
-.cue-row[data-status="ready"] .cue-pill { background: #1d3a2a; color: var(--go); }
+/* calm on purpose: cues are fired by other operators – amber, never red, never blinking */
+.cue-row[data-status="standby"] { border-color: rgba(255, 176, 32, .35); }
+.cue-row[data-status="standby"] .cue-pill { color: var(--standby); box-shadow: inset 0 0 0 1px rgba(255, 176, 32, .5); }
+.cue-row[data-status="go"] { border-color: rgba(255, 176, 32, .7); }
+.cue-row[data-status="go"] .cue-pill { background: var(--standby); color: #2b1b00; }
+.cue-row[data-status="ready"] .cue-pill { color: var(--go); }
 .cue-empty { color: var(--muted); padding: 8px 4px; }
 .ros-what .ros-cues { color: var(--standby); font-size: 12px; }
 .ros-what .ros-note { color: #9fd3ff; font-size: 12px; }
@@ -325,8 +323,6 @@ dialog.drawer::backdrop { background: rgba(5, 7, 10, .55); }
 .alert { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 12px; align-items: center; padding: 8px 8px 8px 12px; border-radius: var(--r-m); border: 2px solid; }
 .alert-req { background: #3d1218; border-color: var(--stop); animation: req-pulse 1.2s ease-in-out infinite; }
 .alert-req > svg { width: 22px; height: 22px; color: #ffc0c6; }
-.alert-cue { background: #2a1216; border-color: var(--stop); }
-.alert-cue .cue-pill { min-width: 52px; }
 .alert-text { min-width: 0; display: grid; }
 .alert-text b { font-size: 17px; overflow-wrap: anywhere; }
 .alert-text span { color: #ffc0c6; font-size: 13px; }
@@ -422,11 +418,11 @@ body[data-view="moderation"], body[data-view="cues"] { background: var(--bg); }
 .cues-big li { display: grid; grid-template-columns: 120px minmax(0, 1fr) auto; gap: 16px; align-items: center; padding: 14px 16px; border-radius: var(--r-m); background: var(--panel); border: 2px solid var(--line); font-size: clamp(18px, 2.4vw, 28px); }
 .cues-big li span:last-child { color: var(--muted); font-size: .7em; }
 .cues-big .cue-pill { font-size: .9em; padding: 8px 4px; }
-.cues-big li[data-status="standby"] { border-color: var(--standby); }
-.cues-big li[data-status="standby"] .cue-pill { background: var(--standby); color: #2b1b00; }
-.cues-big li[data-status="go"] { border-color: var(--stop); background: #2a1216; }
-.cues-big li[data-status="go"] .cue-pill { background: var(--stop); color: #fff; animation: blink 1s steps(2) infinite; }
-.cues-big li[data-status="ready"] .cue-pill { background: #1d3a2a; color: var(--go); }
+.cues-big li[data-status="standby"] { border-color: rgba(255, 176, 32, .4); }
+.cues-big li[data-status="standby"] .cue-pill { color: var(--standby); box-shadow: inset 0 0 0 1px rgba(255, 176, 32, .5); }
+.cues-big li[data-status="go"] { border-color: var(--standby); }
+.cues-big li[data-status="go"] .cue-pill { background: var(--standby); color: #2b1b00; }
+.cues-big li[data-status="ready"] .cue-pill { color: var(--go); }
 
 /* ------------------------------------------------------------ gate */
 .gate { position: fixed; inset: 0; z-index: 50; display: grid; place-items: center; background: rgba(12, 14, 17, .82); backdrop-filter: blur(6px); padding: 16px; }

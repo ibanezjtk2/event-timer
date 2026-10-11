@@ -15,12 +15,6 @@
   /** What the presenter needs to know right now: slot, time left, progress. */
   function nowInfo(s, now, timerId) {
     const a = s.agenda;
-    if (a.mode === 'clock' && a.items.length) {
-      const sv = E.scheduleView(s, now);
-      if (sv.current) return { title: sv.current.item.title, ms: sv.remainingMs, sub: sv.held ? t('Hold aktiv') : hm(sv.current.start) + '–' + hm(sv.current.end), progress: sv.progress, next: sv.next ? hm(sv.next.start) + ' ' + sv.next.item.title : '', note: sv.current.item.note || '' };
-      if (sv.next) return { title: t('Pause'), ms: sv.gapMs, sub: t('Weiter um') + ' ' + hm(sv.next.start), progress: 0, next: sv.next.item.title };
-      return { title: sv.ready ? t('Programm beendet') : s.event.title || 'Event Timer', ms: null, sub: '', progress: 0, next: '' };
-    }
     const tm = s.timers.find(x => x.id === timerId) || s.timers.find(x => x.id === a.timerId) || s.timers[0];
     const v = E.timerView(tm, now);
     const seg = tm.segmentId ? a.items.find(x => x.id === tm.segmentId) : null;
@@ -148,15 +142,8 @@
       const a = s.agenda;
       progSection.hidden = !a.items.length;
       if (!a.items.length) return;
-      const clock = a.mode === 'clock';
-      const sv = E.scheduleView(s, now);
-      const rows = a.items.map((it, i) => {
-        const r = sv.rows[i];
-        const status = clock
-          ? (r.status === 'unknown' ? 'todo' : r.status === 'todo' && sv.next === r ? 'next' : r.status)
-          : (i < a.cursor ? 'done' : i === a.cursor ? 'live' : i === a.cursor + 1 ? 'next' : 'todo');
-        return { it, status, start: r.start, end: r.end };
-      });
+      const rv = E.runView(s, now);
+      const rows = rv.rows.map(r => ({ it: r.item, status: r.status, start: r.start, end: r.end }));
       const key = JSON.stringify(rows.map(x => [x.it.id, x.it.title, x.it.speaker, x.it.note, x.it.durationMs, x.start, x.end, x.status])) + root.ETUI.lang;
       if (key !== progKey) {
         progKey = key;
@@ -167,7 +154,7 @@
             h('span', { class: 'mod-prog-what' }, h('b', null, x.it.title || '—'),
               x.it.speaker ? h('span', null, x.it.speaker) : null,
               x.it.note ? h('em', null, t('Hinweis') + ': ' + x.it.note) : null),
-            h('span', { class: 'mod-prog-dur num' }, x.end != null && clock ? t('bis') + ' ' + hm(x.end) : E.formatMs(x.it.durationMs)));
+            h('span', { class: 'mod-prog-dur num' }, E.formatMs(x.it.durationMs)));
           if (x.status === 'live') { progBar = h('i', { class: 'mod-prog-bar' }); li.prepend(progBar); }
           return li;
         }));
@@ -176,17 +163,12 @@
         if (live) setTimeout(() => { prog.scrollTop = Math.max(0, live.offsetTop - prog.offsetTop - 40); }, 0);
       }
       if (progBar) {
-        let p = 0;
-        if (clock) p = sv.current ? sv.progress : 0;
-        else {
-          const av = E.agendaView(s, now);
-          p = av.current && av.current.startedAt != null && av.current.durationMs ? Math.min(1, av.currentElapsed / av.current.durationMs) : 0;
-        }
+        const p = rv.current ? rv.progress : 0;
         progBar.style.width = (p * 100).toFixed(1) + '%';
       }
-      // deviation in words – manual run of show only (by the clock the plan itself moves)
+      // deviation in words
       let dt = '';
-      if (!clock) {
+      {
         const av = E.agendaView(s, now);
         if (av.started && !av.done && Math.abs(av.drift) >= 30000) dt = E.formatMs(Math.abs(av.drift)) + ' ' + (av.drift > 0 ? t('hinter Plan') : t('vor Plan'));
         drift.dataset.tone = av.drift > 0 ? 'behind' : 'ahead';
@@ -260,7 +242,7 @@
         }
         shown.forEach(c => {
           const pill = list.querySelector(`[data-cue="${c.cue.id}"] .cue-pill`);
-          const txt = c.status === 'go' ? 'GO' : c.status === 'ready' ? t('Auf Abruf') : c.inMs != null ? E.formatMs(c.inMs) : t('wartet');
+          const txt = c.status === 'go' ? t('jetzt') : c.status === 'ready' ? t('Auf Abruf') : c.inMs != null ? E.formatMs(c.inMs) : t('wartet');
           if (pill && pill.textContent !== txt) pill.textContent = txt;
         });
       }
