@@ -112,11 +112,31 @@ process.env.TZ = 'Europe/Berlin';
   old.talkQuick = ['Noch 5 Minuten', 'Bitte zum Ende kommen', 'Letzte Frage', 'Mikrofon ist aus', 'Fragen aus dem Saal nehmen', 'Pause wird verlängert'];
   E.normalize(old);
   check('migrated', ['mode' in old.agenda, 'holdAt' in old.agenda, old.talkQuick.length, old.talkQuick[1]], [false, false, 8, 'Noch 1 Minute']);
+  // 1.5.x file: two timers, overlay on timer 1, no screens yet
   const old15 = E.defaultState();
+  E.apply(old15, { type: 'timer.add' }, 0);
   old15.timers[0].message = { text: 'Bitte zum Ende', flash: true, visible: true };
-  delete old15.dsmMsg;
+  old15.timers[1].kind = 'schedule';
+  for (const k of ['dsmMsg', 'screens', 'groups']) delete old15[k];
   E.normalize(old15);
-  check('overlay migrated', [old15.dsmMsg.d1, 'message' in old15.timers[0]], [{ text: 'Bitte zum Ende', flash: true, visible: true }, false]);
+  const sc1 = old15.screens.find(x => x.num === 1);
+  check('1.5 → screens', [old15.screens.map(x => [x.num, x.kind, x.name]), sc1.slots[0][0].opts.timer, old15.screens[1].slots[0][0].opts.timer],
+    [[[1, 'show', 'DSM 1'], [2, 'show', 'DSM 2'], [3, 'mod', 'Moderation']], 't1', 't2']);
+  check('overlay migrated', [old15.dsmMsg[sc1.id], 'message' in old15.timers[0], old15.timers[1].kind], [{ text: 'Bitte zum Ende', flash: true, visible: true }, false, 'countdown']);
+  // 1.6.0-beta.1 file: custom page standing in for /1, an extra presenter page, overlay on built-in /2
+  const b1 = E.defaultState();
+  E.apply(b1, { type: 'timer.add' }, 0);
+  for (const k of ['screens', 'groups']) delete b1[k];
+  b1.pages = [
+    { id: 'p5', kind: 'dsm', name: 'DSM Ablauf', slug: 'dsm-ablauf', layout: 'side', slots: [[{ id: 'm6', type: 'timer', opts: { timer: 't1', variant: 'full' } }], [{ id: 'm7', type: 'agenda', opts: {} }]] },
+    { id: 'p8', kind: 'mod', name: 'Moderation Lea', slug: 'moderation-lea', layout: 'two', slots: [[{ id: 'm9', type: 'talkback', opts: {} }], []] },
+  ];
+  b1.routes = { 1: 'p5', moderation: 'p8' };
+  b1.dsmMsg = { d2: { text: 'Hallo', flash: false, visible: true }, p5: { text: 'Eins', flash: false, visible: true } };
+  b1.seq = 10;
+  E.normalize(b1);
+  check('beta.1 → screens', b1.screens.map(x => [x.num, x.id, x.kind, x.slug]), [[1, 'p5', 'show', 'dsm-ablauf'], [2, b1.screens[1].id, 'show', 'dsm-2'], [3, 'p8', 'mod', 'moderation-lea']]);
+  check('beta.1 overlays', [b1.dsmMsg.p5.text, b1.dsmMsg[b1.screens[1].id].text, 'pages' in b1, 'routes' in b1], ['Eins', 'Hallo', false, false]);
   const own = E.defaultState(); own.talkQuick = ['Eigene']; E.normalize(own);
   check('own list kept', own.talkQuick, ['Eigene']);
 }

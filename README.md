@@ -1,6 +1,6 @@
 # Event Timer
 
-Countdown, Redezeit und Ablaufplan für Bühne und Regie. Ein einzelnes Programm (unter 1 MB, keine Installation, keine Abhängigkeiten), bedient wird alles im Browser: am Rechner, auf dem Handy oder auf dem iPad.
+Countdown, Redezeit und Agenda für Bühne und Regie. Ein einzelnes Programm (unter 1 MB, keine Installation, keine Abhängigkeiten), bedient wird alles im Browser: am Rechner, auf dem Handy oder auf dem iPad.
 
 ## Zwei Betriebsarten
 
@@ -11,7 +11,7 @@ Countdown, Redezeit und Ablaufplan für Bühne und Regie. Ein einzelnes Programm
 | Speichert | Datei neben dem Programm | im Browser |
 | Companion / PIN | ja | nein |
 
-Standalone ist für „Ich hab nur ein iPad dabei“: Datei öffnen, fertig. Unter *Menü (☰) → Verbindung → DSM hier öffnen* wird das Gerät selbst zum DSM (Downstage-Monitor), oder *DSM in neuem Fenster* für einen zweiten Bildschirm.
+Standalone ist für „Ich hab nur ein iPad dabei“: Datei öffnen, fertig. Unter *Menü (☰) → Verbindung → Screen hier öffnen* wird das Gerät selbst zum Screen (z. B. zum DSM, dem Vorschau-Monitor vor der Bühne), oder *Screen in neuem Fenster* für einen zweiten Bildschirm.
 
 ## Start (Server)
 
@@ -56,11 +56,11 @@ event-timer.local/1               # dasselbe, wenn „Ohne Portnummer (Port 80)�
 | Pfad | Zweck |
 |---|---|
 | `/control` | Regie |
-| `/1` … `/8` (auch `/timer1`) | DSM (Downstage-Monitor): Vollbild-Timer – oder deine eigene DSM-Seite, wenn sie „Standard für /1“ ist |
-| `/p/<name>` | eigene Seite aus Modulen (*Menü → Seiten*), z. B. `/p/dsm-links` |
-| `/agenda` | Backstage-Display mit Ablaufplan, Abweichung und Ende-Prognose |
-| `/plan` | Ablaufplan für die Moderation: laufender Punkt mit Restzeit und Balken, ganzer Tagesablauf daneben |
-| `/moderation` | Handy/iPad der Moderation: Restzeit, Hinweis, Programm, „Von der Regie“ mit „Verstanden“, „An die Regie“ (ohne PIN). Auf dem iPad quer zweispaltig. Oder deine eigene Moderationsseite, wenn sie „Standard für /moderation“ ist. |
+| `/1` … `/16` | **Screens** (*Menü → Screens*): z. B. `/1` DSM (Vorschau-Monitor vor der Bühne), `/2` Moderation |
+| `/p/<name>` | derselbe Screen über seinen Namen, z. B. `/p/dsm-links` |
+| `/agenda` | Backstage-Display mit Agenda, Abweichung und Ende-Prognose (klassische Ansicht) |
+| `/plan` | Agenda-Monitor: laufender Punkt mit Restzeit und Balken, ganze Agenda daneben |
+| `/moderation` | der erste Moderations-Screen (Handy/iPad der Moderation). Gibt es keinen, die Vorlage: Restzeit, Hinweis, Agenda, „Von der Regie“, „An die Regie“. |
 | `/cues` | Cue-Liste groß für weitere Operatoren (Licht, Video, Ton) |
 | `/uhr` (auch `/clock`) | nur die Uhrzeit, sonst nichts (`?sec=0` ohne Sekunden) |
 | `/display?t=2&layout=clock` | Uhrzeit groß, Timer klein (alle Ansichten baut dir *Menü → Verbindung → Display-Link erstellen* mit Vorschau zusammen) |
@@ -71,16 +71,17 @@ Displays brauchen nie eine PIN, halten den Bildschirm wach (Wake Lock) und synch
 
 ## Funktionen
 
-- **Bis zu 8 Timer**: Countdown, Count-up (mit optionalem Limit), Zielzeit („Beginn um 14:30“), **Uhrzeit** (schaltet den DSM in der Pause per Klick auf die Uhr) oder **Ablaufplan** (zeigt den laufenden Programmpunkt mit Restzeit und „Danach“, z. B. auf einem zweiten Display). *Set* setzt eine Dauer, *Set & Go* (⇧ ↵) startet sie sofort.
+- **Screens und Timer getrennt** – wie Ausgänge und Quellen an einer Kreuzschiene: Die Kacheln oben in der Regie sind die **Screens** (was die Geräte zeigen, live gerendert). Die **Timer** sind Quellen mit Namen (z. B. „Bühne“, „Q&A“) und können auf mehreren Screens gleichzeitig laufen. Screen anklicken → darunter steuerst du seinen Timer; „läuft auf: …“ zeigt, was alles mitläuft.
+- **Bis zu 8 Timer**: Countdown, Count-up (mit optionalem Limit), Zielzeit („Beginn um 14:30“) oder **Uhrzeit** (schaltet die Screens in der Pause per Klick auf die Uhr). *Set* setzt eine Dauer, *Set & Go* (⇧ ↵) startet sie sofort.
 - **Blinken bei Überzeit**: Der Bildschirm pulsiert rot, sobald die Zeit um ist. Abschaltbar pro Design.
-- **Ablaufplan**: Programmpunkte mit Titel, Sprecher*in und Dauer; *Nächster Punkt* lädt und startet den nächsten Programmpunkt. Zeigt die Abweichung vom Plan in Worten („4:50 vor Plan“), das voraussichtliche Ende und mit *Planbeginn* die Uhrzeit jedes Programmpunkts. Import per Copy & Paste (`Titel; Sprecher*in; Minuten`, auch direkt aus Excel).
+- **Agenda**: Programmpunkte mit Titel, Sprecher*in und Dauer; *Nächster Punkt* lädt und startet den nächsten Programmpunkt im verknüpften Timer – und damit auf allen Screens, die diesen Timer zeigen. Zeigt die Abweichung vom Plan in Worten („4:50 vor Plan“), das voraussichtliche Ende und mit *Planbeginn* die Uhrzeit jedes Programmpunkts. Import per Copy & Paste (`Titel; Sprecher*in; Minuten`, auch direkt aus Excel).
 - **Drei klare Wege für Nachrichten**, jeder mit eigener Farbe und eigenem Platz:
-  - **An DSM** (gelb): Einblendung auf dem Bühnenmonitor, öffentlich, an *Alle DSMs* oder gezielt an einen. „LIVE auf DSM“ / „Ausgeblendet“ zeigt immer, was gerade wo steht.
-  - **An Moderation** (blau): Talkback, privat, mit „Verstanden“.
-  - **Von Moderation** (rot): Meldungen in der Alarmzone.
-- **Seiten aus Modulen**: DSM- und Moderationsseiten selbst zusammenstellen (siehe unten).
+  - **Einblendung → Screens** (gelb): öffentlich, an *Alle Screens* oder an den ausgewählten Screen bzw. die ausgewählte Gruppe. „LIVE“ / „Ausgeblendet“ zeigt immer, was gerade wo steht.
+  - **Talkback → Moderation** (blau): privat, mit „Verstanden“.
+  - **Meldung ← Moderation** (rot): in der Alarmzone.
+- **Screens aus Modulen**, auch in **Gruppen** (siehe unten).
 - **Alarmzone**: Meldungen von der Bühne stehen fest oben unter der Kopfzeile und scrollen nie weg. Daneben die große Uhrzeit. Cues haben ihr eigenes, ruhiges Panel.
-- **Layout**: eine Spalte auf Handy/iPad, zwei am Laptop, ab 1600 px drei (Timer · Ablaufplan · Cues und Talkback). Seltene Timer-Einstellungen liegen eingeklappt unter *Optionen*.
+- **Layout**: eine Spalte auf Handy/iPad, zwei am Laptop, ab 1600 px drei (Timer und Einblendung · Agenda · Cues und Talkback). Seltene Timer-Einstellungen liegen eingeklappt unter *Optionen*.
 - **Designs**: 4 eingebaute (Stage, Daylight, Overlay zum Keying, Nur Ziffern) plus eigene, mit Live-Vorschau, frei pro Timer wählbar
 - **All Blackout** für alle Displays
 - **Multiviewer**: Die Regie zeigt jeden Timer als Live-Kachel mit Tally-Rahmen (grün läuft, gelb Warnung, rot kritisch/überzogen)
@@ -88,44 +89,44 @@ Displays brauchen nie eine PIN, halten den Bildschirm wach (Wake Lock) und synch
 - **PIN** für die Regie (Menü → Sicherheit oder `--pin`). Am Rechner selbst (localhost) ist keine nötig.
 - Deutsch / Englisch. Tastenkürzel stehen direkt auf den Knöpfen: Leertaste, R, ↑/↓ (±1 min), ←/→ (±10 s), ⇧ ↵ (Set & Go), G (nächster Programmpunkt), C (GO), B (All Blackout), 1–8
 
-## Uhrzeiten im Ablaufplan
+## Uhrzeiten in der Agenda
 
-Der Ablauf läuft immer **Punkt für Punkt per GO** (*Nächster Punkt* oder Taste **G**). Uhrzeiten dienen nur der Planung:
+Die Agenda läuft immer **Punkt für Punkt per GO** (*Nächster Punkt* oder Taste **G**). Uhrzeiten dienen nur der Planung:
 
 - Programmpunkte mit **Beginn/Ende** eintragen (`13:00–15:00 Workshop A`) oder nur mit Dauer. Punkte ohne Uhrzeit schließen direkt an den vorherigen an, der erste an den *Planbeginn*.
 - Regie, `/plan` und `/moderation` zeigen diese Planzeiten an; die Abweichung („4:50 hinter Plan“) rechnet mit den echten Startzeiten.
-- **`/plan`** zeigt der Moderation den ganzen Ablauf mit Restzeit des laufenden Punkts. Die Timer-Art **„Ablaufplan“** zeigt dasselbe auf jedem normalen Display (`/2` …).
+- **`/plan`** (Agenda-Monitor) zeigt die ganze Agenda mit Restzeit des laufenden Punkts. Auf eigenen Screens macht das das Modul **Agenda**.
 - Der Import versteht Uhrzeiten: `13:00-15:00; Workshop A; Anna Schmidt`
 
 ## Cues für die Regie
 
-Jeder Programmpunkt kann technische Cues haben, z. B. „Einspieler starten“ oder „Panel-Mikros auf“. Du legst sie im Ablaufplan über den Stift an der Zeile an.
+Jeder Programmpunkt kann technische Cues haben, z. B. „Einspieler starten“ oder „Panel-Mikros auf“. Du legst sie in der Agenda über den Stift an der Zeile an.
 
 - **Wann:** bei Start, x Min. vor oder nach dem Start, x Min. vor dem Ende oder bei Ende.
 - **Cue-Panel** in der Regie mit festem Platz – bewusst ruhig, weil Cues meist andere Gewerke auslösen: 60 Sekunden vorher bekommt der Cue einen gelben Rahmen (*Standby*), zum Zeitpunkt steht er gelb auf **jetzt**, bis du **GO** drückst (oder die Taste **C**). Kein Rot, kein Blinken, kein Ton. Cues ohne feste Zeit stehen *Auf Abruf*.
 - Die Zeiten zählen ab dem Moment, in dem der Programmpunkt per GO startet.
 - **`/cues`** zeigt die Liste groß, z. B. am Lichtpult – ebenso ruhig.
 
-## Seiten aus Modulen
+## Screens und Gruppen
 
-Unter **Menü → Seiten** stellst du eigene Seiten zusammen. Es gibt zwei Arten:
+Unter **Menü → Screens** stellst du die Screens zusammen. Jeder Screen hat eine **Nummer** (`/1` … `/16`), einen Namen und eine Art:
 
 | Art | Für | Module |
 |---|---|---|
-| **DSM** | Bühnenmonitore, Backstage-TV – nur Anzeige, kein Touch | Timer, Uhr, Nächster Punkt, Ablaufplan, Einblendung |
-| **Moderation** | Handy oder Tablet der Moderation | alle: zusätzlich Hinweis, Von der Regie, An die Regie (die Einblendung erscheint hier als Spiegel „Steht auf dem DSM“) |
+| **Anzeige** | DSM (Vorschau-Monitor vor der Bühne), Backstage, Foyer – nur Anzeige, kein Touch | Timer, Uhr, Nächster Punkt, Agenda, Einblendung |
+| **Moderation** | Handy oder Tablet der Moderation | alle: zusätzlich Hinweis, Von der Regie, An die Regie (die Einblendung erscheint hier als Spiegel) |
 
-- **Anlegen:** *Neue DSM-Seite* / *Neue Moderationsseite* oder eine eingebaute Seite **kopieren**.
-- **Bearbeiten:** Layout wählen (DSM: Vollbild, Haupt + Seite, Haupt + Leiste unten; Moderation: zwei Spalten oder eine), mit **+ Modul** Module hinzufügen, mit ↑ ↓ sortieren, ⚙ für Einstellungen (welcher Timer, Darstellung, Sekunden), 🗑 entfernen. Rechts siehst du eine Live-Vorschau (Bildschirm, iPad quer/hoch, Handy).
-- **Übernehmen:** Bis dahin ist alles nur ein Entwurf. Erst danach geht die Seite live; geöffnete Geräte wechseln von selbst, ohne Neuladen.
-- **Adresse:** jede Seite hat `/p/<name>` und einen QR-Code. Mit **„Als Standard für“** ersetzt sie `/moderation` bzw. `/1` … `/8` – Lesezeichen und Kiosk-Browser bleiben, wie sie sind.
-- Bis zu 16 eigene Seiten, bis zu 8 Module pro Bereich. `/cues` bleibt eine feste Seite.
+- **Neuer Screen:** aus einer Vorlage starten – *DSM (Vorschau-Monitor)*, *Agenda-Monitor*, *Uhr*, *Moderation* oder leer.
+- **Bearbeiten:** Layout wählen (Anzeige: Vollbild, Haupt + Seite, Haupt + Leiste unten; Moderation: zwei Spalten oder eine), mit **+ Modul** Module hinzufügen, ↑ ↓ sortieren, ⚙ Einstellungen (welcher Timer, Darstellung, Sekunden), 🗑 entfernen. Rechts eine Live-Vorschau (Bildschirm, iPad quer/hoch, Handy).
+- **Übernehmen:** Bis dahin ist alles ein Entwurf. Danach wechseln geöffnete Geräte von selbst, ohne Neuladen.
+- **Gruppen:** Screens, die dasselbe zeigen sollen (z. B. DSM links und rechts), kommen in eine Gruppe. Die Gruppe hat einen gemeinsamen Aufbau – einmal bearbeiten, alle ändern sich. Einzelne Screens können mit **„Eigener Aufbau“** abweichen. In der Regie stehen die Kacheln einer Gruppe in einem Rahmen; ein Klick auf den Gruppennamen wählt alle aus (Einblendung an die ganze Gruppe).
+- Bis zu 16 Screens, 8 Gruppen, 8 Module pro Bereich. `/plan`, `/uhr` und `/cues` sind feste Seiten.
 
-Auf dem Handy steht offenes Talkback immer ganz oben und das Programm ganz unten; im iPad-Querformat stehen die Spalten nebeneinander, ohne dass die Seite scrollt.
+Auf dem Handy steht offenes Talkback immer ganz oben und die Agenda ganz unten; im iPad-Querformat stehen die Spalten nebeneinander, ohne dass die Seite scrollt.
 
 ## Talkback und Meldungen (Regie ↔ Moderation)
 
-Die Moderation öffnet **`/moderation`** (oder ihre eigene Seite) auf dem Handy oder iPad. Die eingebaute Seite zeigt links Restzeit, Hinweis und Programm, rechts „Von der Regie“ und „An die Regie“. Hinweise trägst du in der Regie beim Bearbeiten eines Programmpunkts ein (Feld „Hinweis für die Moderation“). DSM-Einblendungen sieht die Moderation nur, wenn ihre Seite das Modul „Einblendung“ hat.
+Die Moderation öffnet **`/moderation`** (oder ihren Screen, z. B. `/2`) auf dem Handy oder iPad. Die Vorlage zeigt links Restzeit, Hinweis und Agenda, rechts „Von der Regie“ und „An die Regie“. Hinweise trägst du in der Regie beim Bearbeiten eines Programmpunkts ein (Feld „Hinweis für die Moderation“). Einblendungen sieht die Moderation nur, wenn ihr Screen das Modul „Einblendung“ hat.
 
 **Regie → Moderation (Talkback)**
 - Im Panel *An Moderation* per Preset („Noch 5 Minuten“, „Bitte strecken“, „Einspieler kommt“ …) oder Freitext senden.
@@ -139,7 +140,7 @@ Die Moderation öffnet **`/moderation`** (oder ihre eigene Seite) auf dem Handy 
 - **Bestätigen** quittiert die Meldung. Auf dem Handy steht dann „bestätigt ✓“.
 - Es braucht **keine PIN**, aber pro Gerät höchstens eine Meldung alle 1,5 Sekunden.
 
-Alle drei Listen (Schnellnachrichten an den DSM, Talkback-Presets, Schnellmeldungen) bearbeitest du unter *Menü → Schnellnachrichten*. Signalton, Lautstärke (Normal/Laut/Sehr laut), Erinnerung und „Ton testen“ findest du unter *System*.
+Alle drei Listen (Schnellnachrichten für Einblendungen, Talkback-Presets, Schnellmeldungen) bearbeitest du unter *Menü → Schnellnachrichten*. Signalton, Lautstärke (Normal/Laut/Sehr laut), Erinnerung und „Ton testen“ findest du unter *System*.
 
 ## Bitfocus Companion
 
@@ -149,7 +150,7 @@ Modul **Generic HTTP**, GET-Requests (bei gesetzter PIN `?pin=…` anhängen):
 /api/companion/timer1/{start|pause|toggle|reset}
 /api/companion/timer1/add/60          /api/companion/timer1/subtract/30
 /api/companion/timer1/preset/10       (?start=1 startet sofort)
-/api/companion/timer1/message?text=Bitte%20zum%20Ende&flash=1   (Einblendung auf dem DSM hinter /1)
+/api/companion/timer1/message?text=Bitte%20zum%20Ende&flash=1   (Einblendung auf Screen /1)
 /api/companion/timer1/{clear-message|flash}
 /api/companion/agenda/{next|prev|reset}   /api/companion/agenda/go/3
 /api/companion/blackout/{on|off|toggle}
@@ -183,8 +184,8 @@ src/server.rs   HTTP, WebSocket, PIN, API   tests/scenarios.json  gemeinsame Tes
 src/json.rs     JSON ohne Crates            web/js/control.js  Regie
 src/http.rs     HTTP/WebSocket-Protokoll    web/js/display.js  Display-Renderer (auch für die Kacheln)
 src/store.rs    Speichern                   web/js/qr.js       QR-Code-Encoder
-                                            web/js/pages.js    Seiten aus Modulen (DSM, Moderation)
-                                            web/js/pageeditor.js  Menü → Seiten, Seiten-Editor
+                                            web/js/pages.js    Screens aus Modulen (Anzeige, Moderation)
+                                            web/js/pageeditor.js  Menü → Screens, Screen-Editor
 ```
 
 Die Web-Oberfläche wird beim Kompilieren ins Programm eingebettet.

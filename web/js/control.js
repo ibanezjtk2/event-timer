@@ -17,7 +17,9 @@
   const store = root.ETTransport.store;
 
   function mount(app, tr) {
+    // sel = the timer being controlled · selScreen = the selected screen ("p…") or group ("g…")
     let sel = store.get('et-sel') || 't1';
+    let selScreen = store.get('et-sel-screen') || '';
     let editingItem = null;
     let drawerTab = 'connect';
     let designId = null;
@@ -47,13 +49,13 @@
     // pinned alert zone: messages from the stage and cues waiting for GO never scroll away
     const alerts = h('div', { class: 'alerts', 'aria-live': 'assertive' });
     const topWrap = h('div', { class: 'top' }, topbar, banner, alerts);
-    const mv = h('div', { class: 'mv', role: 'toolbar', 'aria-label': 'Timer' });
+    const mv = h('div', { class: 'mv', role: 'toolbar', 'aria-label': t('Screens') });
 
     // timer panel
     const nameInput = h('input', { class: 'name-input', maxlength: 40, 'aria-label': t('Name') });
     nameInput.addEventListener('change', () => act({ type: 'timer.update', id: sel, patch: { name: nameInput.value } }));
     const kindSeg = h('div', { class: 'seg', role: 'group' });
-    const kinds = [['countdown', 'Countdown'], ['countup', 'Count-up'], ['clock', 'Zielzeit'], ['time', 'Uhrzeit'], ['schedule', 'Ablaufplan']];
+    const kinds = [['countdown', 'Countdown'], ['countup', 'Count-up'], ['clock', 'Zielzeit'], ['time', 'Uhrzeit']];
     kinds.forEach(([k, label]) => kindSeg.appendChild(h('button', {
       'data-kind': k, 'aria-pressed': 'false',
       onclick: () => {
@@ -134,12 +136,15 @@
     if (store.get('et-opt-open') === '1') optSection.open = true;
     optSection.addEventListener('toggle', () => store.set('et-opt-open', optSection.open ? '1' : '0'));
 
-    const linkRow = h('div', { class: 'links' });
-    const linkSection = h('div', { class: 'section' }, h('h3', { class: 'section-title' }, t('DSM-Link')), linkRow);
+    // timers are sources: chips to pick the one to control, and where it runs
+    const timerChips = h('div', { class: 'timer-chips', role: 'group', 'aria-label': t('Timer') });
+    const timerWhere = h('p', { class: 'help timer-where' });
 
     const timerPanel = h('section', { class: 'panel', 'aria-label': 'Timer' },
+      timerChips,
       h('div', { class: 'panel-head' }, nameInput, kindSeg, removeBtn),
-      readout, transport, nudges, durSection, targetSection, optSection, linkSection);
+      timerWhere,
+      readout, transport, nudges, durSection, targetSection, optSection);
 
     // agenda panel
     const ros = h('ol', { class: 'ros' });
@@ -182,18 +187,19 @@
             importBox.value = '';
             importDetails.open = false;
           }),
-          h('span', { class: 'help' }, t('Ersetzt den bisherigen Ablauf.')))));
+          h('span', { class: 'help' }, t('Ersetzt die bisherige Agenda.')))));
 
     const modeHelp = h('p', { class: 'help mode-help' }, t('Du schaltest jeden Programmpunkt selbst weiter (Taste G). Der verknüpfte Timer zählt die geplante Dauer herunter.'));
 
     const prevBtn = h('button', { class: 'btn btn-big', 'aria-label': t('Zurück'), onclick: () => act({ type: 'agenda.prev' }) }, icon('prev'));
     const goBtn = h('button', { class: 'btn btn-go btn-big', onclick: () => act({ type: 'agenda.next' }) });
-    const rosPanel = h('section', { class: 'panel', 'aria-label': t('Ablaufplan') },
-      h('div', { class: 'panel-head' }, h('h2', null, t('Ablaufplan'))),
+    const rosPanel = h('section', { class: 'panel', 'aria-label': t('Agenda') },
+      h('div', { class: 'panel-head' }, h('h2', null, t('Agenda'))),
       modeHelp,
       h('div', { class: 'row', style: { marginBottom: '12px' } },
         h('label', { class: 'field', style: { width: '130px' } }, h('span', null, t('Planbeginn')), plannedInput),
-        h('label', { class: 'field', style: { width: '180px' } }, h('span', null, t('Verknüpfter Timer')), rosTimerSelect)),
+        h('label', { class: 'field', style: { width: '180px' } }, h('span', null, t('Verknüpfter Timer')), rosTimerSelect),
+        h('span', { class: 'help ros-where' })),
       h('div', { class: 'ros-summary' }, statDrift, statEnd, statTotal),
       ros,
       h('div', { class: 'ros-go' }, prevBtn, goBtn),
@@ -211,14 +217,14 @@
         h('div', { class: 'spacer', style: { flex: 1 } }),
         importDetails,
         h('button', { class: 'btn btn-quiet', onclick: () => copy(exportText()) }, t('Als Text exportieren')),
-        armed(h('button', { class: 'btn btn-quiet' }, t('Ablauf zurücksetzen')), () => act({ type: 'agenda.reset' }))));
+        armed(h('button', { class: 'btn btn-quiet' }, t('Agenda zurücksetzen')), () => act({ type: 'agenda.reset' }))));
 
     // ------------------------------------------------------- cue bar
     const cueList = h('ol', { class: 'cue-list' });
     const cueCount = h('span', { class: 'help' });
     const cuePanel = h('section', { class: 'panel cue-panel', 'aria-label': t('Cues') },
       h('div', { class: 'panel-head' }, h('h2', null, t('Cues')), cueCount, h('div', { class: 'spacer' }),
-        h('button', { class: 'btn btn-quiet', onclick: () => openUrl(tr.mode === 'standalone' ? viewUrl('cues') : baseUrl() + '/cues') }, icon('open'), t('Cue-Display'))),
+        h('button', { class: 'btn btn-quiet', onclick: () => openUrl(tr.mode === 'standalone' ? viewUrl('cues') : baseUrl() + '/cues') }, icon('open'), t('Cue-Liste'))),
       cueList);
     const goCue = c => act({ type: 'cue.done', itemId: c.item.id, cueId: c.cue.id });
     const cuePillText = c => (c.status === 'go' ? t('jetzt') : c.status === 'ready' ? t('Auf Abruf') : c.inMs != null ? E.formatMs(c.inMs) : t('wartet'));
@@ -238,7 +244,7 @@
         cueShown = [];
         if (cueSig !== 'empty' + root.ETUI.lang) {
           cueSig = 'empty' + root.ETUI.lang;
-          cueList.replaceChildren(h('li', { class: 'cue-empty' }, t('Keine Cues im Ablauf. Cues legst du über den Stift am Programmpunkt an.')));
+          cueList.replaceChildren(h('li', { class: 'cue-empty' }, t('Keine Cues in der Agenda. Cues legst du über den Stift am Programmpunkt an.')));
           cueCount.textContent = '';
         }
       } else {
@@ -266,24 +272,26 @@
       }
     }
 
-    // ------------------------------------------------- An DSM (overlay on the stage monitors)
-    // Separate from "An Moderation" on purpose: no switch that could point the wrong way during a show.
+    // ------------------------------------------------- Einblendung → Screens (overlay on display screens)
+    // Separate from "Talkback → Moderation" on purpose: no switch that could point the wrong way during a show.
     const P = () => root.ETPages;
-    let dsmTo = store.get('et-dsm-to') || 'all';
+    // "all" = every display screen · "sel" = the selected screen or group (from the tiles above)
+    let dsmTo = store.get('et-dsm-to') === 'sel' ? 'sel' : 'all';
     const dsmChips = h('div', { class: 'row dsm-to', role: 'group', 'aria-label': t('Ziel') });
-    const dsmInput = h('input', { class: 'input', placeholder: t('Text für den DSM'), maxlength: 280, 'aria-label': t('Text für den DSM') });
+    const dsmInput = h('input', { class: 'input', placeholder: t('Text für die Einblendung'), maxlength: 280, 'aria-label': t('Text für die Einblendung') });
     const dsmQuick = h('div', { class: 'row', style: { marginTop: '10px' } });
     const dsmNow = h('div', { class: 'dsm-now' });
-    /** page ids a send goes to: the chosen DSM or all of them (the built-in /plan included) */
+    /** display screens in the current selection */
+    const selShowIds = () => selectedScreens().filter(x => x.kind === 'show').map(x => x.id);
+    /** screen ids a send goes to: the selection or all display screens (the fixed /plan included) */
     function dsmSendIds() {
-      const s = S();
-      const all = P().dsmTargets(s, true);
-      return dsmTo !== 'all' && all.some(x => x.id === dsmTo && !x.hidden) ? [dsmTo] : all.map(x => x.id);
+      const sel2 = selShowIds();
+      return dsmTo === 'sel' && sel2.length ? sel2 : P().dsmTargets(S(), true).map(x => x.id);
     }
     const sendDsm = text => { if (text && text.trim()) act({ type: 'dsm.message', pages: dsmSendIds(), text }); };
     dsmInput.addEventListener('keydown', e => { if (e.key === 'Enter') { sendDsm(dsmInput.value); dsmInput.value = ''; } });
-    const dsmPanel = h('section', { class: 'panel dsm-panel', 'aria-label': t('An DSM') },
-      h('div', { class: 'panel-head' }, icon('screen'), h('h2', null, t('An DSM')), h('span', { class: 'help' }, t('Einblendung auf dem Bühnenmonitor'))),
+    const dsmPanel = h('section', { class: 'panel dsm-panel', 'aria-label': t('Einblendung') },
+      h('div', { class: 'panel-head' }, icon('screen'), h('h2', null, t('Einblendung')), h('span', { class: 'help' }, t('→ Screens · öffentlich, bleibt bis „Ausblenden“'))),
       dsmChips, dsmNow,
       h('div', { class: 'row', style: { marginTop: '10px' } }, h('div', { style: { flex: '1 1 200px' } }, dsmInput),
         h('button', { class: 'btn btn-dsm', onclick: () => { sendDsm(dsmInput.value); dsmInput.value = ''; } }, t('Senden'))),
@@ -291,13 +299,15 @@
     function syncDsm(s) {
       const targets = P().dsmTargets(s, false);
       const all = P().dsmTargets(s, true);
-      if (dsmTo !== 'all' && !targets.some(x => x.id === dsmTo)) dsmTo = 'all';
-      const ck = JSON.stringify([targets, dsmTo, root.ETUI.lang]);
+      const selIds = selShowIds();
+      const g = selScreen && selScreen[0] === 'g' ? s.groups.find(x => x.id === selScreen) : null;
+      const selName = g ? t('Gruppe') + ' ' + g.name : selIds.length ? P().screenLabel(s.screens.find(x => x.id === selIds[0])) : '';
+      const ck = JSON.stringify([targets.length, selName, dsmTo, root.ETUI.lang]);
       if (dsmChips.dataset.key !== ck) {
         dsmChips.dataset.key = ck;
-        dsmChips.hidden = targets.length <= 1;
-        const chip = (id, label, sub) => h('button', { class: 'chip', 'aria-pressed': String(dsmTo === id), title: sub || '', onclick: () => { dsmTo = id; store.set('et-dsm-to', id); syncDsm(S()); } }, label);
-        dsmChips.replaceChildren(h('span', { class: 'help' }, t('An') + ':'), chip('all', t('Alle DSMs')), ...targets.map(x => chip(x.id, x.name, x.sub)));
+        const chip = (id, label) => h('button', { class: 'chip', 'aria-pressed': String(dsmTo === id || (id === 'all' && !selName)), onclick: () => { dsmTo = id; store.set('et-dsm-to', id); syncDsm(S()); } }, label);
+        dsmChips.replaceChildren(h('span', { class: 'help' }, t('An') + ':'), chip('all', t('Alle Screens')),
+          selName && targets.length > 1 ? chip('sel', selName) : h('span', { class: 'help' }, selName ? '' : t('oder oben einen Screen auswählen')));
       }
       const qk = s.quickMessages.join('\n');
       if (dsmQuick.dataset.key !== qk) {
@@ -316,13 +326,17 @@
       if (dsmNow.dataset.key === nk) return;
       dsmNow.dataset.key = nk;
       const visibleIds = targets.map(x => x.id);
-      const label = ids => (visibleIds.length > 1 && visibleIds.every(id => ids.includes(id)) ? t('Alle DSMs')
-        : ids.map(id => (all.find(x => x.id === id) || { name: id }).name).join(', '));
+      const label = ids => {
+        if (visibleIds.length > 1 && visibleIds.every(id => ids.includes(id))) return t('Alle Screens');
+        const grp = s.groups.find(gr => { const m = s.screens.filter(x => x.group === gr.id && x.kind === 'show').map(x => x.id); return m.length > 1 && m.length === ids.length && m.every(id => ids.includes(id)); });
+        if (grp) return t('Gruppe') + ' ' + grp.name;
+        return ids.map(id => (all.find(x => x.id === id) || { name: id }).name).join(', ');
+      };
       dsmNow.replaceChildren(...(groups.length ? groups.map(g => {
         const state = g.visible ? 'live' : 'hidden';
         return h('div', { class: 'msg-card', 'data-state': state, 'data-flash': g.flash && g.visible ? '1' : '0' },
           h('div', { class: 'msg-card-head' },
-            h('span', { class: 'badge' }, g.visible ? t('LIVE auf DSM') : t('Ausgeblendet')),
+            h('span', { class: 'badge' }, g.visible ? t('LIVE') : t('Ausgeblendet')),
             targets.length > 1 || g.ids.some(id => !visibleIds.includes(id)) ? h('span', { class: 'help' }, label(g.ids)) : null,
             h('span', { class: 'spacer' }),
             h('button', { class: 'btn', 'aria-pressed': String(g.flash), onclick: () => act({ type: 'dsm.message', pages: g.ids, flash: !g.flash }) }, t('Blinken')),
@@ -339,8 +353,8 @@
     const talkQuickRow = h('div', { class: 'row' });
     const talkLog = h('ol', { class: 'talk-log' });
     const talkClear = armed(h('button', { class: 'btn btn-quiet' }, t('Verlauf löschen')), () => act({ type: 'talkback.clear' }));
-    const talkPanel = h('section', { class: 'panel talk-panel', 'aria-label': t('An Moderation') },
-      h('div', { class: 'panel-head' }, icon('talk'), h('h2', null, t('An Moderation')), h('span', { class: 'help' }, t('Talkback, privat, mit „Verstanden“')), h('div', { class: 'spacer' }),
+    const talkPanel = h('section', { class: 'panel talk-panel', 'aria-label': t('Talkback') },
+      h('div', { class: 'panel-head' }, icon('talk'), h('h2', null, t('Talkback')), h('span', { class: 'help' }, t('→ Moderation · privat, mit „Verstanden“')), h('div', { class: 'spacer' }),
         h('button', { class: 'btn btn-quiet', onclick: () => openUrl(tr.mode === 'standalone' ? viewUrl('moderation') : baseUrl() + '/moderation') }, icon('open'), '/moderation')),
       talkQuickRow,
       h('div', { class: 'row', style: { marginTop: '10px' } }, h('div', { style: { flex: '1 1 200px' } }, talkInput),
@@ -504,6 +518,8 @@
       if (tr.mode === 'standalone') return baseUrl() + '#' + view + (q ? '?' + q : '');
       return baseUrl() + '/' + view + (q ? '?' + q : '');
     }
+    /** address number of the selected screen (or the first one) */
+    function curNum() { const sc = selectedScreens()[0] || P().byNum(S())[0]; return sc ? sc.num : 1; }
     function displayUrl(id, extra) {
       const n = id.slice(1);
       if (tr.mode === 'standalone' || extra) return viewUrl('display', Object.assign({ t: n }, extra || {}));
@@ -549,40 +565,70 @@
     }
 
     // ---------------------------------------------------- multiviewer
+    // The tiles are the screens (outputs), drawn by the real page renderer – what you see is what each device shows.
     let tileKey = '';
     const tileViews = new Map();
+    const TILE = { show: [1280, 720], mod: [1180, 820] };
     function buildTiles() {
       const s = S();
-      const key = s.timers.map(x => x.id + ':' + x.name).join('|') + '#' + sel;
+      const key = JSON.stringify([s.screens.map(x => [x.id, x.num, x.name, x.kind, x.group]), s.groups.map(g => [g.id, g.name]), selScreen, root.ETUI.lang]);
       if (key === tileKey) return;
       tileKey = key;
-      mv.replaceChildren();
+      for (const tv of tileViews.values()) tv.cleanup();
       tileViews.clear();
-      s.timers.forEach((tm, i) => {
-        const tile = h('button', { class: 'tile', 'aria-pressed': String(tm.id === sel), 'aria-label': `${tm.name} (${i + 1})`, onclick: () => select(tm.id) });
-        const view = D.create(tile, { tile: true });
+      mv.replaceChildren();
+      const tile = sc => {
+        const [w, hgt] = TILE[sc.kind];
+        const scale = 124 / hgt;
+        const stage = h('div', { class: 'tile-stage', style: { width: Math.round(w * scale) + 'px', height: '124px' } });
         const badge = h('span', { class: 'tile-badge', hidden: true });
-        tile.append(h('span', { class: 'tile-label' }, h('b', null, String(i + 1)), ' ', tm.name), badge);
-        mv.appendChild(tile);
-        tileViews.set(tm.id, { tile, view, badge });
-      });
-      if (s.timers.length < E.MAX_TIMERS) {
-        mv.appendChild(h('button', { class: 'tile-add', onclick: () => {
-          const before = new Set(S().timers.map(x => x.id));
-          act({ type: 'timer.add' });
-          const added = S().timers.find(x => !before.has(x.id));
-          if (added) select(added.id);
-        } }, icon('plus'), t('Timer hinzufügen')));
+        const btn = h('button', { class: 'tile', 'data-kind': sc.kind, 'aria-pressed': String(selScreen === sc.id), 'aria-label': P().screenLabel(sc), onclick: () => selectScreen(sc.id) },
+          stage, h('span', { class: 'tile-label' }, h('b', null, String(sc.num)), ' ', sc.name), badge);
+        const cleanup = P().mountPage(stage, tr, { num: sc.num }, { preview: true, size: { w, h: hgt, scale } });
+        tileViews.set(sc.id, { tile: btn, badge, cleanup });
+        return btn;
+      };
+      const screens = P().byNum(s);
+      const done = new Set();
+      for (const sc of screens) {
+        if (done.has(sc.id)) continue;
+        const g = sc.group && s.groups.find(x => x.id === sc.group);
+        if (!g) { mv.appendChild(tile(sc)); done.add(sc.id); continue; }
+        const members = screens.filter(x => x.group === g.id);
+        members.forEach(x => done.add(x.id));
+        mv.appendChild(h('div', { class: 'mv-group', 'aria-pressed': String(selScreen === g.id) },
+          h('button', { class: 'mv-group-label', onclick: () => selectScreen(g.id), title: t('Ganze Gruppe auswählen') }, icon('copy'), t('Gruppe') + ' ' + g.name),
+          h('div', { class: 'mv-group-tiles' }, ...members.map(tile))));
+      }
+      if (s.screens.length < E.MAX_SCREENS) {
+        mv.appendChild(h('button', { class: 'tile-add', onclick: () => root.ETPageEditor.open(pageCtx, { pick: true }) }, icon('plus'), t('Screen hinzufügen')));
       }
     }
-
-    function select(id) {
-      sel = id;
-      store.set('et-sel', id);
-      kindForced = null;
+    /** screen ids behind the selection (a group → its members) */
+    function selectedScreens() {
+      const s = S();
+      if (!selScreen) return [];
+      if (selScreen[0] === 'g') return s.screens.filter(x => x.group === selScreen);
+      const sc = s.screens.find(x => x.id === selScreen);
+      return sc ? [sc] : [];
+    }
+    function selectScreen(id) {
+      selScreen = id;
+      store.set('et-sel-screen', id);
+      // control the timer the selection shows
+      const first = selectedScreens()[0];
+      const tms = first ? P().timersOf(S(), first) : [];
+      if (tms.length && S().timers.some(x => x.id === tms[0])) { sel = tms[0]; store.set('et-sel', sel); kindForced = null; }
       tileKey = '';
       sync();
     }
+    function selectTimer(id) {
+      sel = id;
+      store.set('et-sel', id);
+      kindForced = null;
+      sync();
+    }
+    const select = selectTimer;
 
     // --------------------------------------------------- agenda list
     let rosKey = '';
@@ -594,7 +640,7 @@
       rosKey = key;
       ros.replaceChildren();
       if (!a.items.length) {
-        ros.appendChild(h('li', { class: 'ros-empty' }, t('Noch kein Ablauf. Füge den ersten Programmpunkt hinzu oder importiere eine Liste.')));
+        ros.appendChild(h('li', { class: 'ros-empty' }, t('Noch keine Agenda. Füge den ersten Programmpunkt hinzu oder importiere eine Liste.')));
         return;
       }
       a.items.forEach((it, i) => {
@@ -711,13 +757,24 @@
       const summary = [preset ? preset.name : '', t('Vorwarnung') + ' ' + minutesLabel(tm.warnMs), t('Kritisch') + ' ' + minutesLabel(tm.critMs), tm.overtime ? t('Überzeit an') : t('Überzeit aus')].filter(Boolean).join(' · ');
       if (optSummary.textContent !== summary) optSummary.textContent = summary;
 
-      const url = displayUrl(tm.id);
-      if (linkRow.dataset.url !== url) {
-        linkRow.dataset.url = url;
-        linkRow.replaceChildren(h('div', { class: 'link-row' }, h('code', null, url),
-          h('button', { class: 'btn', onclick: () => copy(url) }, icon('copy'), t('Kopieren')),
-          h('button', { class: 'btn', onclick: () => openUrl(url) }, icon('open'), t('Öffnen'))));
+      // timer chips + where the selected timer runs
+      const ck = JSON.stringify([s.timers.map(x => [x.id, x.name]), sel, root.ETUI.lang]);
+      if (timerChips.dataset.key !== ck) {
+        timerChips.dataset.key = ck;
+        timerChips.replaceChildren(h('span', { class: 'help' }, t('Timer') + ':'),
+          ...s.timers.map(x => h('button', { class: 'chip timer-chip', 'data-timer': x.id, 'aria-pressed': String(x.id === sel), onclick: () => selectTimer(x.id) },
+            h('b', null, x.name), h('span', { class: 'num' }))),
+          s.timers.length < E.MAX_TIMERS ? h('button', { class: 'chip', onclick: () => {
+            const before = new Set(S().timers.map(x => x.id));
+            act({ type: 'timer.add' });
+            const added = S().timers.find(x => !before.has(x.id));
+            if (added) selectTimer(added.id);
+          } }, icon('plus'), t('Timer')) : null);
       }
+      const on = P().screensWithTimer(s, tm.id);
+      const where = on.length ? t('läuft auf') + ': ' + on.map(P().screenLabel).join(', ') : t('läuft auf keinem Screen – im Screen-Editor als Modul hinzufügen');
+      if (timerWhere.textContent !== where) timerWhere.textContent = where;
+      timerWhere.dataset.none = on.length ? '0' : '1';
     }
 
     function syncAgendaControls() {
@@ -729,6 +786,10 @@
         rosTimerSelect.replaceChildren(...s.timers.map(x => h('option', { value: x.id }, x.name)));
       }
       rosTimerSelect.value = a.timerId;
+      const on = P().screensWithTimer(s, a.timerId);
+      const rw = rosPanel.querySelector('.ros-where');
+      const rwt = on.length ? t('läuft auf') + ': ' + on.map(P().screenLabel).join(', ') : t('Der verknüpfte Timer ist auf keinem Screen.');
+      if (rw.textContent !== rwt) rw.textContent = rwt;
       autoToggle.checked = a.autoStart;
       const av = E.agendaView(s, tr.now());
       prevBtn.disabled = a.cursor <= 0;
@@ -736,7 +797,7 @@
       const target = a.cursor < 0 ? a.items[0] : a.items[a.cursor + 1];
       goBtn.replaceChildren(icon('next'),
         h('span', { style: { display: 'grid', textAlign: 'left' } },
-          av.done ? t('Ablauf beendet') : a.cursor < 0 ? t('Ablauf starten') : target ? t('Nächster Punkt') : t('Ablauf beendet'),
+          av.done ? t('Agenda beendet') : a.cursor < 0 ? t('Agenda starten') : target ? t('Nächster Punkt') : t('Agenda beendet'),
           target && !av.done ? h('small', null, target.title) : null),
         av.done ? null : kbd('G'));
     }
@@ -782,19 +843,30 @@
         if (hdrClock.textContent !== clk) hdrClock.textContent = clk;
         tickCues(s, now);
         tickSound(s);
-        for (const tm of s.timers) {
-          const tv = tileViews.get(tm.id);
+        for (const sc of s.screens) {
+          const tv = tileViews.get(sc.id);
           if (!tv) continue;
-          const ov = P().overlayOf(s, P().dsmPageFor(s, tm.id.slice(1)));
-          tv.view.update({ state: s, timer: tm, now, message: ov, i18n: t });
-          const v = E.timerView(tm, now);
-          const rv = tm.kind === 'schedule' ? E.runView(s, now) : null;
-          const tally = tm.kind === 'time' ? '' : rv ? (rv.current && rv.running ? (rv.remainingMs <= tm.critMs ? 'stop' : rv.remainingMs <= tm.warnMs ? 'warn' : 'go') : '') : v.state === 'running' || (tm.kind === 'clock' && v.state !== 'idle') ? (v.phase === 'normal' ? 'go' : v.phase === 'warn' ? 'warn' : 'stop') : v.state === 'finished' ? 'stop' : '';
+          // tally of the first timer on the screen, LIVE while an overlay is on it
+          const tid = P().timersOf(s, sc)[0];
+          const tm = tid && s.timers.find(x => x.id === tid);
+          const v = tm ? E.timerView(tm, now) : null;
+          const tally = !v || tm.kind === 'time' ? '' : v.state === 'running' || (tm.kind === 'clock' && v.state !== 'idle') ? (v.phase === 'normal' ? 'go' : v.phase === 'warn' ? 'warn' : 'stop') : v.state === 'finished' ? 'stop' : '';
           if (tv.tile.dataset.tally !== tally) tv.tile.dataset.tally = tally;
-          const badge = v.state === 'paused' ? t('Pausiert') : (ov && ov.visible && ov.text ? 'LIVE' : '');
+          const ov = P().overlayOf(s, sc.id);
+          const badge = ov && ov.visible && ov.text ? 'LIVE' : v && v.state === 'paused' ? t('Pausiert') : '';
           tv.badge.hidden = !badge;
           if (tv.badge.textContent !== badge) tv.badge.textContent = badge;
         }
+        // live times on the timer chips
+        timerChips.querySelectorAll('[data-timer]').forEach(chip => {
+          const tm = s.timers.find(x => x.id === chip.dataset.timer);
+          if (!tm) return;
+          const v = E.timerView(tm, now);
+          const txt = tm.kind === 'time' ? D.clockText(now, false) : E.formatMs(v.ms, { up: tm.kind === 'countup' });
+          const span = chip.lastChild;
+          if (span.textContent !== txt) span.textContent = txt;
+          chip.dataset.phase = v.state === 'running' ? v.phase : '';
+        });
         const tm = timer();
         if (tm) {
           const v = E.timerView(tm, now);
@@ -803,24 +875,6 @@
           let phase = v.phase, prog = v.progress, state = v.state;
           let st = isTime ? t('Zeigt die Uhrzeit') : stateLabel(v) + (v.over && v.state !== 'finished' ? ' · ' + t('Überzeit') : '');
           let sub = isTime ? '' : tm.kind === 'clock' ? (tm.targetLabel ? t('bis') + ' ' + tm.targetLabel : '') : (tm.durationMs ? t('von') + ' ' + E.formatMs(tm.durationMs) : '');
-          if (tm.kind === 'schedule') {
-            // mirrors the running run of show
-            const rv = E.runView(s, now);
-            prog = 0; phase = 'normal'; state = 'idle';
-            if (rv.current) {
-              const c = rv.current;
-              txt = E.formatMs(rv.remainingMs);
-              phase = rv.remainingMs < 0 ? 'over' : rv.remainingMs <= tm.critMs ? 'crit' : rv.remainingMs <= tm.warnMs ? 'warn' : 'normal';
-              state = rv.running ? 'running' : 'paused';
-              prog = rv.progress;
-              st = c.item.title || t('Ablaufplan');
-              sub = c.start != null ? hhmm(c.start) + '–' + hhmm(c.end) : '';
-            } else {
-              txt = D.clockText(now, false);
-              st = rv.finished ? t('Programm beendet') : rv.ready ? t('Ablauf noch nicht gestartet') : t('Noch kein Ablauf');
-              sub = '';
-            }
-          }
           if (readTime.textContent !== txt) readTime.textContent = txt;
           readout.dataset.phase = phase;
           readout.dataset.state = state;
@@ -866,7 +920,7 @@
     }
 
     // ------------------------------------------------------- drawer
-    const TABS = [['connect', 'Verbindung'], ['pages', 'Seiten'], ['design', 'Design'], ['messages', 'Schnellnachrichten'], ['security', 'Sicherheit'], ['companion', 'Companion'], ['more', 'System']];
+    const TABS = [['connect', 'Verbindung'], ['pages', 'Screens'], ['design', 'Design'], ['messages', 'Schnellnachrichten'], ['security', 'Sicherheit'], ['companion', 'Companion'], ['more', 'System']];
     let drawerKey = '';
     function openDrawer(tab) {
       if (tab) drawerTab = tab;
@@ -876,7 +930,7 @@
     }
     function renderDrawer() {
       const s = S();
-      const key = JSON.stringify([drawerTab, designId, sel, root.ETUI.lang, tr.meta, s.presets, s.quickMessages, s.stageQuick, s.talkQuick, s.timers.map(x => [x.id, x.name, x.presetId]), s.pages, s.routes, s.agenda.timerId]);
+      const key = JSON.stringify([drawerTab, designId, sel, root.ETUI.lang, tr.meta, s.presets, s.quickMessages, s.stageQuick, s.talkQuick, s.timers.map(x => [x.id, x.name, x.presetId]), s.screens, s.groups, s.agenda.timerId, selScreen]);
       if (key === drawerKey) return;
       if (drawer.contains(document.activeElement) && document.activeElement.matches('input, textarea, select') && drawerTab !== 'connect') return;
       drawerKey = key;
@@ -888,15 +942,14 @@
     }
 
     /** full address of a page (built-in or custom), for links and QR codes */
+    /** full address of a screen or fixed page, for links and QR codes */
     function pageUrl(pg) {
-      if (tr.mode === 'standalone') {
-        const v = !pg.builtin ? 'p/' + pg.slug : { moderation: 'moderation', plan: 'plan', uhr: 'uhr' }[pg.route] || 'display?t=' + pg.route;
-        return baseUrl() + '#' + v;
-      }
+      if (tr.mode === 'standalone') return baseUrl() + '#' + (pg.fixed ? { mod: 'moderation', plan: 'plan', uhr: 'uhr' }[pg.id] : 'display?t=' + pg.num);
       return baseUrl() + root.ETPages.pagePath(pg);
     }
     const pageCtx = {
       tr, S, act, openUrl, pageUrl, linkLine: url => linkLine(url), qrCard: (l, u) => qrCard(l, u),
+      baseUrl: () => baseUrl(), standalone: tr.mode === 'standalone', timerId: () => sel,
       beforeOpen: () => { if (drawer.open) drawer.close(); },
       onClose: () => openDrawer('pages'),
     };
@@ -923,7 +976,7 @@
           h('div', { class: 'short-hero' },
             h('small', null, t('Einfach im Browser eintippen')),
             h('b', { class: 'num' }, host + '/1'),
-            h('span', null, t('DSM /1 bis /8 · Ablauf /plan · Uhr /uhr · Regie /control'))),
+            h('span', null, t('Screens /1 … /16 · Agenda /plan · Uhr /uhr · Regie /control'))),
           linkLine(base + '/control'));
       } else {
         wrap.append(h('p', { class: 'help' }, t('Netzwerkname nicht verfügbar – bitte IP-Adresse oder QR-Code nutzen.')));
@@ -958,24 +1011,24 @@
       if (tr.mode === 'standalone') {
         out.push(h('p', null, t('Standalone-Modus: Alles läuft in diesem Browser. Displays im selben Browser (neues Fenster, z. B. auf dem zweiten Bildschirm) laufen automatisch mit.')));
         out.push(h('div', { class: 'row' },
-          h('button', { class: 'btn btn-go', onclick: () => openUrl(viewUrl('display', { t: sel.slice(1) })) }, icon('open'), t('DSM in neuem Fenster')),
-          h('button', { class: 'btn', onclick: () => { drawer.close(); location.hash = 'display?t=' + sel.slice(1) + '&here=1'; } }, icon('full'), t('DSM hier öffnen'))));
+          h('button', { class: 'btn btn-go', onclick: () => openUrl(viewUrl('display', { t: curNum() })) }, icon('open'), t('Screen in neuem Fenster')),
+          h('button', { class: 'btn', onclick: () => { drawer.close(); location.hash = 'display?t=' + curNum() + '&here=1'; } }, icon('full'), t('Screen hier öffnen'))));
         out.push(h('p', { class: 'help' }, t('Für mehrere Geräte das Event-Timer-Programm auf einem Rechner starten.')));
       } else {
         out.push(shortAddressSection());
         out.push(h('p', { class: 'help' }, t('Mit dem Handy scannen, um zu steuern oder anzuzeigen.')));
+        const cur = selectedScreens()[0] || P().byNum(s)[0];
         out.push(h('div', { class: 'qr-grid' },
           qrCard(t('Regie'), viewUrl('control')),
-          qrCard(timer().name, displayUrl(sel)),
+          cur ? qrCard(P().screenLabel(cur), pageUrl(cur)) : null,
           qrCard(t('Moderation'), baseUrl() + '/moderation')));
         out.push(linkLine(viewUrl('control')));
-        s.timers.forEach(x => out.push(linkLine(displayUrl(x.id))));
-        out.push(linkLine(viewUrl('agenda')));
-        out.push(linkLine(baseUrl() + '/uhr'));
-        out.push(linkLine(baseUrl() + '/plan'));
+        P().byNum(s).forEach(x => out.push(h('div', { class: 'link-label' }, P().screenLabel(x)), linkLine(pageUrl(x))));
+        out.push(h('div', { class: 'link-label' }, t('Feste Seiten')));
         out.push(linkLine(baseUrl() + '/moderation'));
+        out.push(linkLine(baseUrl() + '/plan'));
+        out.push(linkLine(baseUrl() + '/uhr'));
         out.push(linkLine(baseUrl() + '/cues'));
-        s.pages.forEach(pg => out.push(linkLine(pageUrl(pg))));
         const m = tr.meta || {};
         if (m.hostname) out.push(h('p', { class: 'help' }, t('Per Rechnername') + ': ', h('b', null, `http://${m.hostname}:${m.port}/control`)));
         out.push(h('p', { class: 'help' }, t('Klappt der Link nicht? Beim ersten Start fragt Windows nach der Firewall – „Private Netzwerke“ erlauben.')));
@@ -1214,8 +1267,8 @@
         h('a', { href: 'mailto:f-spindler@pm.me' }, 'f-spindler@pm.me'), ' · ' + t('Lizenz') + ': GPL-3.0-or-later'));
       if (tr.mode === 'standalone') {
         out.push(h('div', { class: 'section' },
-          h('p', { class: 'help', style: { marginBottom: '8px' } }, t('Löscht alle Timer, den Ablauf und eigene Designs in diesem Browser.')),
-          armed(h('button', { class: 'btn btn-stop' }, t('Show zurücksetzen')), () => { tr.replaceState(E.defaultState()); select('t1'); drawer.close(); })));
+          h('p', { class: 'help', style: { marginBottom: '8px' } }, t('Löscht alle Timer, Screens, die Agenda und eigene Designs in diesem Browser.')),
+          armed(h('button', { class: 'btn btn-stop' }, t('Show zurücksetzen')), () => { tr.replaceState(E.defaultState()); selectScreen('p1'); drawer.close(); })));
       }
       return out;
     }
@@ -1250,7 +1303,7 @@
       else if (k === 'g' || k === 'G') act({ type: 'agenda.next' });
       else if (k === 'b' || k === 'B') act({ type: 'blackout.toggle' });
       else if (k === 'c' || k === 'C') { const c = goCues[0] || cueShown.find(x => x.status === 'go' || x.status === 'standby' || x.status === 'ready'); if (c) goCue(c); }
-      else if (/^[1-8]$/.test(k)) { const tm = S().timers[Number(k) - 1]; if (tm) select(tm.id); }
+      else if (/^[1-8]$/.test(k)) { const sc = S().screens.find(x => x.num === Number(k)); if (sc) selectScreen(sc.id); }
     };
     document.addEventListener('keydown', onKey);
 

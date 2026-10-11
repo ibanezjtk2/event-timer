@@ -16,9 +16,9 @@
 
   const FONTS = ['din', 'grotesk', 'mono', 'serif', 'rounded'];
   const BG_STYLES = ['solid', 'glow', 'transparent'];
-  const KINDS = ['countdown', 'countup', 'clock', 'time', 'schedule'];
+  const KINDS = ['countdown', 'countup', 'clock', 'time'];
   // kinds that don't count by themselves (wall clock, mirror of the run of show)
-  const isStatic = k => k === 'time' || k === 'schedule';
+  const isStatic = k => k === 'time';
   const COLOR_KEYS = ['bg', 'fg', 'accent', 'warn', 'crit', 'overBg', 'overFg', 'msgFg', 'msgBg'];
   const PRESET_BOOLS = ['showProgress', 'showClock', 'showTitle', 'showNext', 'showNotice', 'flashOver'];
   const PRESET_TEXTS = ['warnText', 'expiredText', 'overText'];
@@ -113,11 +113,14 @@
       talkQuick: DEFAULT_TALK.slice(),
       talkback: [],
       agenda: { timerId: 't1', plannedStart: '', autoStart: true, cursor: -1, items: [] },
-      // output pages built from modules (DSM = display only, mod = presenter, touch)
-      pages: [],
-      // standard addresses: "moderation" | "1"…"8" → custom page id
-      routes: {},
-      // DSM overlays per DSM page id ("d1"…"d8", "plan" or a custom page id)
+      // outputs: what the devices show, each with an address /1…/16 (show = display only, mod = presenter, touch)
+      screens: [
+        defaultScreen('p1', 1, 'show', 'DSM', 'dsm', templateAufbau('dsm', 't1'), 1),
+        defaultScreen('p2', 2, 'mod', 'Moderation', 'moderation', templateAufbau('mod', 't1'), 2),
+      ],
+      // screens that show the same thing; members follow the group's layout unless "own" is set
+      groups: [],
+      // overlays per screen id (or "plan" for the fixed /plan page)
       dsmMsg: {},
     };
   }
@@ -308,23 +311,46 @@
     if (a.autoStart) startTimer(s, t, now);
   }
 
-  // ---------- pages ----------
-  const MAX_PAGES = 16;
+  // ---------- screens ----------
+  const MAX_SCREENS = 16;
+  const MAX_GROUPS = 8;
   const MAX_SLOT_MODULES = 8;
-  const PAGE_LAYOUTS = { dsm: ['full', 'side', 'bottom'], mod: ['two', 'one'] };
+  const PAGE_LAYOUTS = { show: ['full', 'side', 'bottom'], mod: ['two', 'one'] };
   const SLOT_COUNT = { full: 1, side: 2, bottom: 2, one: 1, two: 2 };
-  /** module type → page kinds that may use it (DSMs are not touch screens: nothing interactive there) */
+  /** module type → screen kinds that may use it (display screens are no touch screens: nothing interactive there) */
   const MODULE_KINDS = {
-    timer: ['dsm', 'mod'], clock: ['dsm', 'mod'], next: ['dsm', 'mod'], agenda: ['dsm', 'mod'], message: ['dsm', 'mod'],
+    timer: ['show', 'mod'], clock: ['show', 'mod'], next: ['show', 'mod'], agenda: ['show', 'mod'], message: ['show', 'mod'],
     note: ['mod'], talkback: ['mod'], request: ['mod'],
   };
-  const ROUTE_KEYS = ['moderation', '1', '2', '3', '4', '5', '6', '7', '8'];
   const SLUG = /^[a-z0-9][a-z0-9-]{0,39}$/;
+
+  /** Starting layouts (also used for the fixed pages /plan, /uhr and the fallback /moderation). */
+  function templateAufbau(name, timerId) {
+    const tm = { type: 'timer', opts: { timer: timerId || 't1', variant: 'full' } };
+    switch (name) {
+      case 'agenda': return { kind: 'show', layout: 'side', slots: [[tm], [{ type: 'agenda', opts: {} }]] };
+      case 'clock': return { kind: 'show', layout: 'full', slots: [[{ type: 'clock', opts: { seconds: true } }]] };
+      case 'mod': return { kind: 'mod', layout: 'two', slots: [[tm, { type: 'note', opts: {} }, { type: 'agenda', opts: {} }], [{ type: 'talkback', opts: {} }, { type: 'request', opts: {} }]] };
+      case 'empty-show': return { kind: 'show', layout: 'full', slots: [[]] };
+      case 'empty-mod': return { kind: 'mod', layout: 'two', slots: [[], []] };
+      default: return { kind: 'show', layout: 'full', slots: [[tm]] };
+    }
+  }
+  function defaultScreen(id, num, kind, name, slug, a, base) {
+    let n = 0;
+    return { id, num, kind, name, slug, group: '', own: false, layout: a.layout, slots: a.slots.map(sl => sl.map(m => ({ id: 'm' + base + (n++), type: m.type, opts: clone(m.opts) }))) };
+  }
+  /** next free id like "p7" – skips ids that already exist */
+  function newId(s, prefix, list) {
+    let id;
+    do { id = prefix + (++s.seq); } while (list.some(x => x.id === id));
+    return id;
+  }
 
   function sanitizeModule(s, raw, kind, used) {
     if (!raw || typeof raw !== 'object' || !Object.prototype.hasOwnProperty.call(MODULE_KINDS, raw.type) || !MODULE_KINDS[raw.type].includes(kind)) return null;
     const o = raw.opts && typeof raw.opts === 'object' ? raw.opts : {};
-    let id = typeof raw.id === 'string' && /^m\d{1,9}$/.test(raw.id) && !used.has(raw.id) ? raw.id : 'm' + (++s.seq);
+    const id = typeof raw.id === 'string' && /^m\d{1,9}$/.test(raw.id) && !used.has(raw.id) ? raw.id : 'm' + (++s.seq);
     used.add(id);
     let opts = {};
     if (raw.type === 'timer') opts = { timer: typeof o.timer === 'string' && /^t[1-8]$/.test(o.timer) ? o.timer : 't1', variant: pick(o.variant, ['full', 'clock', 'lower'], 'full') };
@@ -333,13 +359,8 @@
     return { id, type: raw.type, opts };
   }
 
-  function sanitizePage(s, raw, old) {
-    const id = old ? old.id : 'p' + (++s.seq);
-    const kind = old ? old.kind : pick(raw.kind, ['dsm', 'mod'], 'dsm');
-    const name = text(raw.name, 40) || (kind === 'dsm' ? 'DSM' : 'Moderation');
-    const want = typeof raw.slug === 'string' && SLUG.test(raw.slug) ? raw.slug : 'seite-' + id.slice(1);
-    let slug = want, n = 2;
-    while (s.pages.some(p => p.id !== id && p.slug === slug)) slug = want.slice(0, 36) + '-' + (n++);
+  /** layout + slots, cleaned for the given kind */
+  function sanitizeAufbau(s, raw, kind) {
     const layout = pick(raw.layout, PAGE_LAYOUTS[kind], PAGE_LAYOUTS[kind][0]);
     const used = new Set();
     const slots = [];
@@ -353,28 +374,83 @@
       }
       slots.push(out);
     }
-    return { id, kind, name, slug, layout, slots };
+    return { layout, slots };
   }
 
-  /** route "" removes this page's standard address; "moderation" needs a presenter page, "1"…"8" a DSM */
-  function setRoute(s, pg, route) {
-    for (const k of Object.keys(s.routes)) if (s.routes[k] === pg.id) delete s.routes[k];
-    if (!ROUTE_KEYS.includes(route)) return;
-    if ((route === 'moderation') !== (pg.kind === 'mod')) return;
-    s.routes[route] = pg.id;
-    // the built-in /N is hidden behind this page now – its overlay must not pop up again later
-    if (route !== 'moderation') delete s.dsmMsg['d' + route];
+  /** lowest address 1…16 no other screen uses */
+  function freeNum(s, exceptId) {
+    for (let n = 1; n <= MAX_SCREENS; n++) if (!s.screens.some(x => x.id !== exceptId && x.num === n)) return n;
+    return 0;
   }
 
-  /** valid, de-duplicated DSM page ids from an action ("d1"…"d8", "plan", custom DSM pages) */
+  function sanitizeScreen(s, raw, old) {
+    const id = old ? old.id : newId(s, 'p', s.screens);
+    const kind = old ? old.kind : pick(raw.kind, ['show', 'mod'], 'show');
+    const name = text(raw.name, 40) || (kind === 'show' ? 'Screen' : 'Moderation');
+    const taken = n => s.screens.some(x => x.id !== id && x.num === n);
+    let num = typeof raw.num === 'number' && Number.isInteger(raw.num) && raw.num >= 1 && raw.num <= MAX_SCREENS && !taken(raw.num) ? raw.num : 0;
+    if (!num) num = old && !taken(old.num) ? old.num : freeNum(s, id);
+    const want = typeof raw.slug === 'string' && SLUG.test(raw.slug) ? raw.slug : 'screen-' + id.slice(1);
+    let slug = want, n = 2;
+    while (s.screens.some(p => p.id !== id && p.slug === slug)) slug = want.slice(0, 36) + '-' + (n++);
+    const g = typeof raw.group === 'string' ? s.groups.find(x => x.id === raw.group && x.kind === kind) : null;
+    const a = sanitizeAufbau(s, raw, kind);
+    return { id, num, kind, name, slug, group: g ? g.id : '', own: g ? Boolean(raw.own) : false, layout: a.layout, slots: a.slots };
+  }
+
+  /** valid, de-duplicated overlay targets: display screens and the fixed page "plan" */
   function dsmIds(s, list) {
     if (!Array.isArray(list)) return [];
     const out = [];
     for (const id of list.slice(0, 32)) {
       if (typeof id !== 'string' || out.includes(id)) continue;
-      if (/^d[1-8]$/.test(id) || id === 'plan' || s.pages.some(p => p.id === id && p.kind === 'dsm')) out.push(id);
+      if (id === 'plan' || s.screens.some(p => p.id === id && p.kind === 'show')) out.push(id);
     }
     return out;
+  }
+
+  /**
+   * Up to 1.6.0-beta.1 timers had addresses (/N) and custom pages could stand in for them.
+   * Now every address is a screen: timer N → screen N showing that timer (or the page that stood in
+   * for /N), other pages get the next free numbers, and there is always a presenter screen.
+   */
+  function migrateScreens(st) {
+    if (Array.isArray(st.screens)) return;
+    const pages = Array.isArray(st.pages) ? st.pages : [];
+    const routes = st.routes && typeof st.routes === 'object' ? st.routes : {};
+    const old = st.dsmMsg && typeof st.dsmMsg === 'object' ? st.dsmMsg : {};
+    const fresh = { screens: [], groups: [], seq: st.seq || 0 };
+    const msg = {};
+    const add = (raw, num, keepId) => {
+      const sc = sanitizeScreen(fresh, Object.assign({}, raw, { num, kind: raw.kind === 'mod' ? 'mod' : 'show', group: '' }), null);
+      if (keepId && /^p\d{1,9}$/.test(keepId) && !fresh.screens.some(x => x.id === keepId)) sc.id = keepId;
+      fresh.screens.push(sc);
+      return sc;
+    };
+    const used = new Set();
+    for (const tm of st.timers || []) {
+      const n = Number(tm.id.slice(1));
+      const pg = routes[String(n)] && pages.find(p => p.id === routes[String(n)]);
+      const sc = pg ? add(pg, n, pg.id) : add(Object.assign({ name: 'DSM ' + n, slug: 'dsm-' + n }, templateAufbau('dsm', tm.id)), n);
+      if (pg) used.add(pg.id);
+      const m = old[pg ? pg.id : 'd' + n];
+      if (m && m.text) msg[sc.id] = m;
+    }
+    for (const pg of pages) {
+      if (used.has(pg.id) || fresh.screens.length >= MAX_SCREENS) continue;
+      const sc = add(pg, freeNum(fresh, ''), pg.id);
+      if (old[pg.id] && old[pg.id].text) msg[sc.id] = old[pg.id];
+    }
+    if (!fresh.screens.some(x => x.kind === 'mod') && fresh.screens.length < MAX_SCREENS) {
+      const at = st.agenda && st.agenda.timerId ? st.agenda.timerId : 't1';
+      add(Object.assign({ name: 'Moderation', slug: 'moderation' }, templateAufbau('mod', at)), freeNum(fresh, ''));
+    }
+    if (old.plan && old.plan.text) msg.plan = old.plan;
+    st.screens = fresh.screens;
+    st.groups = [];
+    st.seq = fresh.seq;
+    st.dsmMsg = msg;
+    delete st.pages; delete st.routes;
   }
 
   // ---------- reducer ----------
@@ -418,7 +494,7 @@
         if ('critMs' in p) t.critMs = num(p.critMs, 0, HOUR, t.critMs);
         if (t.critMs > t.warnMs) { const w = t.warnMs; t.warnMs = t.critMs; t.critMs = w; }
         if ('presetId' in p && s.presets.some(x => x.id === p.presetId)) t.presetId = p.presetId;
-        if ('kind' in p && ['countdown', 'countup', 'time', 'schedule'].includes(p.kind) && p.kind !== t.kind) {
+        if ('kind' in p && ['countdown', 'countup', 'time'].includes(p.kind) && p.kind !== t.kind) {
           t.kind = p.kind;
           t.targetAt = null;
           t.targetLabel = '';
@@ -496,22 +572,49 @@
         return changed;
       }
 
-      // ----- pages from modules
-      case 'page.save': {
-        if (!a.page || typeof a.page !== 'object' || Array.isArray(a.page)) return false;
-        const old = s.pages.find(p => p.id === a.page.id);
-        if (!old && s.pages.length >= MAX_PAGES) return false;
-        const pg = sanitizePage(s, a.page, old);
-        if (old) s.pages[s.pages.indexOf(old)] = pg; else s.pages.push(pg);
-        if ('route' in a) setRoute(s, pg, a.route);
+      // ----- screens and groups
+      case 'screen.save': {
+        if (!a.screen || typeof a.screen !== 'object' || Array.isArray(a.screen)) return false;
+        const old = s.screens.find(p => p.id === a.screen.id);
+        if (!old && s.screens.length >= MAX_SCREENS) return false;
+        const sc = sanitizeScreen(s, a.screen, old);
+        // "+ neue Gruppe": the group starts with this screen's layout, the screen follows it
+        if (a.newGroup && typeof a.newGroup === 'object' && s.groups.length < MAX_GROUPS) {
+          const g = { id: newId(s, 'g', s.groups), name: text(a.newGroup.name, 40) || sc.name, kind: sc.kind, layout: sc.layout, slots: clone(sc.slots) };
+          s.groups.push(g);
+          sc.group = g.id;
+          sc.own = false;
+        }
+        if (old) s.screens[s.screens.indexOf(old)] = sc; else s.screens.push(sc);
         return true;
       }
-      case 'page.remove': {
-        const pg = s.pages.find(p => p.id === a.pageId);
-        if (!pg) return false;
-        s.pages = s.pages.filter(p => p !== pg);
-        for (const k of Object.keys(s.routes)) if (s.routes[k] === pg.id) delete s.routes[k];
-        delete s.dsmMsg[pg.id];
+      case 'screen.remove': {
+        const sc = s.screens.find(p => p.id === a.screenId);
+        if (!sc) return false;
+        s.screens = s.screens.filter(p => p !== sc);
+        delete s.dsmMsg[sc.id];
+        return true;
+      }
+      case 'group.save': {
+        const g = a.group && typeof a.group === 'object' ? s.groups.find(x => x.id === a.group.id) : null;
+        if (!g) return false;
+        g.name = text(a.group.name, 40) || g.name;
+        const ab = sanitizeAufbau(s, a.group, g.kind);
+        g.layout = ab.layout;
+        g.slots = ab.slots;
+        return true;
+      }
+      case 'group.remove': {
+        const g = s.groups.find(x => x.id === a.groupId);
+        if (!g) return false;
+        // members keep what they showed: they get the group's layout as their own
+        s.screens.forEach(sc => {
+          if (sc.group !== g.id) return;
+          if (!sc.own) { sc.layout = g.layout; sc.slots = clone(g.slots); }
+          sc.group = '';
+          sc.own = false;
+        });
+        s.groups = s.groups.filter(x => x !== g);
         return true;
       }
 
@@ -834,6 +937,9 @@
       (st.timers || []).forEach(t => { if (t.message && t.message.text) st.dsmMsg['d' + t.id.slice(1)] = { text: t.message.text, flash: Boolean(t.message.flash), visible: Boolean(t.message.visible) }; });
     }
     (st.timers || []).forEach(t => { delete t.message; });
+    // 1.6.0-beta.2: timer kind "Ablaufplan" is gone (a screen with timer + agenda does it better)
+    (st.timers || []).forEach(t => { if (t.kind === 'schedule') t.kind = 'countdown'; });
+    migrateScreens(st);
     for (const k of Object.keys(d)) if (!(k in st)) st[k] = clone(d[k]);
     for (const k of Object.keys(d.agenda)) if (!(k in st.agenda)) st.agenda[k] = clone(d.agenda[k]);
     // built-in designs always come fresh from this version; custom ones are kept
@@ -887,7 +993,7 @@
   }
 
   const api = {
-    MAX_TIMERS, BUILTIN_PRESETS, FONTS, KINDS, MAX_PAGES, PAGE_LAYOUTS, SLOT_COUNT, MODULE_KINDS, ROUTE_KEYS, SLUG,
+    MAX_TIMERS, BUILTIN_PRESETS, FONTS, KINDS, MAX_SCREENS, MAX_GROUPS, PAGE_LAYOUTS, SLOT_COUNT, MODULE_KINDS, SLUG, templateAufbau,
     defaultState, apply, timerView, agendaView, planView, runView, cueView, normalize, toHHMM, isStatic, rawValue, formatMs, parseDuration, clone,
   };
   root.ETEngine = api;

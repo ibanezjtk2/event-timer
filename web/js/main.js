@@ -8,7 +8,7 @@
   const standalone = root.ET_STANDALONE === true || location.protocol === 'file:';
 
   /**
-   * Pages (built from modules): /p/<slug>, /moderation, /1…/8, /plan, /uhr.
+   * Screens: /1 … /16 (or /p/<name>), /moderation = first presenter screen; fixed pages /plan, /uhr, /cues.
    * Old display links with ?layout=… and /agenda keep the classic single-timer view.
    */
   function parseRoute() {
@@ -18,7 +18,7 @@
       const params = new URLSearchParams(q || '');
       const slug = view.match(/^p\/([a-z0-9-]+)$/);
       if (slug) return { view: 'page', slug: slug[1], params };
-      if (view === 'display') return params.get('layout') ? { view: 'display', params, layout: params.get('layout') } : { view: 'page', route: /^[1-8]$/.test(params.get('t') || '') ? params.get('t') : '1', params };
+      if (view === 'display') return params.get('layout') ? { view: 'display', params, layout: params.get('layout') } : { view: 'page', num: Number(params.get('t')) || 1, params };
       if (view === 'agenda') return { view: 'display', params, layout: 'agenda' };
       if (view === 'plan') return { view: 'page', route: 'plan', params };
       if (view === 'clock' || view === 'uhr') return { view: 'page', route: 'uhr', params };
@@ -31,12 +31,12 @@
     const params = new URLSearchParams(location.search);
     const slug = p.match(/^\/p\/([a-z0-9-]+)$/);
     if (slug) return { view: 'page', slug: slug[1], params };
-    const short = p.match(/^\/(?:timer-?)?([1-8])$/);
+    const short = p.match(/^\/(?:timer-?)?([1-9]|1[0-6])$/);
     if (short) {
       params.set('t', short[1]);
-      return params.get('layout') ? { view: 'display', params, layout: params.get('layout') } : { view: 'page', route: short[1], params };
+      return params.get('layout') ? { view: 'display', params, layout: params.get('layout') } : { view: 'page', num: Number(short[1]), params };
     }
-    if (p === '/display') return params.get('layout') ? { view: 'display', params, layout: params.get('layout') } : { view: 'page', route: /^[1-8]$/.test(params.get('t') || '') ? params.get('t') : '1', params };
+    if (p === '/display') return params.get('layout') ? { view: 'display', params, layout: params.get('layout') } : { view: 'page', num: Number(params.get('t')) || 1, params };
     if (p === '/agenda') return { view: 'display', params, layout: 'agenda' };
     if (p === '/moderation') return { view: 'page', route: 'moderation', params };
     if (p === '/cues') return { view: 'cues', params };
@@ -136,15 +136,12 @@
     const list = h('div', { class: 'home-actions' });
     const render = () => {
       const s = tr.state;
-      const timers = s ? s.timers : [];
       list.replaceChildren(
-        h('a', { href: '/control' }, h('b', null, t('Regie')), h('span', null, t('Timer, Einblendungen, Ablaufplan, Cues'))),
-        ...timers.map(x => h('a', { href: '/' + x.id.slice(1) }, h('b', null, x.name), h('span', null, t('DSM') + ' · /' + x.id.slice(1)))),
-        h('a', { href: '/agenda' }, h('b', null, t('Ablauf-Display')), h('span', null, 'Backstage · /agenda')),
-        h('a', { href: '/clock' }, h('b', null, t('Uhr')), h('span', null, t('Nur Uhrzeit') + ' · /clock')),
-        h('a', { href: '/moderation' }, h('b', null, t('Moderation')), h('span', null, t('Talkback und Meldungen') + ' · /moderation')),
-        ...(s ? s.pages : []).map(pg => h('a', { href: '/p/' + pg.slug }, h('b', null, pg.name), h('span', null, root.ETPages.KIND_NAMES[pg.kind] + ' · /p/' + pg.slug))),
-        h('a', { href: '/cues' }, h('b', null, t('Cue-Display')), h('span', null, '/cues')));
+        h('a', { href: '/control' }, h('b', null, t('Regie')), h('span', null, t('Timer, Einblendungen, Agenda, Cues'))),
+        ...(s ? root.ETPages.byNum(s) : []).map(x => h('a', { href: '/' + x.num }, h('b', null, x.num + ' · ' + x.name), h('span', null, t(root.ETPages.KIND_NAMES[x.kind]) + ' · /' + x.num))),
+        h('a', { href: '/plan' }, h('b', null, t('Agenda-Monitor')), h('span', null, '/plan')),
+        h('a', { href: '/uhr' }, h('b', null, t('Uhr')), h('span', null, '/uhr')),
+        h('a', { href: '/cues' }, h('b', null, t('Cue-Liste')), h('span', null, '/cues')));
     };
     const off = tr.subscribe(render);
     render();

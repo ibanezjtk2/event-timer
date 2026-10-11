@@ -527,8 +527,12 @@ fn is_app_route(path: &str) -> bool {
             | "/clock"
             | "/uhr"
             | "/index.html"
-    ) || (path.len() == 2 && (b'1'..=b'8').contains(&path.as_bytes()[1]))
-        // pages from modules: /p/<slug>
+    ) || path[1..]
+        .parse::<u8>()
+        // screens /1 … /16 (no leading zeros)
+        .map(|n| (1..=16).contains(&n) && !path[1..].starts_with('0'))
+        .unwrap_or(false)
+        // screens by name: /p/<slug>
         || (path.len() > 3
             && path.starts_with("/p/")
             && path[3..]
@@ -650,7 +654,7 @@ fn timer_snapshot(st: &State, t: &engine::Timer, now: i64) -> Json {
     let v = timer_view(t, now);
     let slot = t.id[1..].parse::<i64>().unwrap_or(0);
     let page = engine::dsm_page_for(st, &t.id[1..]);
-    let msg = st.dsm_message(&page);
+    let msg = page.as_deref().and_then(|p| st.dsm_message(p));
     Json::obj()
         .with("id", &t.id)
         .with("slot", slot)
@@ -772,8 +776,8 @@ fn companion(app: &App, req: &Request) -> Response {
             }
             let value = rest.first().and_then(|v| v.parse::<f64>().ok());
             let base = |t: &str| Json::obj().with("type", t).with("id", id.as_str());
-            // overlays go to the DSM page behind "/N" (since 1.6 they belong to pages, not timers)
-            let page = engine::dsm_page_for(&lock(&app.state), &id[1..]);
+            // overlays go to the screen behind "/N" (since 1.6 they belong to screens, not timers)
+            let page = engine::dsm_page_for(&lock(&app.state), &id[1..]).unwrap_or_default();
             let dsm = |t: &str| {
                 Json::obj()
                     .with("type", t)

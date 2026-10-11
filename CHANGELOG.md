@@ -2,6 +2,28 @@
 
 Alle Änderungen an Event Timer, neueste zuerst. Versionen nach [Semantic Versioning](https://semver.org/lang/de/): PATCH = Fehlerbehebung, MINOR = neue Funktionen (Bestehendes läuft weiter), MAJOR = etwas Bestehendes ändert sich.
 
+## 1.6.0-beta.2 – 2026-10-11
+
+Zweite Testversion von 1.6 mit neuem Grundkonzept: **Screens sind die Ausgänge, Timer die Quellen.**
+
+### Neu
+- **Screens** mit Nummer (`/1` … `/16`) und Namen, Art **Anzeige** oder **Moderation**. Jeder Screen besteht aus Modulen. `/p/<name>` bleibt als zweite Adresse.
+- **Gruppen**: Screens mit gemeinsamem Aufbau (z. B. zwei DSMs). Pro Screen kann **„Eigener Aufbau“** davon abweichen. Gruppe als Ganzes auswählen und ihr eine Einblendung schicken.
+- **Vorlagen** für neue Screens: DSM (Vorschau-Monitor), Agenda-Monitor, Uhr, Moderation, leer.
+- Regie: Die Kacheln oben sind jetzt die **Screens** (live gerendert, Gruppen im Rahmen). Ein Klick wählt den Screen und seinen Timer aus.
+- **Timer als Quellen** mit Namen, auswählbar als Chips mit Live-Zeit; „läuft auf: 1 · DSM links, 2 · DSM rechts …“ zeigt, wo ein Timer überall zu sehen ist. Ein Timer auf mehreren Screens wird einmal gesteuert.
+- Die Agenda zeigt, auf welchen Screens ihr verknüpfter Timer läuft.
+
+### Geändert
+- **Begriffe:** *Ablaufplan* heißt jetzt **Agenda**. Die drei Nachrichtenwege heißen **Einblendung → Screens**, **Talkback → Moderation**, **Meldung ← Moderation**.
+- Einblendung: Ziel ist *Alle Screens* oder die Auswahl oben (ein Screen oder eine Gruppe).
+- `/moderation` zeigt den ersten Moderations-Screen. „Als Standard für“ aus beta.1 entfällt – die Nummer ist die Adresse.
+- Die Timer-Art **„Ablaufplan“** entfällt; bestehende Timer dieser Art werden zu Countdowns. Ein Screen mit Timer- und Agenda-Modul kann mehr.
+- Lange Zeiten (z. B. `+1:02:16`) passen sich auf der Moderationsseite der Kartenbreite an.
+
+### Umstellung beim ersten Start
+- Aus jedem Timer N wird Screen N, der genau diesen Timer zeigt – `/1` sieht also aus wie vorher. Eigene Seiten aus beta.1 werden zu Screens (eine Seite, die „Standard für /1“ war, wird Screen 1). Gibt es keinen Moderations-Screen, wird einer angelegt. Einblendungen bleiben erhalten.
+
 ## 1.6.0-beta.1 – 2026-10-11
 
 Erste Testversion von 1.6. Bitte in einem Probelauf testen, noch nicht bei einer echten Veranstaltung.
