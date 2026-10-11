@@ -45,6 +45,17 @@ jobs:
         run: |
           cargo build --release --locked --target ${{ matrix.target }}
           mkdir -p out && cp target/${{ matrix.target }}/release/event-timer.exe "out/event-timer-$V-windows-x64.exe"
+          # check: GUI subsystem (no console window), icon + version info embedded
+          python - "out/event-timer-$V-windows-x64.exe" <<'PY'
+          import struct, sys
+          d = open(sys.argv[1], 'rb').read()
+          pe = struct.unpack_from('<I', d, 0x3c)[0]
+          sub = struct.unpack_from('<H', d, pe + 24 + 68)[0]
+          assert sub == 2, f'subsystem {sub}, expected 2 (GUI)'
+          assert b'.rsrc' in d[pe:pe + 1024], 'no resource section'
+          assert 'Felix Spindler'.encode('utf-16le') in d, 'no version info'
+          print('exe ok: GUI subsystem, resources, version info')
+          PY
 
       - name: "macOS (Event Timer.app, universal: Apple Silicon + Intel)"
         if: runner.os == 'macOS'
@@ -60,6 +71,9 @@ jobs:
           sed "s/__VERSION__/$V/g" packaging/macos/Info.plist > "$APP/Contents/Info.plist"
           # ad-hoc signature: unsigned bundles are reported as "damaged" on Apple Silicon
           codesign --force --deep --sign - "$APP"
+          plutil -lint "$APP/Contents/Info.plist"
+          codesign --verify --deep --strict "$APP" && echo "app signature ok"
+          lipo -archs "$APP/Contents/MacOS/event-timer"
           ditto -c -k --keepParent "$APP" "out/event-timer-$V-macos.zip"
 
       - name: Linux (static, via zig; with icon and menu entry)
@@ -72,6 +86,7 @@ jobs:
           mkdir -p "$D" out
           cp target/${{ matrix.target }}/release/event-timer packaging/icon/event-timer.png packaging/linux/install-desktop.sh LICENSE "$D/"
           tar -czf "out/$D.tar.gz" "$D"
+          tar -tzvf "out/$D.tar.gz"
 
       - uses: actions/upload-artifact@v4
         with:
