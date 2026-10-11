@@ -1,3 +1,5 @@
+/* SPDX-License-Identifier: GPL-3.0-or-later
+   Copyright (C) 2026 Felix Spindler <f-spindler@pm.me> */
 /* Event Timer – control room + stage display
    Control UI is dark on purpose: it lives next to vision mixers in dim rooms.
    Colour carries state like cue lights: green = running, amber = warning,
@@ -112,7 +114,7 @@ input[type="color"].input { padding: 3px; height: 40px; cursor: pointer; }
 .sound-hint { appearance: none; border: 1px solid #6e4f12; background: #3a2a0c; color: #ffd78a; border-radius: var(--r-s); padding: 8px 10px; min-height: 40px; font-weight: 600; cursor: pointer; white-space: nowrap; animation: blink 1.4s steps(2) infinite; }
 .hdr-clock { margin-left: auto; font-size: 30px; font-weight: 700; letter-spacing: .01em; line-height: 1; padding: 0 12px; white-space: nowrap; border-right: 1px solid var(--line); }
 .brand { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 16px; white-space: nowrap; }
-.brand-mark { width: 26px; height: 26px; }
+.brand-mark { width: 30px; height: 30px; }
 .event-title { flex: 1; min-width: 80px; max-width: 420px; background: transparent; border: 1px solid transparent; border-radius: var(--r-s); padding: 6px 8px; font-weight: 500; color: var(--text); }
 .event-title::placeholder { color: var(--muted); }
 .event-title:hover { border-color: var(--line); }
@@ -428,8 +430,10 @@ body[data-view="moderation"], body[data-view="cues"] { background: var(--bg); }
 
 /* ------------------------------------------------------------ gate */
 .gate { position: fixed; inset: 0; z-index: 50; display: grid; place-items: center; background: rgba(12, 14, 17, .82); backdrop-filter: blur(6px); padding: 16px; }
-.gate form { background: var(--panel); border: 1px solid var(--line); border-radius: var(--r-l); padding: 22px; width: min(360px, 100%); display: grid; gap: 12px; }
+.gate form, .gate-card { background: var(--panel); border: 1px solid var(--line); border-radius: var(--r-l); padding: 22px; width: min(360px, 100%); display: grid; gap: 12px; }
 .gate h2 { margin: 0; font-size: 19px; }
+.gate-card p { margin: 0; color: var(--muted); }
+.about a { color: inherit; }
 .gate .input { font-size: 22px; letter-spacing: .2em; text-align: center; font-family: var(--num); }
 .gate-error { color: var(--stop); font-size: 14px; min-height: 1.4em; }
 

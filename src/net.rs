@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 Felix Spindler <f-spindler@pm.me>
+
 //! Network helpers without external crates.
 
 use std::io::{Read, Write};

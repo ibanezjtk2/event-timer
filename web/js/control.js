@@ -1,3 +1,5 @@
+/* SPDX-License-Identifier: GPL-3.0-or-later
+   Copyright (C) 2026 Felix Spindler <f-spindler@pm.me> */
 /* Control room view. */
 (function (root) {
   'use strict';
@@ -1224,14 +1226,39 @@
         soundBox,
         h('div', null, h('h3', { class: 'section-title' }, t('Tastenkürzel')),
           h('div', { class: 'grid2' }, keys.map(([k, v]) => h('div', null, h('b', { class: 'num' }, t(k)), ' ', h('span', { class: 'muted' }, t(v)))))),
-        h('p', { class: 'help' }, t('Version') + ' ' + (m.version || root.ET_VERSION || '1.5.1') + (m.dataPath ? ' · ' + t('Speicherort') + ': ' + m.dataPath : tr.mode === 'standalone' ? ' · ' + t('Speichert in diesem Browser.') : '')),
+        h('p', { class: 'help' }, m.dataPath ? t('Speicherort') + ': ' + m.dataPath : tr.mode === 'standalone' ? t('Speichert in diesem Browser.') : ''),
+        m.logPath ? h('p', { class: 'help' }, t('Log-Datei') + ': ' + m.logPath) : null,
       ];
+      if (tr.mode === 'server' && tr.isLocal()) {
+        // only on the computer that runs Event Timer – a phone must never switch the show off
+        out.push(h('div', { class: 'section' },
+          h('h3', { class: 'section-title' }, t('Programm')),
+          h('p', { class: 'help', style: { marginBottom: '8px' } }, t('Speichert die Show und beendet Event Timer auf diesem Rechner. Alle Displays verlieren die Verbindung.')),
+          armed(h('button', { class: 'btn btn-stop' }, t('Event Timer beenden')), shutdown)));
+      }
+      out.push(h('p', { class: 'help about' }, 'Event Timer ' + (m.version || root.ET_VERSION || '') + ' · © 2026 Felix Spindler · ',
+        h('a', { href: 'mailto:f-spindler@pm.me' }, 'f-spindler@pm.me'), ' · ' + t('Lizenz') + ': GPL-3.0-or-later'));
       if (tr.mode === 'standalone') {
         out.push(h('div', { class: 'section' },
           h('p', { class: 'help', style: { marginBottom: '8px' } }, t('Löscht alle Timer, den Ablauf und eigene Designs in diesem Browser.')),
           armed(h('button', { class: 'btn btn-stop' }, t('Show zurücksetzen')), () => { tr.replaceState(E.defaultState()); select('t1'); drawer.close(); })));
       }
       return out;
+    }
+
+    // ------------------------------------------------------ shutdown
+    async function shutdown() {
+      drawer.close();
+      const done = h('div', { class: 'gate', role: 'alert' },
+        h('div', { class: 'gate-card' },
+          h('h2', null, t('Event Timer wurde beendet')),
+          h('p', null, t('Die Show ist gespeichert. Zum Weitermachen das Programm erneut öffnen.'))));
+      try {
+        const r = await fetch('/api/shutdown', { method: 'POST' });
+        if (!r.ok) throw new Error(r.status);
+        document.body.appendChild(done);
+        alive = false;
+      } catch { toast(t('Beenden nicht möglich')); }
     }
 
     // ---------------------------------------------------- keyboard

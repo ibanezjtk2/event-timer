@@ -1,15 +1,19 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 Felix Spindler <f-spindler@pm.me>
+
 //! Application server: routing, WebSocket sessions, PIN, Companion API.
 
 use crate::engine::{self, format_ms, timer_view, Kind, State};
 use crate::http::{self, Request, Response, WsEvent};
 use crate::json::{self, Json};
+use crate::logx::{error, info};
 use crate::store::{self, ServerCfg};
 use crate::util::{hex, now_ms, query_param, salt, sha1};
 use crate::{assets, mdns, net, APP_ID, VERSION};
 use std::io::{BufReader, Write};
 use std::net::{Ipv4Addr, Shutdown, TcpListener, TcpStream};
 use std::path::PathBuf;
-use std::sync::atomic::{AtomicBool, AtomicU16, AtomicU64, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicI64, AtomicU16, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex, MutexGuard};
 use std::time::Duration;
 
@@ -32,7 +36,9 @@ pub struct App {
     pub state: Mutex<State>,
     pub cfg: Mutex<ServerCfg>,
     clients: Mutex<Vec<Arc<Client>>>,
-    pub dirty: AtomicBool,
+    /// unsaved changes: time of the first and of the latest one (0 = all saved)
+    first_dirty: AtomicI64,
+    last_change: AtomicI64,
     pub port: AtomicU16,
     pub data_path: PathBuf,
     next_id: AtomicU64,
@@ -54,7 +60,8 @@ impl App {
             state: Mutex::new(state),
             cfg: Mutex::new(cfg),
             clients: Mutex::new(Vec::new()),
-            dirty: AtomicBool::new(false),
+            first_dirty: AtomicI64::new(0),
+            last_change: AtomicI64::new(0),
             port: AtomicU16::new(0),
             data_path,
             next_id: AtomicU64::new(1),
@@ -92,7 +99,7 @@ impl App {
             return false;
         }
         lock(&self.cfg).name = name;
-        self.dirty.store(true, Ordering::SeqCst);
+        self.touch();
         true
     }
 
@@ -116,14 +123,38 @@ impl App {
             cfg.pin_hash = hex(&sha1(format!("{}{}", cfg.pin_salt, pin).as_bytes()));
         }
         drop(cfg);
-        self.dirty.store(true, Ordering::SeqCst);
+        self.touch();
+    }
+
+    /// Marks the show as changed; the save thread writes it once things settle.
+    pub fn touch(&self) {
+        let now = now_ms();
+        self.last_change.store(now, Ordering::SeqCst);
+        let _ = self
+            .first_dirty
+            .compare_exchange(0, now, Ordering::SeqCst, Ordering::SeqCst);
+    }
+
+    /// Writes when nothing has changed for 2 s, or at the latest 10 s after
+    /// the first unsaved change (a running show keeps changing).
+    pub fn save_if_due(&self, now: i64) {
+        let first = self.first_dirty.load(Ordering::SeqCst);
+        if first == 0 {
+            return;
+        }
+        let quiet = now - self.last_change.load(Ordering::SeqCst) >= 2_000;
+        if quiet || now - first >= 10_000 {
+            self.save_now();
+        }
     }
 
     pub fn save_now(&self) {
+        // cleared first: a change during the write marks the show dirty again
+        self.first_dirty.store(0, Ordering::SeqCst);
         let st = lock(&self.state).clone();
         let cfg = lock(&self.cfg).clone();
         if let Err(e) = store::save(&self.data_path, &st, &cfg, VERSION) {
-            eprintln!(
+            error!(
                 "Speichern fehlgeschlagen ({}): {}",
                 self.data_path.display(),
                 e
@@ -135,7 +166,7 @@ impl App {
     pub fn act(&self, action: &Json) -> bool {
         let changed = engine::apply(&mut lock(&self.state), action, now_ms());
         if changed {
-            self.dirty.store(true, Ordering::SeqCst);
+            self.touch();
             self.broadcast();
         }
         changed
@@ -160,6 +191,10 @@ impl App {
             )
             .with("hostname", net.hostname.clone())
             .with("dataPath", self.data_path.display().to_string())
+            .with(
+                "logPath",
+                crate::logx::path().map(|p| p.display().to_string()),
+            )
             .with("name", self.mdns_name())
             .with("nameHost", format!("{}.local", self.mdns_name()))
             .with("mdns", self.mdns_ok.load(Ordering::SeqCst))
@@ -194,8 +229,9 @@ impl App {
         let mut msg = String::with_capacity(body.len() + 32);
         msg.push_str(&body[..body.len() - 1]);
         msg.push_str(&format!(
-            ",\"you\":{{\"canControl\":{}}}}}",
-            self.can_control(c)
+            ",\"you\":{{\"canControl\":{},\"local\":{}}}}}",
+            self.can_control(c),
+            c.loopback
         ));
         send(c, &msg);
     }
@@ -224,7 +260,7 @@ pub fn spawn_connection(app: &Arc<App>, stream: TcpStream) {
 /// Switchable at runtime; the accept loop polls a flag so it can stop.
 pub fn set_port80(app: &Arc<App>, on: bool) -> Result<(), String> {
     lock(&app.cfg).port80 = on;
-    app.dirty.store(true, Ordering::SeqCst);
+    app.touch();
     if !on {
         app.port80_active.store(false, Ordering::SeqCst);
         *lock(&app.port80_error) = None;
@@ -580,6 +616,7 @@ fn route(app: &App, req: &Request, loopback: bool) -> Response {
                 return Response::text(403, "Local access only");
             }
             app.save_now();
+            info!("Event Timer wurde über die Regie beendet.");
             std::thread::spawn(|| {
                 std::thread::sleep(Duration::from_millis(200));
                 std::process::exit(0);

@@ -1,4 +1,4 @@
-# Event Timer 1.1
+# Event Timer
 
 Countdown, Redezeit und Ablaufplan für Bühne und Regie. Ein einzelnes Programm (unter 1 MB, keine Installation, keine Abhängigkeiten), bedient wird alles im Browser: am Rechner, auf dem Handy oder auf dem iPad.
 
@@ -15,7 +15,15 @@ Standalone ist für „Ich hab nur ein iPad dabei“: Datei öffnen, fertig. Unt
 
 ## Start (Server)
 
-Doppelklick bzw. `./event-timer`. Die Regie öffnet sich im Browser, im Konsolenfenster stehen die Adressen fürs Netzwerk. Der QR-Code unter *Menü (☰) → Verbindung* bringt Handys direkt hin.
+| System | Datei | Start |
+|---|---|---|
+| Windows | `event-timer-<version>-windows-x64.exe` | Doppelklick – kein Konsolenfenster |
+| macOS | `event-timer-<version>-macos.zip` → **Event Timer.app** | Doppelklick (erster Start: siehe unten) |
+| Linux / Raspberry Pi | `event-timer-<version>-linux-x64.tar.gz` (bzw. `-arm64`, `-armv7`) | `./event-timer`; `./install-desktop.sh` legt einen Menüeintrag mit Icon an |
+
+Die Regie öffnet sich im Browser. Adressen fürs Netzwerk und QR-Codes stehen unter *Menü (☰) → Verbindung*; dieselben Startinfos und eventuelle Fehler schreibt das Programm in **`event-timer.log`** neben der Daten-Datei. Aus einem Terminal gestartet, erscheinen sie auch dort.
+
+**Beenden:** *Menü (☰) → System → „Event Timer beenden“* (nur am Rechner selbst sichtbar) oder Strg+C im Terminal. Die Show wird dabei immer gespeichert; im laufenden Betrieb schreibt das Programm, sobald 2 s lang nichts passiert, spätestens alle 10 s.
 
 ```
 event-timer [--port 2468] [--host 0.0.0.0] [--data datei.json] [--pin 1234]
@@ -25,8 +33,10 @@ event-timer [--port 2468] [--host 0.0.0.0] [--data datei.json] [--pin 1234]
 - **Port 2468** (früher 3000, damit nichts mit NDPro & Co. kollidiert). Ist er belegt, nimmt das Programm automatisch den nächsten freien und zeigt ihn an. Mit `--port` ist der Port fest.
 - Startest du das Programm ein zweites Mal, öffnet es nur die Regie der laufenden Instanz. Eine andere Version wird automatisch ersetzt.
 - **Windows-Firewall:** Beim ersten Start „Private Netzwerke“ erlauben, sonst kommen Handys nicht ran.
-- **macOS:** Unsignierte Datei → einmal Rechtsklick → *Öffnen*, oder `xattr -d com.apple.quarantine event-timer-macos`.
-- **Raspberry Pi:** `event-timer-linux-arm64` (64-Bit-OS) bzw. `-armv7` (32-Bit). Autostart per systemd: siehe `tools/event-timer.service`.
+- **Daten:** `event-timer-data.json` liegt neben dem Programm (bzw. neben der *Event Timer.app*) – also auch auf einem USB-Stick. Ist der Ort nicht beschreibbar, nimmt das Programm den Benutzerordner; der Pfad steht unter *System*.
+- **macOS:** Die App ist nicht von Apple beglaubigt. Erster Start: Rechtsklick → *Öffnen*; bei neueren macOS-Versionen *Systemeinstellungen → Datenschutz & Sicherheit → „Trotzdem öffnen“*. Die App läuft im Hintergrund ohne Dock-Symbol. Läuft sie schon, öffnet ein weiterer Doppelklick **nicht** erneut die Regie – dann einfach `localhost:2468/control` aufrufen (Lesezeichen).
+- **Windows-SmartScreen:** Die .exe ist nicht signiert. Vor dem Start Rechtsklick → *Eigenschaften* → *Zulassen*, oder einmal *Weitere Informationen → Trotzdem ausführen*.
+- **Raspberry Pi:** `linux-arm64` (64-Bit-OS) bzw. `linux-armv7` (32-Bit). Autostart per systemd: siehe `tools/event-timer.service`.
 
 ## Kurze Adressen statt IP
 
@@ -145,7 +155,9 @@ node tools/build-standalone.js # → dist/event-timer-standalone.html
 cargo test && node tools/test-engine.js
 ```
 
-Es gibt keine Abhängigkeiten, deshalb klappt der Build auch offline. Ins eigene GitHub-Repo gepusht, baut `.github/workflows/build.yml` automatisch alle Plattformen. Ein Tag `v1.0.0` erzeugt ein Release mit allen Dateien.
+Es gibt keine Abhängigkeiten, deshalb klappt der Build auch offline. Ins eigene GitHub-Repo gepusht, baut `.github/workflows/build.yml` automatisch alle Plattformen (Windows-Icon und Versionsinfos erzeugt `build.rs` selbst, die Mac-App und die Linux-Pakete der Workflow).
+
+**Versionen:** Semantic Versioning (MAJOR.MINOR.PATCH), die Nummer steht nur in `Cargo.toml`. Änderungen pro Version stehen in [`CHANGELOG.md`](CHANGELOG.md). Ein Tag `vX.Y.Z` erzeugt ein GitHub-Release mit allen Dateien; der Text kommt aus dem CHANGELOG. Tags mit Bindestrich (`v1.6.0-beta.1`) werden als Vorabversion markiert.
 
 ## Aufbau
 
@@ -158,3 +170,13 @@ src/store.rs    Speichern                   web/js/qr.js       QR-Code-Encoder
 ```
 
 Die Web-Oberfläche wird beim Kompilieren ins Programm eingebettet.
+
+Icons: `packaging/icon/` (Vorlage `event-timer.svg`, daraus `.ico`, `.icns`, PNG). Mac-App: `packaging/macos/`, Linux-Menüeintrag: `packaging/linux/`.
+
+## Lizenz
+
+Copyright © 2026 Felix Spindler &lt;f-spindler@pm.me&gt;
+
+Event Timer ist freie Software: Du darfst sie unter den Bedingungen der **GNU General Public License, Version 3 oder (nach deiner Wahl) jeder späteren Version**, nutzen, weitergeben und verändern. Wer sie weitergibt – verändert oder nicht –, muss den Quellcode unter derselben Lizenz mitliefern und diesen Hinweis erhalten.
+
+Event Timer wird ohne jede Gewährleistung bereitgestellt. Der vollständige Lizenztext steht in [`LICENSE`](LICENSE).

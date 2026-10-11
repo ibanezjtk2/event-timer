@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 Felix Spindler <f-spindler@pm.me>
+
 //! Timer engine – Rust twin of web/js/engine.js.
 //! Both are verified against tests/scenarios.json; change them together.
 

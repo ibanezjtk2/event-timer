@@ -1,3 +1,5 @@
+/* SPDX-License-Identifier: GPL-3.0-or-later
+   Copyright (C) 2026 Felix Spindler <f-spindler@pm.me> */
 /*
  * Transport: where the state lives.
  *  - server:     WebSocket to the Event Timer program (multi-device)
@@ -85,6 +87,8 @@
       get meta() { return meta; },
       get status() { return everConnected ? status : 'connecting'; },
       canControl: () => Boolean(you.canControl),
+      /** this browser runs on the same computer as Event Timer (may shut it down) */
+      isLocal: () => Boolean(you.local),
       now: () => Date.now() + offset,
       act(a) {
         if (!you.canControl) return;
@@ -150,6 +154,7 @@
       get meta() { return { standalone: true, storageOk, displays: children.size }; },
       get status() { return state ? 'online' : 'connecting'; },
       canControl: () => role !== 'display',
+      isLocal: () => false,
       now: () => Date.now(),
       act(a) {
         if (!state) return;

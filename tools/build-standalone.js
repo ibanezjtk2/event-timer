@@ -1,3 +1,5 @@
+/* SPDX-License-Identifier: GPL-3.0-or-later
+   Copyright (C) 2026 Felix Spindler <f-spindler@pm.me> */
 // Builds dist/event-timer-standalone.html – one self-contained file that runs
 // without the server (engine in the browser, state in localStorage).
 //   node tools/build-standalone.js

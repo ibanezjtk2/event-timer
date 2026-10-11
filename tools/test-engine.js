@@ -1,3 +1,5 @@
+/* SPDX-License-Identifier: GPL-3.0-or-later
+   Copyright (C) 2026 Felix Spindler <f-spindler@pm.me> */
 // Runs tests/scenarios.json against the JS engine:  node tools/test-engine.js
 'use strict';
 const path = require('path');

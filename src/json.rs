@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 Felix Spindler <f-spindler@pm.me>
+
 //! Minimal JSON value, parser and serializer (no dependencies).
 //! Objects keep insertion order so output is stable and diff-friendly.
 

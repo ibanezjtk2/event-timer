@@ -2,3 +2,5 @@
 /dist
 event-timer-data.json
 *.json.tmp
+event-timer.log
+event-timer.log.old

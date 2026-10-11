@@ -1,3 +1,5 @@
+/* SPDX-License-Identifier: GPL-3.0-or-later
+   Copyright (C) 2026 Felix Spindler <f-spindler@pm.me> */
 /* Shared UI helpers: element builder, icons, toast, two-step confirm, i18n. */
 (function (root) {
   'use strict';
@@ -283,6 +285,13 @@
     "Uhrzeit groß, der Timer klein darunter.": "Large clock, small timer below.",
     "Kleiner Timer unten rechts – für vMix/OBS als Browser-Input über dem Bild.": "Small timer bottom right – for vMix/OBS as a browser input over the picture.",
     "Timer plus Programmliste mit Abweichung, für Backstage oder Greenroom.": "Timer plus programme list with deviation, for backstage or the green room.",
+    "Speichert die Show und beendet Event Timer auf diesem Rechner. Alle Displays verlieren die Verbindung.": "Saves the show and quits Event Timer on this computer. All displays lose their connection.",
+    "Event Timer beenden": "Quit Event Timer",
+    "Lizenz": "License",
+    "Log-Datei": "Log file",
+    "Event Timer wurde beendet": "Event Timer has been closed",
+    "Die Show ist gespeichert. Zum Weitermachen das Programm erneut öffnen.": "The show is saved. Open the program again to continue.",
+    "Beenden nicht möglich": "Could not quit",
   };
 
   let lang = 'de';
@@ -341,8 +350,8 @@
     return s;
   };
 
-  // Brand mark: a cue light – three lamps, one lit.
-  const brandSvg = '<svg class="brand-mark" viewBox="0 0 26 26" aria-hidden="true"><rect x="1" y="1" width="24" height="24" rx="6" fill="#2a3039" stroke="#363e49"/><circle cx="8" cy="13" r="3" fill="#3b434e"/><circle cx="13" cy="13" r="3" fill="#2fd47a"/><circle cx="18" cy="13" r="3" fill="#3b434e"/></svg>';
+  // Brand mark = the app icon (packaging/icon/event-timer.svg): a stopwatch whose ring runs green into amber.
+  const brandSvg = '<svg class="brand-mark" viewBox="0 0 512 512" aria-hidden="true"><defs><linearGradient id="etg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2a3039"/><stop offset="1" stop-color="#14171b"/></linearGradient></defs><rect x="16" y="16" width="480" height="480" rx="108" fill="url(#etg)"/><rect x="222" y="70" width="68" height="30" rx="10" fill="#e9ecf0"/><rect x="244" y="96" width="24" height="20" fill="#e9ecf0"/><rect x="364" y="112" width="40" height="22" rx="8" fill="#e9ecf0" transform="rotate(45 384 123)"/><circle cx="256" cy="282" r="148" fill="none" stroke="#3b434e" stroke-width="42"/><path d="M256.0 134.0 A148 148 0 1 1 171.1 403.2" fill="none" stroke="#2fd47a" stroke-width="42" stroke-linecap="round"/><path d="M139.4 373.1 A148 148 0 0 1 111.2 251.2" fill="none" stroke="#ffb020" stroke-width="42" stroke-linecap="round"/><path d="M256 282 L256 176" stroke="#e9ecf0" stroke-width="24" stroke-linecap="round"/><circle cx="256" cy="282" r="26" fill="#e9ecf0"/></svg>';
 
   let toastTimer = null;
   function toast(text) {

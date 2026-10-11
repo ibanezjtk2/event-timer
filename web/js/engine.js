@@ -1,3 +1,5 @@
+/* SPDX-License-Identifier: GPL-3.0-or-later
+   Copyright (C) 2026 Felix Spindler <f-spindler@pm.me> */
 /*
  * Event Timer – core engine (pure, no DOM).
  * Same rules are implemented in Rust (src/engine.rs). Both are checked

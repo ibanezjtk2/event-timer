@@ -1,9 +1,10 @@
 [package]
 name = "event-timer"
-version = "1.5.1"
+version = "1.5.2"
 edition = "2021"
 description = "Event Timer – Countdown, Redezeit und Ablaufplan für Bühne und Regie"
-license = "MIT"
+license = "GPL-3.0-or-later"
+authors = ["Felix Spindler <f-spindler@pm.me>"]
 build = "build.rs"
 
 # Bewusst ohne Abhängigkeiten: baut offline, überall, in Sekunden.
