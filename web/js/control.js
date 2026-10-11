@@ -114,25 +114,6 @@
       h('h3', { class: 'section-title' }, t('Zielzeit')),
       h('div', { class: 'row' }, h('div', { style: { flex: '0 1 180px' } }, targetInput), h('button', { class: 'btn btn-go', onclick: setTarget }, t('Zielzeit setzen'))));
 
-    // DSM overlay (message on the downstage monitor)
-    const msgInput = h('input', { class: 'input', placeholder: t('Text für DSM'), maxlength: 280, 'aria-label': t('Text für DSM') });
-    const sendMsg = () => { if (msgInput.value.trim()) { act({ type: 'timer.message', id: sel, text: msgInput.value }); msgInput.value = ''; } };
-    msgInput.addEventListener('keydown', e => { if (e.key === 'Enter') sendMsg(); });
-    const quickRow = h('div', { class: 'row', style: { marginTop: '10px' } });
-    const flashBtn = h('button', { class: 'btn', 'aria-pressed': 'false', onclick: () => act({ type: 'timer.message', id: sel, flash: !timer().message.flash }) }, t('Blinken'));
-    const showBtn = h('button', { class: 'btn', onclick: () => act({ type: 'timer.message', id: sel, visible: !timer().message.visible }) });
-    const clearBtn = h('button', { class: 'btn btn-quiet', onclick: () => act({ type: 'timer.messageClear', id: sel }) }, icon('trash'), t('Löschen'));
-    const msgBadge = h('span', { class: 'badge' });
-    const msgText = h('div', { class: 'msg-card-text' });
-    const msgCard = h('div', { class: 'msg-card', 'data-state': 'empty' },
-      h('div', { class: 'msg-card-head' }, msgBadge, h('span', { class: 'spacer' }), flashBtn, showBtn, clearBtn),
-      msgText);
-    const msgSection = h('div', { class: 'section' },
-      h('h3', { class: 'section-title' }, t('DSM-Einblendung')),
-      msgCard,
-      h('div', { class: 'row', style: { marginTop: '10px' } }, h('div', { style: { flex: '1 1 200px' } }, msgInput), h('button', { class: 'btn btn-go', onclick: sendMsg }, t('Senden'))),
-      quickRow);
-
     // options (collapsed by default – rarely touched during a show)
     const overtimeToggle = h('input', { type: 'checkbox' });
     overtimeToggle.addEventListener('change', () => act({ type: 'timer.update', id: sel, patch: { overtime: overtimeToggle.checked } }));
@@ -158,7 +139,7 @@
 
     const timerPanel = h('section', { class: 'panel', 'aria-label': 'Timer' },
       h('div', { class: 'panel-head' }, nameInput, kindSeg, removeBtn),
-      readout, transport, nudges, durSection, targetSection, msgSection, optSection, linkSection);
+      readout, transport, nudges, durSection, targetSection, optSection, linkSection);
 
     // agenda panel
     const ros = h('ol', { class: 'ros' });
@@ -285,6 +266,72 @@
       }
     }
 
+    // ------------------------------------------------- An DSM (overlay on the stage monitors)
+    // Separate from "An Moderation" on purpose: no switch that could point the wrong way during a show.
+    const P = () => root.ETPages;
+    let dsmTo = store.get('et-dsm-to') || 'all';
+    const dsmChips = h('div', { class: 'row dsm-to', role: 'group', 'aria-label': t('Ziel') });
+    const dsmInput = h('input', { class: 'input', placeholder: t('Text für den DSM'), maxlength: 280, 'aria-label': t('Text für den DSM') });
+    const dsmQuick = h('div', { class: 'row', style: { marginTop: '10px' } });
+    const dsmNow = h('div', { class: 'dsm-now' });
+    /** page ids a send goes to: the chosen DSM or all of them (the built-in /plan included) */
+    function dsmSendIds() {
+      const s = S();
+      const all = P().dsmTargets(s, true);
+      return dsmTo !== 'all' && all.some(x => x.id === dsmTo && !x.hidden) ? [dsmTo] : all.map(x => x.id);
+    }
+    const sendDsm = text => { if (text && text.trim()) act({ type: 'dsm.message', pages: dsmSendIds(), text }); };
+    dsmInput.addEventListener('keydown', e => { if (e.key === 'Enter') { sendDsm(dsmInput.value); dsmInput.value = ''; } });
+    const dsmPanel = h('section', { class: 'panel dsm-panel', 'aria-label': t('An DSM') },
+      h('div', { class: 'panel-head' }, icon('screen'), h('h2', null, t('An DSM')), h('span', { class: 'help' }, t('Einblendung auf dem Bühnenmonitor'))),
+      dsmChips, dsmNow,
+      h('div', { class: 'row', style: { marginTop: '10px' } }, h('div', { style: { flex: '1 1 200px' } }, dsmInput),
+        h('button', { class: 'btn btn-dsm', onclick: () => { sendDsm(dsmInput.value); dsmInput.value = ''; } }, t('Senden'))),
+      dsmQuick);
+    function syncDsm(s) {
+      const targets = P().dsmTargets(s, false);
+      const all = P().dsmTargets(s, true);
+      if (dsmTo !== 'all' && !targets.some(x => x.id === dsmTo)) dsmTo = 'all';
+      const ck = JSON.stringify([targets, dsmTo, root.ETUI.lang]);
+      if (dsmChips.dataset.key !== ck) {
+        dsmChips.dataset.key = ck;
+        dsmChips.hidden = targets.length <= 1;
+        const chip = (id, label, sub) => h('button', { class: 'chip', 'aria-pressed': String(dsmTo === id), title: sub || '', onclick: () => { dsmTo = id; store.set('et-dsm-to', id); syncDsm(S()); } }, label);
+        dsmChips.replaceChildren(h('span', { class: 'help' }, t('An') + ':'), chip('all', t('Alle DSMs')), ...targets.map(x => chip(x.id, x.name, x.sub)));
+      }
+      const qk = s.quickMessages.join('\n');
+      if (dsmQuick.dataset.key !== qk) {
+        dsmQuick.dataset.key = qk;
+        dsmQuick.replaceChildren(...s.quickMessages.map(q => h('button', { class: 'chip', onclick: () => sendDsm(q) }, q)));
+      }
+      // what is on the DSMs right now – identical overlays (sent to "Alle") are one line
+      const groups = [];
+      for (const x of all) {
+        const m = s.dsmMsg[x.id];
+        if (!m || !m.text) continue;
+        const g = groups.find(y => y.text === m.text && y.flash === m.flash && y.visible === m.visible);
+        if (g) g.ids.push(x.id); else groups.push({ text: m.text, flash: m.flash, visible: m.visible, ids: [x.id] });
+      }
+      const nk = JSON.stringify([groups, targets.map(x => x.id), root.ETUI.lang]);
+      if (dsmNow.dataset.key === nk) return;
+      dsmNow.dataset.key = nk;
+      const visibleIds = targets.map(x => x.id);
+      const label = ids => (visibleIds.length > 1 && visibleIds.every(id => ids.includes(id)) ? t('Alle DSMs')
+        : ids.map(id => (all.find(x => x.id === id) || { name: id }).name).join(', '));
+      dsmNow.replaceChildren(...(groups.length ? groups.map(g => {
+        const state = g.visible ? 'live' : 'hidden';
+        return h('div', { class: 'msg-card', 'data-state': state, 'data-flash': g.flash && g.visible ? '1' : '0' },
+          h('div', { class: 'msg-card-head' },
+            h('span', { class: 'badge' }, g.visible ? t('LIVE auf DSM') : t('Ausgeblendet')),
+            targets.length > 1 || g.ids.some(id => !visibleIds.includes(id)) ? h('span', { class: 'help' }, label(g.ids)) : null,
+            h('span', { class: 'spacer' }),
+            h('button', { class: 'btn', 'aria-pressed': String(g.flash), onclick: () => act({ type: 'dsm.message', pages: g.ids, flash: !g.flash }) }, t('Blinken')),
+            h('button', { class: 'btn', onclick: () => act({ type: 'dsm.message', pages: g.ids, visible: !g.visible }) }, g.visible ? t('Ausblenden') : t('Einblenden')),
+            h('button', { class: 'btn btn-quiet', onclick: () => act({ type: 'dsm.clear', pages: g.ids }) }, icon('trash'), t('Löschen'))),
+          h('div', { class: 'msg-card-text' }, g.text));
+      }) : [h('div', { class: 'msg-card', 'data-state': 'empty' }, h('div', { class: 'msg-card-head' }, h('span', { class: 'badge' }, t('Keine Einblendung aktiv'))))]));
+    }
+
     // ------------------------------------------------- talkback (Regie → Moderation)
     const talkInput = h('input', { class: 'input', placeholder: t('Freitext an die Moderation'), maxlength: 120, 'aria-label': t('Freitext an die Moderation') });
     const sendTalk = text => { if (text && text.trim()) act({ type: 'talkback.send', text: text.trim() }); };
@@ -292,12 +339,12 @@
     const talkQuickRow = h('div', { class: 'row' });
     const talkLog = h('ol', { class: 'talk-log' });
     const talkClear = armed(h('button', { class: 'btn btn-quiet' }, t('Verlauf löschen')), () => act({ type: 'talkback.clear' }));
-    const talkPanel = h('section', { class: 'panel talk-panel', 'aria-label': t('Talkback') },
-      h('div', { class: 'panel-head' }, icon('talk'), h('h2', null, t('Talkback')), h('span', { class: 'help' }, t('an die Moderation')), h('div', { class: 'spacer' }),
+    const talkPanel = h('section', { class: 'panel talk-panel', 'aria-label': t('An Moderation') },
+      h('div', { class: 'panel-head' }, icon('talk'), h('h2', null, t('An Moderation')), h('span', { class: 'help' }, t('Talkback, privat, mit „Verstanden“')), h('div', { class: 'spacer' }),
         h('button', { class: 'btn btn-quiet', onclick: () => openUrl(tr.mode === 'standalone' ? viewUrl('moderation') : baseUrl() + '/moderation') }, icon('open'), '/moderation')),
       talkQuickRow,
       h('div', { class: 'row', style: { marginTop: '10px' } }, h('div', { style: { flex: '1 1 200px' } }, talkInput),
-        h('button', { class: 'btn btn-go', onclick: () => { sendTalk(talkInput.value); talkInput.value = ''; } }, t('Senden'))),
+        h('button', { class: 'btn btn-talk', onclick: () => { sendTalk(talkInput.value); talkInput.value = ''; } }, t('Senden'))),
       talkLog,
       h('div', { class: 'row', style: { justifyContent: 'flex-end' } }, talkClear));
     const seenAck = new Set();
@@ -374,7 +421,7 @@
     }
     /** play on a click: the click itself unlocks audio, so wait for it */
     const testSound = kind => { unlockAudio(); if (actx) actx.resume().then(() => signal(kind)).catch(() => {}); };
-    const soundHint = h('button', { class: 'sound-hint', hidden: true, title: t('Browser spielen erst nach einem Klick Ton ab.'), onclick: unlockAudio }, '🔇 ', t('Ton aus – klicken'));
+    const soundHint = h('button', { class: 'sound-hint', hidden: true, title: t('Browser spielen erst nach einem Klick Ton ab.'), onclick: unlockAudio }, '🔇', h('span', { class: 'sound-hint-l' }, ' ' + t('Ton aus – klicken')));
     soundSlot.append(soundHint);
     /** reminder every 15 s while a stage message is unacknowledged; hint when the browser keeps us muted */
     function tickSound(s) {
@@ -390,7 +437,7 @@
       if (alerts.dataset.key !== key) {
         alerts.dataset.key = key;
         const items = open.slice(-4).reverse().map(r => h('div', { class: 'alert alert-req', role: 'alert' }, icon('bell'),
-          h('div', { class: 'alert-text' }, h('b', null, r.text), h('span', null, t('Meldung') + ' · ' + r.from + ' · ' + hhmm(r.at))),
+          h('div', { class: 'alert-text' }, h('b', null, r.text), h('span', null, t('Von Moderation') + (r.from && r.from !== t('Moderation') && r.from !== 'Moderation' ? ' · ' + r.from : '') + ' · ' + hhmm(r.at))),
           h('button', { class: 'btn', onclick: () => act({ type: 'request.ack', requestId: r.id }) }, icon('check'), t('Bestätigen'))));
         if (open.length > 1) items.push(h('button', { class: 'btn btn-quiet alert-all', onclick: () => act({ type: 'request.ackAll' }) }, t('Alle bestätigen')));
         alerts.replaceChildren(...items);
@@ -412,9 +459,9 @@
     function layoutDesk() {
       const n = mq3.matches ? 3 : mq2.matches ? 2 : 1;
       desk.dataset.cols = n;
-      if (n === 3) { cols[0].append(timerPanel); cols[1].append(rosPanel); cols[2].append(cuePanel, talkPanel); }
-      else if (n === 2) { cols[0].append(timerPanel, talkPanel); cols[1].append(cuePanel, rosPanel); }
-      else cols[0].append(timerPanel, cuePanel, rosPanel, talkPanel);
+      if (n === 3) { cols[0].append(timerPanel, dsmPanel); cols[1].append(rosPanel); cols[2].append(cuePanel, talkPanel); }
+      else if (n === 2) { cols[0].append(timerPanel, dsmPanel, talkPanel); cols[1].append(cuePanel, rosPanel); }
+      else cols[0].append(timerPanel, dsmPanel, talkPanel, cuePanel, rosPanel);
       cols.forEach((c, i) => { c.hidden = i >= n; });
     }
     mq3.addEventListener('change', layoutDesk);
@@ -650,22 +697,6 @@
       chips.querySelectorAll('.chip').forEach(c => c.setAttribute('aria-pressed', String(Number(c.dataset.ms) === tm.durationMs)));
       if (tm.kind === 'clock' && tm.targetLabel && !focused(targetInput)) targetInput.value = tm.targetLabel;
 
-      const m = tm.message;
-      const mstate = !m.text ? 'empty' : m.visible ? 'live' : 'hidden';
-      msgCard.dataset.state = mstate;
-      msgCard.dataset.flash = m.flash && mstate === 'live' ? '1' : '0';
-      msgBadge.textContent = { empty: t('Keine Einblendung aktiv'), live: t('LIVE auf DSM'), hidden: t('Ausgeblendet') }[mstate];
-      msgText.textContent = m.text;
-      msgText.hidden = !m.text;
-      [flashBtn, showBtn, clearBtn].forEach(b => { b.hidden = !m.text; });
-      flashBtn.setAttribute('aria-pressed', String(m.flash));
-      showBtn.textContent = m.visible ? t('Ausblenden') : t('Einblenden');
-      const qkey = s.quickMessages.join('\n');
-      if (quickRow.dataset.key !== qkey) {
-        quickRow.dataset.key = qkey;
-        quickRow.replaceChildren(...s.quickMessages.map(q => h('button', { class: 'chip', onclick: () => act({ type: 'timer.message', id: sel, text: q }) }, q)));
-      }
-
       overtimeToggle.checked = tm.overtime;
       if (!focused(warnInput)) warnInput.value = tm.warnMs / MIN;
       if (!focused(critInput)) critInput.value = tm.critMs / MIN;
@@ -733,6 +764,7 @@
       mv.inert = false;
 
       syncAlerts(s);
+      syncDsm(s);
       syncTalk(s);
       buildTiles();
       syncPanel();
@@ -753,12 +785,13 @@
         for (const tm of s.timers) {
           const tv = tileViews.get(tm.id);
           if (!tv) continue;
-          tv.view.update({ state: s, timer: tm, now, i18n: t });
+          const ov = P().overlayOf(s, P().dsmPageFor(s, tm.id.slice(1)));
+          tv.view.update({ state: s, timer: tm, now, message: ov, i18n: t });
           const v = E.timerView(tm, now);
           const rv = tm.kind === 'schedule' ? E.runView(s, now) : null;
           const tally = tm.kind === 'time' ? '' : rv ? (rv.current && rv.running ? (rv.remainingMs <= tm.critMs ? 'stop' : rv.remainingMs <= tm.warnMs ? 'warn' : 'go') : '') : v.state === 'running' || (tm.kind === 'clock' && v.state !== 'idle') ? (v.phase === 'normal' ? 'go' : v.phase === 'warn' ? 'warn' : 'stop') : v.state === 'finished' ? 'stop' : '';
           if (tv.tile.dataset.tally !== tally) tv.tile.dataset.tally = tally;
-          const badge = v.state === 'paused' ? t('Pausiert') : (tm.message.visible ? 'LIVE' : '');
+          const badge = v.state === 'paused' ? t('Pausiert') : (ov && ov.visible && ov.text ? 'LIVE' : '');
           tv.badge.hidden = !badge;
           if (tv.badge.textContent !== badge) tv.badge.textContent = badge;
         }
@@ -833,7 +866,7 @@
     }
 
     // ------------------------------------------------------- drawer
-    const TABS = [['connect', 'Verbindung'], ['design', 'Design'], ['messages', 'Schnellnachrichten'], ['security', 'Sicherheit'], ['companion', 'Companion'], ['more', 'System']];
+    const TABS = [['connect', 'Verbindung'], ['pages', 'Seiten'], ['design', 'Design'], ['messages', 'Schnellnachrichten'], ['security', 'Sicherheit'], ['companion', 'Companion'], ['more', 'System']];
     let drawerKey = '';
     function openDrawer(tab) {
       if (tab) drawerTab = tab;
@@ -843,16 +876,30 @@
     }
     function renderDrawer() {
       const s = S();
-      const key = JSON.stringify([drawerTab, designId, sel, root.ETUI.lang, tr.meta, s.presets, s.quickMessages, s.stageQuick, s.talkQuick, s.timers.map(x => [x.id, x.name, x.presetId])]);
+      const key = JSON.stringify([drawerTab, designId, sel, root.ETUI.lang, tr.meta, s.presets, s.quickMessages, s.stageQuick, s.talkQuick, s.timers.map(x => [x.id, x.name, x.presetId]), s.pages, s.routes, s.agenda.timerId]);
       if (key === drawerKey) return;
       if (drawer.contains(document.activeElement) && document.activeElement.matches('input, textarea, select') && drawerTab !== 'connect') return;
       drawerKey = key;
       tabs.replaceChildren(...TABS.map(([id, label]) => h('button', {
         role: 'tab', 'aria-selected': String(id === drawerTab), onclick: () => { drawerTab = id; drawerKey = ''; renderDrawer(); },
       }, t(label))));
-      const body = { connect: tabConnect, design: tabDesign, messages: tabMessages, security: tabSecurity, companion: tabCompanion, more: tabMore }[drawerTab]();
+      const body = { connect: tabConnect, pages: () => root.ETPageEditor.tab(pageCtx), design: tabDesign, messages: tabMessages, security: tabSecurity, companion: tabCompanion, more: tabMore }[drawerTab]();
       drawerBody.replaceChildren(...[].concat(body));
     }
+
+    /** full address of a page (built-in or custom), for links and QR codes */
+    function pageUrl(pg) {
+      if (tr.mode === 'standalone') {
+        const v = !pg.builtin ? 'p/' + pg.slug : { moderation: 'moderation', plan: 'plan', uhr: 'uhr' }[pg.route] || 'display?t=' + pg.route;
+        return baseUrl() + '#' + v;
+      }
+      return baseUrl() + root.ETPages.pagePath(pg);
+    }
+    const pageCtx = {
+      tr, S, act, openUrl, pageUrl, linkLine: url => linkLine(url), qrCard: (l, u) => qrCard(l, u),
+      beforeOpen: () => { if (drawer.open) drawer.close(); },
+      onClose: () => openDrawer('pages'),
+    };
 
     function qrCard(label, url) {
       const card = h('div', { class: 'qr-card' });
@@ -928,6 +975,7 @@
         out.push(linkLine(baseUrl() + '/plan'));
         out.push(linkLine(baseUrl() + '/moderation'));
         out.push(linkLine(baseUrl() + '/cues'));
+        s.pages.forEach(pg => out.push(linkLine(pageUrl(pg))));
         const m = tr.meta || {};
         if (m.hostname) out.push(h('p', { class: 'help' }, t('Per Rechnername') + ': ', h('b', null, `http://${m.hostname}:${m.port}/control`)));
         out.push(h('p', { class: 'help' }, t('Klappt der Link nicht? Beim ersten Start fragt Windows nach der Firewall – „Private Netzwerke“ erlauben.')));

@@ -56,7 +56,8 @@
 
   /**
    * create(container, { layout }) → { update(ctx), root }
-   * ctx: { state, timer, now, layout, transparent, show:{clock,title,progress,next,notice} }
+   * ctx: { state, timer, now, layout, transparent, message, show:{clock,title,progress,next,notice} }
+   * message = the DSM overlay of the page this view sits on ({text, flash, visible} or null)
    */
   function create(container, opts) {
     const o = opts || {};
@@ -79,6 +80,19 @@
     const blk = el('div', 'dsp-blackout', r);
     const list = el('ol', 'dsp-list', r);
     let listKey = '';
+
+    // Digits are sized in container units for a condensed stage font. Where that font is
+    // missing (or the box is narrow) they could run past the edge – shrink them to fit.
+    let fitKey = '';
+    function fitTime() {
+      const k = time.textContent.length + '|' + r.clientWidth + 'x' + r.clientHeight + '|' + r.dataset.layout + r.dataset.msg + r.dataset.weight;
+      if (k === fitKey) return;
+      fitKey = k;
+      time.style.fontSize = '';
+      const avail = Math.min(main.clientWidth, r.clientWidth) * 0.94;
+      const need = time.scrollWidth;
+      if (avail > 0 && need > avail) time.style.fontSize = (parseFloat(getComputedStyle(time).fontSize) * avail / need).toFixed(1) + 'px';
+    }
 
     function update(ctx) {
       const s = ctx.state;
@@ -151,6 +165,7 @@
       setAttr(r, 'data-blackout', s.blackout && !o.tile ? 1 : 0);
       setAttr(r, 'data-weight', p.weight);
       setText(time, txt);
+      fitTime();
       setText(sub, subText);
 
       const showTitle = layout !== 'time' && (isSched || (ctx.show ? ctx.show.title : p.showTitle));
@@ -172,7 +187,7 @@
       setText(notice, noticeText);
       setAttr(notice, 'data-on', noticeText ? 1 : 0);
 
-      const m = t.message;
+      const m = ctx.message || { text: '', flash: false, visible: false };
       const msgOn = m.visible && m.text && layout !== 'time' ? 1 : 0;
       setAttr(r, 'data-msg', msgOn);
       setAttr(msg, 'data-flash', msgOn && m.flash ? 1 : 0);
@@ -246,5 +261,5 @@
     return { update, root: r };
   }
 
-  root.ETDisplay = { create, FONT_STACKS, clockText };
+  root.ETDisplay = { create, FONT_STACKS, clockText, applyPreset };
 })(globalThis);

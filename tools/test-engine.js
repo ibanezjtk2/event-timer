@@ -16,7 +16,8 @@ function resolve(state, p, now) {
     return E.timerView(t, now)[parts[2]];
   }
   if (parts[0] === 'agendaView') return E.agendaView(state, now)[parts[1]];
-  return parts.reduce((v, k) => (v == null ? undefined : v[k]), state);
+  const v = parts.reduce((v, k) => (v == null ? undefined : v[k]), state);
+  return v === undefined ? null : v;
 }
 
 let failed = 0, passed = 0;
@@ -111,6 +112,11 @@ process.env.TZ = 'Europe/Berlin';
   old.talkQuick = ['Noch 5 Minuten', 'Bitte zum Ende kommen', 'Letzte Frage', 'Mikrofon ist aus', 'Fragen aus dem Saal nehmen', 'Pause wird verlängert'];
   E.normalize(old);
   check('migrated', ['mode' in old.agenda, 'holdAt' in old.agenda, old.talkQuick.length, old.talkQuick[1]], [false, false, 8, 'Noch 1 Minute']);
+  const old15 = E.defaultState();
+  old15.timers[0].message = { text: 'Bitte zum Ende', flash: true, visible: true };
+  delete old15.dsmMsg;
+  E.normalize(old15);
+  check('overlay migrated', [old15.dsmMsg.d1, 'message' in old15.timers[0]], [{ text: 'Bitte zum Ende', flash: true, visible: true }, false]);
   const own = E.defaultState(); own.talkQuick = ['Eigene']; E.normalize(own);
   check('own list kept', own.talkQuick, ['Eigene']);
 }

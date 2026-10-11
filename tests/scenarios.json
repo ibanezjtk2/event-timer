@@ -149,9 +149,8 @@
       {
         "at": 71000,
         "do": {
-          "type": "timer.message",
-          "id": "t1",
-          "text": "hi"
+          "type": "event.update",
+          "title": "hi"
         }
       },
       {
@@ -373,13 +372,17 @@
     ]
   },
   {
-    "name": "messages",
+    "name": "dsm messages",
     "steps": [
       {
         "at": 0,
         "do": {
-          "type": "timer.message",
-          "id": "t1",
+          "type": "dsm.message",
+          "pages": [
+            "d1",
+            "d1",
+            "x9"
+          ],
           "text": "  Bitte zum Ende  ",
           "flash": true
         }
@@ -387,45 +390,340 @@
       {
         "at": 0,
         "expect": {
-          "timers.0.message.text": "Bitte zum Ende",
-          "timers.0.message.visible": true,
-          "timers.0.message.flash": true
+          "dsmMsg.d1.text": "Bitte zum Ende",
+          "dsmMsg.d1.visible": true,
+          "dsmMsg.d1.flash": true,
+          "dsmMsg.x9": null
         }
       },
       {
         "at": 0,
         "do": {
-          "type": "timer.message",
-          "id": "t1",
+          "type": "dsm.message",
+          "pages": [
+            "d1"
+          ],
           "visible": false
         }
       },
       {
         "at": 0,
         "expect": {
-          "timers.0.message.visible": false
+          "dsmMsg.d1.visible": false,
+          "dsmMsg.d1.text": "Bitte zum Ende"
         }
       },
       {
         "at": 0,
         "do": {
-          "type": "timer.messageClear",
-          "id": "t1"
+          "type": "dsm.message",
+          "pages": [
+            "d2"
+          ],
+          "visible": true
+        },
+        "changed": false
+      },
+      {
+        "at": 0,
+        "do": {
+          "type": "dsm.message",
+          "pages": [
+            "nope"
+          ],
+          "text": "x"
+        },
+        "changed": false
+      },
+      {
+        "at": 0,
+        "do": {
+          "type": "dsm.message",
+          "pages": "d1",
+          "text": "x"
+        },
+        "changed": false
+      },
+      {
+        "at": 0,
+        "do": {
+          "type": "dsm.clear",
+          "pages": [
+            "d1"
+          ]
         }
       },
       {
         "at": 0,
         "expect": {
-          "timers.0.message.text": "",
-          "timers.0.message.flash": false
+          "dsmMsg.d1": null
         }
       },
       {
         "at": 0,
         "do": {
-          "type": "timer.message",
-          "id": "t9",
-          "text": "x"
+          "type": "dsm.clear",
+          "pages": [
+            "d1"
+          ]
+        },
+        "changed": false
+      },
+      {
+        "at": 0,
+        "do": {
+          "type": "dsm.message",
+          "pages": [
+            "d1",
+            "plan"
+          ],
+          "text": "A"
+        }
+      },
+      {
+        "at": 0,
+        "expect": {
+          "dsmMsg.plan.text": "A",
+          "dsmMsg.d1.visible": true
+        }
+      },
+      {
+        "at": 0,
+        "do": {
+          "type": "agenda.replace",
+          "items": [
+            {
+              "title": "X",
+              "durationMs": 60000
+            }
+          ]
+        }
+      },
+      {
+        "at": 0,
+        "do": {
+          "type": "agenda.next"
+        }
+      },
+      {
+        "at": 0,
+        "expect": {
+          "dsmMsg.d1": null,
+          "dsmMsg.plan": null
+        }
+      }
+    ]
+  },
+  {
+    "name": "pages",
+    "steps": [
+      {
+        "at": 0,
+        "do": {
+          "type": "page.save",
+          "route": "moderation",
+          "page": {
+            "kind": "mod",
+            "name": "  Moderation   Lea ",
+            "slug": "moderation-lea",
+            "layout": "two",
+            "slots": [
+              [
+                {
+                  "type": "timer",
+                  "opts": {
+                    "timer": "t2",
+                    "variant": "lower",
+                    "extra": 1
+                  }
+                },
+                {
+                  "type": "talkback"
+                },
+                {
+                  "type": "bogus"
+                }
+              ],
+              [
+                {
+                  "type": "request"
+                },
+                {
+                  "type": "clock",
+                  "opts": {
+                    "seconds": 0
+                  }
+                }
+              ]
+            ]
+          }
+        }
+      },
+      {
+        "at": 0,
+        "expect": {
+          "pages.0.id": "p1",
+          "pages.0.kind": "mod",
+          "pages.0.name": "Moderation Lea",
+          "pages.0.slug": "moderation-lea",
+          "pages.0.layout": "two",
+          "pages.0.slots.0.length": 2,
+          "pages.0.slots.0.0.id": "m2",
+          "pages.0.slots.0.0.opts.timer": "t2",
+          "pages.0.slots.0.0.opts.variant": "lower",
+          "pages.0.slots.0.0.opts.extra": null,
+          "pages.0.slots.0.1.type": "talkback",
+          "pages.0.slots.1.0.id": "m4",
+          "pages.0.slots.1.1.opts.seconds": false,
+          "routes.moderation": "p1"
+        }
+      },
+      {
+        "at": 0,
+        "do": {
+          "type": "dsm.message",
+          "pages": [
+            "d2"
+          ],
+          "text": "alt"
+        }
+      },
+      {
+        "at": 0,
+        "do": {
+          "type": "page.save",
+          "route": "2",
+          "page": {
+            "kind": "dsm",
+            "name": "DSM links",
+            "slug": "moderation-lea",
+            "layout": "weird",
+            "slots": [
+              [
+                {
+                  "type": "talkback"
+                },
+                {
+                  "type": "timer"
+                },
+                {
+                  "type": "message",
+                  "opts": {
+                    "page": "p1"
+                  }
+                }
+              ],
+              [
+                {
+                  "type": "agenda"
+                }
+              ]
+            ]
+          }
+        }
+      },
+      {
+        "at": 0,
+        "expect": {
+          "pages.1.id": "p6",
+          "pages.1.layout": "full",
+          "pages.1.slots.length": 1,
+          "pages.1.slots.0.length": 2,
+          "pages.1.slots.0.0.type": "timer",
+          "pages.1.slots.0.0.id": "m7",
+          "pages.1.slots.0.0.opts.timer": "t1",
+          "pages.1.slots.0.0.opts.variant": "full",
+          "pages.1.slots.0.1.opts.page": "p1",
+          "pages.1.slug": "moderation-lea-2",
+          "routes.2": "p6",
+          "dsmMsg.d2": null
+        }
+      },
+      {
+        "at": 0,
+        "do": {
+          "type": "page.save",
+          "route": "1",
+          "page": {
+            "id": "p1",
+            "kind": "dsm",
+            "name": "Mod",
+            "slug": "Bad Slug",
+            "layout": "one",
+            "slots": [
+              [
+                {
+                  "id": "m3",
+                  "type": "note"
+                },
+                {
+                  "id": "m3",
+                  "type": "agenda"
+                }
+              ]
+            ]
+          }
+        }
+      },
+      {
+        "at": 0,
+        "expect": {
+          "pages.0.kind": "mod",
+          "pages.0.layout": "one",
+          "pages.0.slug": "seite-1",
+          "pages.0.slots.0.0.id": "m3",
+          "pages.0.slots.0.1.id": "m9",
+          "routes.moderation": null,
+          "routes.1": null,
+          "pages.length": 2
+        }
+      },
+      {
+        "at": 0,
+        "do": {
+          "type": "dsm.message",
+          "pages": [
+            "p6",
+            "p1"
+          ],
+          "text": "Hallo"
+        }
+      },
+      {
+        "at": 0,
+        "expect": {
+          "dsmMsg.p6.text": "Hallo",
+          "dsmMsg.p1": null
+        }
+      },
+      {
+        "at": 0,
+        "do": {
+          "type": "page.remove",
+          "pageId": "p6"
+        }
+      },
+      {
+        "at": 0,
+        "expect": {
+          "routes.2": null,
+          "dsmMsg.p6": null,
+          "pages.length": 1
+        }
+      },
+      {
+        "at": 0,
+        "do": {
+          "type": "page.remove",
+          "pageId": "p6"
+        },
+        "changed": false
+      },
+      {
+        "at": 0,
+        "do": {
+          "type": "page.save",
+          "page": "x"
         },
         "changed": false
       }

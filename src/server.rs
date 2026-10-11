@@ -528,6 +528,12 @@ fn is_app_route(path: &str) -> bool {
             | "/uhr"
             | "/index.html"
     ) || (path.len() == 2 && (b'1'..=b'8').contains(&path.as_bytes()[1]))
+        // pages from modules: /p/<slug>
+        || (path.len() > 3
+            && path.starts_with("/p/")
+            && path[3..]
+                .bytes()
+                .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == b'-'))
         || (path.len() >= 7
             && (path.starts_with("/timer") || path.starts_with("/timer-"))
             && path
@@ -640,9 +646,11 @@ fn route(app: &App, req: &Request, loopback: bool) -> Response {
 
 // --------------------------------------------------------------- Companion
 
-fn timer_snapshot(t: &engine::Timer, now: i64) -> Json {
+fn timer_snapshot(st: &State, t: &engine::Timer, now: i64) -> Json {
     let v = timer_view(t, now);
     let slot = t.id[1..].parse::<i64>().unwrap_or(0);
+    let page = engine::dsm_page_for(st, &t.id[1..]);
+    let msg = st.dsm_message(&page);
     Json::obj()
         .with("id", &t.id)
         .with("slot", slot)
@@ -661,8 +669,9 @@ fn timer_snapshot(t: &engine::Timer, now: i64) -> Json {
                 format_ms(v.ms, t.kind == Kind::Countup)
             },
         )
-        .with("message", &t.message.text)
-        .with("messageVisible", t.message.visible)
+        // the overlay on this timer's DSM ("/N" or the page standing in for it)
+        .with("message", msg.map(|m| m.text.as_str()).unwrap_or(""))
+        .with("messageVisible", msg.map(|m| m.visible).unwrap_or(false))
 }
 
 fn companion(app: &App, req: &Request) -> Response {
@@ -700,7 +709,7 @@ fn companion(app: &App, req: &Request) -> Response {
             )
             .with(
                 "timers",
-                Json::Arr(st.timers.iter().map(|t| timer_snapshot(t, now)).collect()),
+                Json::Arr(st.timers.iter().map(|t| timer_snapshot(&st, t, now)).collect()),
             )
             .with(
                 "agenda",
@@ -763,12 +772,19 @@ fn companion(app: &App, req: &Request) -> Response {
             }
             let value = rest.first().and_then(|v| v.parse::<f64>().ok());
             let base = |t: &str| Json::obj().with("type", t).with("id", id.as_str());
+            // overlays go to the DSM page behind "/N" (since 1.6 they belong to pages, not timers)
+            let page = engine::dsm_page_for(&lock(&app.state), &id[1..]);
+            let dsm = |t: &str| {
+                Json::obj()
+                    .with("type", t)
+                    .with("pages", Json::Arr(vec![Json::from(page.as_str())]))
+            };
             let action = match (*cmd, value) {
                 ("start" | "pause" | "toggle" | "reset", _) => base(&format!("timer.{}", cmd)),
                 ("status", _) => return ok("status"),
-                ("clear-message", _) => base("timer.messageClear"),
+                ("clear-message", _) => dsm("dsm.clear"),
                 ("message", _) => {
-                    let mut a = base("timer.message")
+                    let mut a = dsm("dsm.message")
                         .with("text", query_param(&req.query, "text").unwrap_or_default());
                     if let Some(f) = query_param(&req.query, "flash") {
                         a.set("flash", f == "1" || f == "true");
@@ -777,12 +793,10 @@ fn companion(app: &App, req: &Request) -> Response {
                 }
                 ("flash", _) => {
                     let cur = lock(&app.state)
-                        .timers
-                        .iter()
-                        .find(|t| t.id == id)
-                        .map(|t| t.message.flash)
+                        .dsm_message(&page)
+                        .map(|m| m.flash)
                         .unwrap_or(false);
-                    base("timer.message").with("flash", !cur)
+                    dsm("dsm.message").with("flash", !cur)
                 }
                 ("add" | "subtract", Some(sec)) if sec.is_finite() => {
                     let sign = if *cmd == "subtract" { -1.0 } else { 1.0 };
