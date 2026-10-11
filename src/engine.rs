@@ -122,7 +122,6 @@ pub struct Timer {
     pub warn_ms: i64,
     pub crit_ms: i64,
     pub preset_id: String,
-    pub message: Message,
     pub segment_id: Option<String>,
 }
 
@@ -206,6 +205,254 @@ pub struct State {
     pub talk_quick: Vec<String>,
     pub talkback: Vec<Talk>,
     pub agenda: Agenda,
+    /// output pages built from modules
+    pub pages: Vec<Page>,
+    /// standard addresses ("moderation", "1"…"8") → custom page id
+    pub routes: Vec<(String, String)>,
+    /// DSM overlays per DSM page id ("d1"…"d8", "plan" or a custom page id)
+    pub dsm_msg: Vec<(String, Message)>,
+}
+
+// ------------------------------------------------------------------ pages
+
+pub const MAX_PAGES: usize = 16;
+const MAX_SLOT_MODULES: usize = 8;
+const ROUTE_KEYS: [&str; 9] = ["moderation", "1", "2", "3", "4", "5", "6", "7", "8"];
+
+/// One building block on a page; only the options of its type are kept.
+#[derive(Clone, Debug, PartialEq)]
+pub struct Module {
+    pub id: String,
+    pub typ: String,
+    pub timer: String,
+    pub variant: String,
+    pub seconds: bool,
+    pub page: String,
+}
+
+/// DSM page (display only) or presenter page ("mod", touch).
+#[derive(Clone, Debug, PartialEq)]
+pub struct Page {
+    pub id: String,
+    pub kind: String,
+    pub name: String,
+    pub slug: String,
+    pub layout: String,
+    pub slots: Vec<Vec<Module>>,
+}
+
+fn page_layouts(kind: &str) -> &'static [&'static str] {
+    if kind == "mod" {
+        &["two", "one"]
+    } else {
+        &["full", "side", "bottom"]
+    }
+}
+
+fn slot_count(layout: &str) -> usize {
+    match layout {
+        "side" | "bottom" | "two" => 2,
+        _ => 1,
+    }
+}
+
+/// DSMs are not touch screens: nothing interactive there.
+fn module_allowed(typ: &str, kind: &str) -> bool {
+    match typ {
+        "timer" | "clock" | "next" | "agenda" | "message" => true,
+        "note" | "talkback" | "request" => kind == "mod",
+        _ => false,
+    }
+}
+
+fn digits_id(s: &str, prefix: char) -> bool {
+    let b = s.as_bytes();
+    b.len() >= 2 && b.len() <= 10 && s.starts_with(prefix) && b[1..].iter().all(u8::is_ascii_digit)
+}
+
+fn valid_slug(s: &str) -> bool {
+    let b = s.as_bytes();
+    !b.is_empty()
+        && b.len() <= 40
+        && (b[0].is_ascii_lowercase() || b[0].is_ascii_digit())
+        && b.iter()
+            .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || *c == b'-')
+}
+
+impl Module {
+    pub fn to_json(&self) -> Json {
+        let opts = match self.typ.as_str() {
+            "timer" => Json::obj()
+                .with("timer", &self.timer)
+                .with("variant", &self.variant),
+            "clock" => Json::obj().with("seconds", self.seconds),
+            "message" => Json::obj().with("page", &self.page),
+            _ => Json::obj(),
+        };
+        Json::obj()
+            .with("id", &self.id)
+            .with("type", &self.typ)
+            .with("opts", opts)
+    }
+}
+
+impl Page {
+    pub fn to_json(&self) -> Json {
+        Json::obj()
+            .with("id", &self.id)
+            .with("kind", &self.kind)
+            .with("name", &self.name)
+            .with("slug", &self.slug)
+            .with("layout", &self.layout)
+            .with(
+                "slots",
+                Json::Arr(
+                    self.slots
+                        .iter()
+                        .map(|sl| Json::Arr(sl.iter().map(Module::to_json).collect()))
+                        .collect(),
+                ),
+            )
+    }
+}
+
+fn sanitize_module(seq: &mut i64, raw: &Json, kind: &str, used: &mut Vec<String>) -> Option<Module> {
+    let typ = raw.get("type").as_str()?;
+    if !module_allowed(typ, kind) {
+        return None;
+    }
+    let o = raw.get("opts");
+    let id = match raw.get("id").as_str() {
+        Some(id) if digits_id(id, 'm') && !used.iter().any(|u| u == id) => id.to_string(),
+        _ => {
+            *seq += 1;
+            format!("m{}", seq)
+        }
+    };
+    used.push(id.clone());
+    let timer = match o.get("timer").as_str() {
+        Some(t) if t.len() == 2 && t.starts_with('t') && (b'1'..=b'8').contains(&t.as_bytes()[1]) => t.to_string(),
+        _ => "t1".to_string(),
+    };
+    let page = match o.get("page").as_str() {
+        Some(p)
+            if !p.is_empty()
+                && p.len() <= 20
+                && p.bytes().all(|c| c.is_ascii_lowercase() || c.is_ascii_digit()) =>
+        {
+            p.to_string()
+        }
+        _ => String::new(),
+    };
+    Some(Module {
+        id,
+        typ: typ.to_string(),
+        timer,
+        variant: pick(o.get("variant"), &["full", "clock", "lower"], "full"),
+        seconds: if o.has("seconds") { o.get("seconds").truthy() } else { true },
+        page,
+    })
+}
+
+/// `old` = (id, kind) of the page being replaced; the kind never changes.
+fn sanitize_page(s: &mut State, raw: &Json, old: Option<(String, String)>) -> Page {
+    let (id, kind) = match old {
+        Some(o) => o,
+        None => {
+            s.seq += 1;
+            (format!("p{}", s.seq), pick(raw.get("kind"), &["dsm", "mod"], "dsm"))
+        }
+    };
+    let mut name = text(raw.get("name"), 40);
+    if name.is_empty() {
+        name = if kind == "dsm" { "DSM" } else { "Moderation" }.to_string();
+    }
+    let want = match raw.get("slug").as_str() {
+        Some(sl) if valid_slug(sl) => sl.to_string(),
+        _ => format!("seite-{}", &id[1..]),
+    };
+    let mut slug = want.clone();
+    let mut n = 2;
+    while s.pages.iter().any(|p| p.id != id && p.slug == slug) {
+        slug = format!("{}-{}", want.chars().take(36).collect::<String>(), n);
+        n += 1;
+    }
+    let layouts = page_layouts(&kind);
+    let layout = pick(raw.get("layout"), layouts, layouts[0]);
+    let mut used = Vec::new();
+    let mut slots = Vec::new();
+    for i in 0..slot_count(&layout) {
+        let mut out = Vec::new();
+        if let Some(src) = raw
+            .get("slots")
+            .as_array()
+            .and_then(|a| a.get(i))
+            .and_then(Json::as_array)
+        {
+            for m in src {
+                if out.len() >= MAX_SLOT_MODULES {
+                    break;
+                }
+                if let Some(md) = sanitize_module(&mut s.seq, m, &kind, &mut used) {
+                    out.push(md);
+                }
+            }
+        }
+        slots.push(out);
+    }
+    Page { id, kind, name, slug, layout, slots }
+}
+
+/// route "" removes this page's standard address; "moderation" needs a presenter page, "1"…"8" a DSM.
+fn set_route(s: &mut State, page_id: &str, kind: &str, route: &Json) {
+    s.routes.retain(|(_, v)| v != page_id);
+    let Some(r) = route.as_str() else { return };
+    if !ROUTE_KEYS.contains(&r) || (r == "moderation") != (kind == "mod") {
+        return;
+    }
+    s.routes.retain(|(k, _)| k != r);
+    s.routes.push((r.to_string(), page_id.to_string()));
+    // the built-in /N is hidden behind this page now – its overlay must not pop up again later
+    if r != "moderation" {
+        let hidden = format!("d{}", r);
+        s.dsm_msg.retain(|(k, _)| *k != hidden);
+    }
+}
+
+fn is_dsm_target(s: &State, id: &str) -> bool {
+    (id.len() == 2 && id.starts_with('d') && (b'1'..=b'8').contains(&id.as_bytes()[1]))
+        || id == "plan"
+        || s.pages.iter().any(|p| p.id == id && p.kind == "dsm")
+}
+
+/// valid, de-duplicated DSM page ids from an action
+fn dsm_ids(s: &State, list: &Json) -> Vec<String> {
+    let mut out: Vec<String> = Vec::new();
+    if let Some(l) = list.as_array() {
+        for v in l.iter().take(32) {
+            if let Some(id) = v.as_str() {
+                if !out.iter().any(|x| x == id) && is_dsm_target(s, id) {
+                    out.push(id.to_string());
+                }
+            }
+        }
+    }
+    out
+}
+
+/// The DSM page behind "/N": its standard page or the built-in "dN".
+pub fn dsm_page_for(s: &State, n: &str) -> String {
+    s.routes
+        .iter()
+        .find(|(k, _)| k == n)
+        .map(|(_, v)| v.clone())
+        .unwrap_or_else(|| format!("d{}", n))
+}
+
+impl State {
+    pub fn dsm_message(&self, page: &str) -> Option<&Message> {
+        self.dsm_msg.iter().find(|(k, _)| k == page).map(|(_, m)| m)
+    }
 }
 
 fn new_timer(slot: usize) -> Timer {
@@ -223,7 +470,6 @@ fn new_timer(slot: usize) -> Timer {
         warn_ms: 2 * 60 * 1000,
         crit_ms: 60 * 1000,
         preset_id: "stage".into(),
-        message: Message::default(),
         segment_id: None,
     }
 }
@@ -324,6 +570,9 @@ impl Default for State {
             requests: Vec::new(),
             talk_quick: DEFAULT_TALK.iter().map(|s| s.to_string()).collect(),
             talkback: Vec::new(),
+            pages: Vec::new(),
+            routes: Vec::new(),
+            dsm_msg: Vec::new(),
             agenda: Agenda {
                 timer_id: "t1".into(),
                 planned_start: String::new(),
@@ -815,7 +1064,8 @@ fn load_segment(s: &mut State, index: i64, now: i64) {
     t.running = false;
     t.since = None;
     t.segment_id = Some(seg_id);
-    t.message = Message::default();
+    // a new slot starts clean: overlays for the previous speaker go away
+    s.dsm_msg.clear();
     if s.agenda.auto_start {
         start_timer(s, ti, now);
     }
@@ -995,24 +1245,76 @@ fn apply_inner(s: &mut State, kind: &str, a: &Json, now: i64) -> bool {
             t.base_ms = 0;
             true
         }
-        "timer.message" => {
-            let i = timer!();
-            let m = &mut s.timers[i].message;
-            if a.has("text") {
-                m.text = js_string(a.get("text")).trim().chars().take(280).collect();
-                m.visible = !m.text.is_empty();
+        "dsm.message" => {
+            let ids = dsm_ids(s, a.get("pages"));
+            let mut changed = false;
+            for id in ids {
+                let pos = match s.dsm_msg.iter().position(|(k, _)| *k == id) {
+                    Some(p) => p,
+                    None => {
+                        if !a.has("text") {
+                            continue;
+                        }
+                        s.dsm_msg.push((id, Message::default()));
+                        s.dsm_msg.len() - 1
+                    }
+                };
+                let m = &mut s.dsm_msg[pos].1;
+                if a.has("text") {
+                    m.text = js_string(a.get("text")).trim().chars().take(280).collect();
+                    m.visible = !m.text.is_empty();
+                }
+                if a.has("flash") {
+                    m.flash = a.get("flash").truthy();
+                }
+                if a.has("visible") {
+                    m.visible = a.get("visible").truthy() && !m.text.is_empty();
+                }
+                changed = true;
             }
-            if a.has("flash") {
-                m.flash = a.get("flash").truthy();
+            changed
+        }
+        "dsm.clear" => {
+            let ids = dsm_ids(s, a.get("pages"));
+            let before = s.dsm_msg.len();
+            s.dsm_msg.retain(|(k, _)| !ids.contains(k));
+            s.dsm_msg.len() != before
+        }
+        "page.save" => {
+            let raw = a.get("page");
+            if !matches!(raw, Json::Obj(_)) {
+                return false;
             }
-            if a.has("visible") {
-                m.visible = a.get("visible").truthy() && !m.text.is_empty();
+            let pos = raw
+                .get("id")
+                .as_str()
+                .and_then(|id| s.pages.iter().position(|p| p.id == id));
+            if pos.is_none() && s.pages.len() >= MAX_PAGES {
+                return false;
+            }
+            let old = pos.map(|i| (s.pages[i].id.clone(), s.pages[i].kind.clone()));
+            let pg = sanitize_page(s, raw, old);
+            let (pid, kind) = (pg.id.clone(), pg.kind.clone());
+            match pos {
+                Some(i) => s.pages[i] = pg,
+                None => s.pages.push(pg),
+            }
+            if a.has("route") {
+                set_route(s, &pid, &kind, a.get("route"));
             }
             true
         }
-        "timer.messageClear" => {
-            let i = timer!();
-            s.timers[i].message = Message::default();
+        "page.remove" => {
+            let Some(id) = a.get("pageId").as_str().map(String::from) else {
+                return false;
+            };
+            let before = s.pages.len();
+            s.pages.retain(|p| p.id != id);
+            if s.pages.len() == before {
+                return false;
+            }
+            s.routes.retain(|(_, v)| *v != id);
+            s.dsm_msg.retain(|(k, _)| *k != id);
             true
         }
         "blackout.set" => {
@@ -1468,13 +1770,6 @@ impl Timer {
             .with("warnMs", self.warn_ms)
             .with("critMs", self.crit_ms)
             .with("presetId", &self.preset_id)
-            .with(
-                "message",
-                Json::obj()
-                    .with("text", &self.message.text)
-                    .with("flash", self.message.flash)
-                    .with("visible", self.message.visible),
-            )
             .with("segmentId", self.segment_id.clone())
     }
 
@@ -1518,12 +1813,6 @@ impl Timer {
         if let Some(v) = j.get("presetId").as_str() {
             t.preset_id = v.to_string();
         }
-        let m = j.get("message");
-        t.message = Message {
-            text: m.get("text").as_str().unwrap_or("").to_string(),
-            flash: m.get("flash").truthy(),
-            visible: m.get("visible").truthy(),
-        };
         t.segment_id = j.get("segmentId").as_str().map(String::from);
         t
     }
@@ -1684,6 +1973,36 @@ impl State {
                         Json::Arr(self.agenda.items.iter().map(Item::to_json).collect()),
                     ),
             )
+            .with(
+                "pages",
+                Json::Arr(self.pages.iter().map(Page::to_json).collect()),
+            )
+            .with(
+                "routes",
+                Json::Obj(
+                    self.routes
+                        .iter()
+                        .map(|(k, v)| (k.clone(), Json::from(v.as_str())))
+                        .collect(),
+                ),
+            )
+            .with(
+                "dsmMsg",
+                Json::Obj(
+                    self.dsm_msg
+                        .iter()
+                        .map(|(k, m)| {
+                            (
+                                k.clone(),
+                                Json::obj()
+                                    .with("text", &m.text)
+                                    .with("flash", m.flash)
+                                    .with("visible", m.visible),
+                            )
+                        })
+                        .collect(),
+                ),
+            )
     }
 
     /// Tolerant loader for persisted state: anything missing or broken
@@ -1811,6 +2130,55 @@ impl State {
         }
         let len = s.agenda.items.len() as i64;
         s.agenda.cursor = a.get("cursor").as_i64().unwrap_or(-1).clamp(-1, len);
+        if let Some(list) = j.get("pages").as_array() {
+            for pj in list {
+                if s.pages.len() >= MAX_PAGES {
+                    break;
+                }
+                let Some(id) = pj.get("id").as_str().filter(|id| digits_id(id, 'p')) else {
+                    continue;
+                };
+                if s.pages.iter().any(|p| p.id == id) {
+                    continue;
+                }
+                let kind = pick(pj.get("kind"), &["dsm", "mod"], "dsm");
+                let pg = sanitize_page(&mut s, pj, Some((id.to_string(), kind)));
+                s.pages.push(pg);
+            }
+        }
+        if let Json::Obj(items) = j.get("routes") {
+            for (k, v) in items {
+                if let Some(pid) = v.as_str() {
+                    let kind = s.pages.iter().find(|p| p.id == pid).map(|p| p.kind.clone());
+                    if let Some(kind) = kind {
+                        set_route(&mut s, pid, &kind, &Json::from(k.as_str()));
+                    }
+                }
+            }
+        }
+        let msg = |m: &Json| Message {
+            text: m.get("text").as_str().unwrap_or("").chars().take(280).collect(),
+            flash: m.get("flash").truthy(),
+            visible: m.get("visible").truthy(),
+        };
+        if let Json::Obj(items) = j.get("dsmMsg") {
+            for (k, m) in items {
+                if is_dsm_target(&s, k) && !s.dsm_msg.iter().any(|(x, _)| x == k) {
+                    s.dsm_msg.push((k.clone(), msg(m)));
+                }
+            }
+        } else if let Some(list) = j.get("timers").as_array() {
+            // up to 1.5.x the overlay belonged to the timer: timer N → DSM page dN
+            for tj in list {
+                let m = msg(tj.get("message"));
+                if let Some(id) = tj.get("id").as_str() {
+                    let page = format!("d{}", &id[1.min(id.len())..]);
+                    if !m.text.is_empty() && is_dsm_target(&s, &page) {
+                        s.dsm_msg.push((page, m));
+                    }
+                }
+            }
+        }
         s
     }
 }
@@ -1924,6 +2292,19 @@ mod tests {
             &json::parse(r#"{"type":"agenda.next"}"#).unwrap(),
             5,
         );
+        apply(
+            &mut s,
+            &json::parse(r#"{"type":"page.save","route":"3","page":{"kind":"dsm","name":"DSM links","slug":"dsm-links","layout":"side","slots":[[{"type":"timer","opts":{"timer":"t2"}}],[{"type":"agenda"},{"type":"clock","opts":{"seconds":false}}]]}}"#)
+                .unwrap(),
+            0,
+        );
+        apply(
+            &mut s,
+            &json::parse(r#"{"type":"dsm.message","pages":["d1","p3"],"text":"Hallo","flash":true}"#).unwrap(),
+            0,
+        );
+        assert_eq!(s.pages.len(), 1);
+        assert_eq!(s.dsm_msg.len(), 2);
         let j = s.to_json();
         let back = State::from_json(&json::parse(&j.to_string()).unwrap());
         assert_eq!(back.to_json(), j);
@@ -1940,6 +2321,13 @@ mod tests {
         for gone in ["\"mode\"", "shiftMs", "holdAt", "extraMs", "rippleMs"] {
             assert!(!out.contains(gone), "{gone} still saved");
         }
+        // 1.5.x: the overlay sat on the timer → now on DSM page dN
+        let old15 = r#"{"timers":[{"id":"t1","message":{"text":"Bitte zum Ende","flash":true,"visible":true}},{"id":"t2","message":{"text":"","visible":false}}]}"#;
+        let s15 = State::from_json(&json::parse(old15).unwrap());
+        assert_eq!(s15.dsm_msg.len(), 1);
+        let m = s15.dsm_message("d1").unwrap();
+        assert!(m.visible && m.flash && m.text == "Bitte zum Ende");
+        assert!(!s15.to_json().get("timers").get("0").has("message"));
         // an edited list stays as it is
         let own = State::from_json(&json::parse(r#"{"talkQuick":["Eigene"]}"#).unwrap());
         assert_eq!(own.talk_quick, vec!["Eigene".to_string()]);

@@ -94,7 +94,6 @@
       warnMs: 2 * 60 * 1000,
       critMs: 60 * 1000,
       presetId: 'stage',
-      message: { text: '', flash: false, visible: false },
       segmentId: null,
     };
   }
@@ -114,6 +113,12 @@
       talkQuick: DEFAULT_TALK.slice(),
       talkback: [],
       agenda: { timerId: 't1', plannedStart: '', autoStart: true, cursor: -1, items: [] },
+      // output pages built from modules (DSM = display only, mod = presenter, touch)
+      pages: [],
+      // standard addresses: "moderation" | "1"…"8" → custom page id
+      routes: {},
+      // DSM overlays per DSM page id ("d1"…"d8", "plan" or a custom page id)
+      dsmMsg: {},
     };
   }
 
@@ -298,8 +303,78 @@
     t.running = false;
     t.since = null;
     t.segmentId = seg.id;
-    t.message = { text: '', flash: false, visible: false };
+    // a new slot starts clean: overlays for the previous speaker go away
+    s.dsmMsg = {};
     if (a.autoStart) startTimer(s, t, now);
+  }
+
+  // ---------- pages ----------
+  const MAX_PAGES = 16;
+  const MAX_SLOT_MODULES = 8;
+  const PAGE_LAYOUTS = { dsm: ['full', 'side', 'bottom'], mod: ['two', 'one'] };
+  const SLOT_COUNT = { full: 1, side: 2, bottom: 2, one: 1, two: 2 };
+  /** module type → page kinds that may use it (DSMs are not touch screens: nothing interactive there) */
+  const MODULE_KINDS = {
+    timer: ['dsm', 'mod'], clock: ['dsm', 'mod'], next: ['dsm', 'mod'], agenda: ['dsm', 'mod'], message: ['dsm', 'mod'],
+    note: ['mod'], talkback: ['mod'], request: ['mod'],
+  };
+  const ROUTE_KEYS = ['moderation', '1', '2', '3', '4', '5', '6', '7', '8'];
+  const SLUG = /^[a-z0-9][a-z0-9-]{0,39}$/;
+
+  function sanitizeModule(s, raw, kind, used) {
+    if (!raw || typeof raw !== 'object' || !Object.prototype.hasOwnProperty.call(MODULE_KINDS, raw.type) || !MODULE_KINDS[raw.type].includes(kind)) return null;
+    const o = raw.opts && typeof raw.opts === 'object' ? raw.opts : {};
+    let id = typeof raw.id === 'string' && /^m\d{1,9}$/.test(raw.id) && !used.has(raw.id) ? raw.id : 'm' + (++s.seq);
+    used.add(id);
+    let opts = {};
+    if (raw.type === 'timer') opts = { timer: typeof o.timer === 'string' && /^t[1-8]$/.test(o.timer) ? o.timer : 't1', variant: pick(o.variant, ['full', 'clock', 'lower'], 'full') };
+    else if (raw.type === 'clock') opts = { seconds: 'seconds' in o ? Boolean(o.seconds) : true };
+    else if (raw.type === 'message') opts = { page: typeof o.page === 'string' && /^[a-z0-9]{1,20}$/.test(o.page) ? o.page : '' };
+    return { id, type: raw.type, opts };
+  }
+
+  function sanitizePage(s, raw, old) {
+    const id = old ? old.id : 'p' + (++s.seq);
+    const kind = old ? old.kind : pick(raw.kind, ['dsm', 'mod'], 'dsm');
+    const name = text(raw.name, 40) || (kind === 'dsm' ? 'DSM' : 'Moderation');
+    const want = typeof raw.slug === 'string' && SLUG.test(raw.slug) ? raw.slug : 'seite-' + id.slice(1);
+    let slug = want, n = 2;
+    while (s.pages.some(p => p.id !== id && p.slug === slug)) slug = want.slice(0, 36) + '-' + (n++);
+    const layout = pick(raw.layout, PAGE_LAYOUTS[kind], PAGE_LAYOUTS[kind][0]);
+    const used = new Set();
+    const slots = [];
+    for (let i = 0; i < SLOT_COUNT[layout]; i++) {
+      const src = Array.isArray(raw.slots) && Array.isArray(raw.slots[i]) ? raw.slots[i] : [];
+      const out = [];
+      for (const m of src) {
+        if (out.length >= MAX_SLOT_MODULES) break;
+        const mod = sanitizeModule(s, m, kind, used);
+        if (mod) out.push(mod);
+      }
+      slots.push(out);
+    }
+    return { id, kind, name, slug, layout, slots };
+  }
+
+  /** route "" removes this page's standard address; "moderation" needs a presenter page, "1"…"8" a DSM */
+  function setRoute(s, pg, route) {
+    for (const k of Object.keys(s.routes)) if (s.routes[k] === pg.id) delete s.routes[k];
+    if (!ROUTE_KEYS.includes(route)) return;
+    if ((route === 'moderation') !== (pg.kind === 'mod')) return;
+    s.routes[route] = pg.id;
+    // the built-in /N is hidden behind this page now – its overlay must not pop up again later
+    if (route !== 'moderation') delete s.dsmMsg['d' + route];
+  }
+
+  /** valid, de-duplicated DSM page ids from an action ("d1"…"d8", "plan", custom DSM pages) */
+  function dsmIds(s, list) {
+    if (!Array.isArray(list)) return [];
+    const out = [];
+    for (const id of list.slice(0, 32)) {
+      if (typeof id !== 'string' || out.includes(id)) continue;
+      if (/^d[1-8]$/.test(id) || id === 'plan' || s.pages.some(p => p.id === id && p.kind === 'dsm')) out.push(id);
+    }
+    return out;
   }
 
   // ---------- reducer ----------
@@ -397,18 +472,48 @@
         t.baseMs = 0;
         return true;
       }
-      case 'timer.message': {
-        if (!t) return false;
-        const m = t.message;
-        if ('text' in a) { m.text = String(a.text == null ? '' : a.text).trim().slice(0, 280); m.visible = m.text.length > 0; }
-        if ('flash' in a) m.flash = Boolean(a.flash);
-        if ('visible' in a) m.visible = Boolean(a.visible) && m.text.length > 0;
+      // ----- DSM overlays: one per DSM page, sent to an explicit list of pages
+      case 'dsm.message': {
+        const ids = dsmIds(s, a.pages);
+        if (!ids.length) return false;
+        let changed = false;
+        for (const id of ids) {
+          let m = s.dsmMsg[id];
+          if (!m) {
+            if (!('text' in a)) continue;
+            m = s.dsmMsg[id] = { text: '', flash: false, visible: false };
+          }
+          if ('text' in a) { m.text = String(a.text == null ? '' : a.text).trim().slice(0, 280); m.visible = m.text.length > 0; }
+          if ('flash' in a) m.flash = Boolean(a.flash);
+          if ('visible' in a) m.visible = Boolean(a.visible) && m.text.length > 0;
+          changed = true;
+        }
+        return changed;
+      }
+      case 'dsm.clear': {
+        let changed = false;
+        for (const id of dsmIds(s, a.pages)) if (s.dsmMsg[id]) { delete s.dsmMsg[id]; changed = true; }
+        return changed;
+      }
+
+      // ----- pages from modules
+      case 'page.save': {
+        if (!a.page || typeof a.page !== 'object' || Array.isArray(a.page)) return false;
+        const old = s.pages.find(p => p.id === a.page.id);
+        if (!old && s.pages.length >= MAX_PAGES) return false;
+        const pg = sanitizePage(s, a.page, old);
+        if (old) s.pages[s.pages.indexOf(old)] = pg; else s.pages.push(pg);
+        if ('route' in a) setRoute(s, pg, a.route);
         return true;
       }
-      case 'timer.messageClear':
-        if (!t) return false;
-        t.message = { text: '', flash: false, visible: false };
+      case 'page.remove': {
+        const pg = s.pages.find(p => p.id === a.pageId);
+        if (!pg) return false;
+        s.pages = s.pages.filter(p => p !== pg);
+        for (const k of Object.keys(s.routes)) if (s.routes[k] === pg.id) delete s.routes[k];
+        delete s.dsmMsg[pg.id];
         return true;
+      }
 
       case 'blackout.set': s.blackout = Boolean(a.value); return true;
       case 'blackout.toggle': s.blackout = !s.blackout; return true;
@@ -723,6 +828,12 @@
   /** Fills fields added in later versions (older saved standalone shows). */
   function normalize(st) {
     const d = defaultState();
+    // 1.6: DSM overlays belong to DSM pages, not to timers (timer N → page dN)
+    if (!st.dsmMsg || typeof st.dsmMsg !== 'object') {
+      st.dsmMsg = {};
+      (st.timers || []).forEach(t => { if (t.message && t.message.text) st.dsmMsg['d' + t.id.slice(1)] = { text: t.message.text, flash: Boolean(t.message.flash), visible: Boolean(t.message.visible) }; });
+    }
+    (st.timers || []).forEach(t => { delete t.message; });
     for (const k of Object.keys(d)) if (!(k in st)) st[k] = clone(d[k]);
     for (const k of Object.keys(d.agenda)) if (!(k in st.agenda)) st.agenda[k] = clone(d.agenda[k]);
     // built-in designs always come fresh from this version; custom ones are kept
@@ -776,7 +887,7 @@
   }
 
   const api = {
-    MAX_TIMERS, BUILTIN_PRESETS, FONTS, KINDS,
+    MAX_TIMERS, BUILTIN_PRESETS, FONTS, KINDS, MAX_PAGES, PAGE_LAYOUTS, SLOT_COUNT, MODULE_KINDS, ROUTE_KEYS, SLUG,
     defaultState, apply, timerView, agendaView, planView, runView, cueView, normalize, toHHMM, isStatic, rawValue, formatMs, parseDuration, clone,
   };
   root.ETEngine = api;

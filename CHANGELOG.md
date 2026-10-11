@@ -2,6 +2,27 @@
 
 Alle Änderungen an Event Timer, neueste zuerst. Versionen nach [Semantic Versioning](https://semver.org/lang/de/): PATCH = Fehlerbehebung, MINOR = neue Funktionen (Bestehendes läuft weiter), MAJOR = etwas Bestehendes ändert sich.
 
+## 1.6.0-beta.1 – 2026-10-11
+
+Erste Testversion von 1.6. Bitte in einem Probelauf testen, noch nicht bei einer echten Veranstaltung.
+
+### Neu
+- **Seiten aus Modulen** unter *Menü → Seiten*: eigene DSM- und Moderationsseiten mit Layout, Modulen, Live-Vorschau (Bildschirm, iPad, Handy) und **„Übernehmen“** – vorher geht nichts live. Jede Seite hat eine Adresse `/p/<name>` und einen QR-Code.
+- **DSM-Seiten** sind reine Anzeige: Timer, Uhr, Nächster Punkt, Ablaufplan, Einblendung. **Moderationsseiten** bekommen alle Module, dazu Hinweis, Von der Regie und An die Regie.
+- **„Als Standard für“**: eine eigene Seite ersetzt `/moderation` oder `/1` … `/8` – ohne neuen QR-Code.
+- Modul **Ablaufplan** auf dem DSM: ganzer Ablauf mit Planzeiten, laufender Punkt mit Balken und Restzeit, gelb bei Vorwarnung, rot bei Kritisch.
+- Regie: Panel **„An DSM“** (gelb) mit *Alle DSMs* oder gezielt einem DSM, Status „LIVE auf DSM“ pro Ziel.
+
+### Geändert
+- **Einblendungen gehören jetzt zum DSM, nicht mehr zum Timer.** Bestehende Einblendungen werden beim ersten Start übernommen (Timer N → DSM `/N`). Mit „Nächster Punkt“ verschwinden wie bisher alle Einblendungen.
+- Das Timer-Panel regelt nur noch die Zeit. Talkback heißt jetzt **„An Moderation“** (blau), Meldungen stehen als **„Von Moderation“** (rot) in der Alarmzone.
+- Die eingebaute Seite `/moderation` ist neu aufgebaut: links Restzeit, Hinweis und Programm, rechts „Von der Regie“ und „An die Regie“. DSM-Einblendungen zeigt sie nicht mehr.
+- `/plan` ist jetzt eine Seite aus Timer und Ablaufplan.
+- Große Ziffern werden verkleinert, wenn sie nicht in ihren Bereich passen (z. B. auf Rechnern ohne schmale Schrift).
+
+### Für Companion
+- `timerN/message`, `clear-message` und `flash` steuern die Einblendung auf dem DSM hinter `/N`.
+
 ## 1.5.3 – 2026-10-11
 
 ### Geändert

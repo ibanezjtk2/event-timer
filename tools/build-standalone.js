@@ -15,13 +15,13 @@ let html = fs.readFileSync(path.join(web, 'index.html'), 'utf8');
 const inline = (re, fn) => { html = html.replace(re, (...m) => fn(...m)); };
 const safeScript = s => s.replace(/<\/script/gi, '<\\/script');
 
-inline(/<link rel="stylesheet" href="([^"]+)">/g, (_, href) => `<style>\n${fs.readFileSync(path.join(web, href), 'utf8')}\n</style>`);
-inline(/<script src="([^"]+)"><\/script>/g, (_, src) => `<script>\n${safeScript(fs.readFileSync(path.join(web, src), 'utf8'))}\n</script>`);
+inline(/<link rel="stylesheet" href="([^"]+)">/g, (_, href) => `<style>\n${fs.readFileSync(path.join(web, href.replace(/^\//, '')), 'utf8')}\n</style>`);
+inline(/<script src="([^"]+)"><\/script>/g, (_, src) => `<script>\n${safeScript(fs.readFileSync(path.join(web, src.replace(/^\//, '')), 'utf8'))}\n</script>`);
 const svgIcon = 'data:image/svg+xml;base64,' + fs.readFileSync(path.join(web, 'icon.svg')).toString('base64');
 const pngIcon = 'data:image/png;base64,' + fs.readFileSync(path.join(web, 'icon-180.png')).toString('base64');
 html = html
-  .replace('href="icon.svg"', `href="${svgIcon}"`)
-  .replace('href="icon-180.png"', `href="${pngIcon}"`)
+  .replace('href="/icon.svg"', `href="${svgIcon}"`)
+  .replace('href="/icon-180.png"', `href="${pngIcon}"`)
   .replace(/<link rel="manifest"[^>]*>\n?/, '')
   .replace('<title>Event Timer</title>', '<title>Event Timer</title>\n<script>window.ET_STANDALONE = true; window.ET_VERSION = ' + JSON.stringify(version) + ';</script>');
 

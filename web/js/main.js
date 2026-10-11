@@ -7,25 +7,41 @@
   const { h, icon, t } = root.ETUI;
   const standalone = root.ET_STANDALONE === true || location.protocol === 'file:';
 
+  /**
+   * Pages (built from modules): /p/<slug>, /moderation, /1…/8, /plan, /uhr.
+   * Old display links with ?layout=… and /agenda keep the classic single-timer view.
+   */
   function parseRoute() {
     if (standalone || location.hash.length > 1) {
       const raw = location.hash.replace(/^#\/?/, '');
       const [view, q] = raw.split('?');
       const params = new URLSearchParams(q || '');
-      if (['display', 'agenda', 'clock', 'plan'].includes(view)) return { view: 'display', params, layout: view === 'display' ? params.get('layout') : view === 'clock' ? 'time' : view };
-      if (view === 'moderation' || view === 'cues') return { view, params };
+      const slug = view.match(/^p\/([a-z0-9-]+)$/);
+      if (slug) return { view: 'page', slug: slug[1], params };
+      if (view === 'display') return params.get('layout') ? { view: 'display', params, layout: params.get('layout') } : { view: 'page', route: /^[1-8]$/.test(params.get('t') || '') ? params.get('t') : '1', params };
+      if (view === 'agenda') return { view: 'display', params, layout: 'agenda' };
+      if (view === 'plan') return { view: 'page', route: 'plan', params };
+      if (view === 'clock' || view === 'uhr') return { view: 'page', route: 'uhr', params };
+      if (view === 'moderation') return { view: 'page', route: 'moderation', params };
+      if (view === 'cues') return { view, params };
       if (!standalone && view === '') return { view: 'home', params };
       return { view: 'control', params };
     }
     const p = location.pathname.replace(/\/+$/, '') || '/';
     const params = new URLSearchParams(location.search);
+    const slug = p.match(/^\/p\/([a-z0-9-]+)$/);
+    if (slug) return { view: 'page', slug: slug[1], params };
     const short = p.match(/^\/(?:timer-?)?([1-8])$/);
-    if (short) { params.set('t', short[1]); return { view: 'display', params, layout: params.get('layout') }; }
-    if (p === '/display') return { view: 'display', params, layout: params.get('layout') };
+    if (short) {
+      params.set('t', short[1]);
+      return params.get('layout') ? { view: 'display', params, layout: params.get('layout') } : { view: 'page', route: short[1], params };
+    }
+    if (p === '/display') return params.get('layout') ? { view: 'display', params, layout: params.get('layout') } : { view: 'page', route: /^[1-8]$/.test(params.get('t') || '') ? params.get('t') : '1', params };
     if (p === '/agenda') return { view: 'display', params, layout: 'agenda' };
-    if (p === '/moderation' || p === '/cues') return { view: p.slice(1), params };
-    if (p === '/plan') return { view: 'display', params, layout: 'plan' };
-    if (p === '/clock' || p === '/uhr') return { view: 'display', params, layout: 'time' };
+    if (p === '/moderation') return { view: 'page', route: 'moderation', params };
+    if (p === '/cues') return { view: 'cues', params };
+    if (p === '/plan') return { view: 'page', route: 'plan', params };
+    if (p === '/clock' || p === '/uhr') return { view: 'page', route: 'uhr', params };
     if (p === '/control') return { view: 'control', params };
     return { view: 'home', params };
   }
@@ -42,7 +58,7 @@
     document.documentElement.lang = root.ETUI.lang;
     if (r.view === 'control') { document.title = 'Event Timer – ' + t('Regie'); cleanup = root.ETControl.mount(app, tr); }
     else if (r.view === 'display') cleanup = mountDisplay(r);
-    else if (r.view === 'moderation') cleanup = root.ETStage.mountModeration(app, tr, r.params);
+    else if (r.view === 'page') cleanup = root.ETPages.mountPage(app, tr, r);
     else if (r.view === 'cues') cleanup = root.ETStage.mountCues(app, tr);
     else mountHome();
   }
@@ -51,6 +67,7 @@
   function mountDisplay(r) {
     const p = r.params;
     const layout = ['full', 'clock', 'lower', 'agenda', 'time', 'plan'].includes(r.layout) ? r.layout : 'full';
+    document.body.dataset.view = layout === 'agenda' ? 'agenda' : 'display';
     const seconds = p.get('sec') !== '0';
     const slot = p.get('t');
     const transparent = p.get('bg') === 'transparent';
@@ -90,7 +107,8 @@
         if (!tm && layout === 'agenda') tm = s.timers.find(x => x.id === s.agenda.timerId) || s.timers[0];
         document.title = (tm ? tm.name : 'Event Timer') + ' – Display';
       }
-      view.update({ state: s, timer: tm, now, wallNow: now, layout, transparent, seconds, i18n: t });
+      const msg = s && tm ? root.ETPages.overlayOf(s, root.ETPages.dsmPageFor(s, tm.id.slice(1))) : null;
+      view.update({ state: s, timer: tm, now, wallNow: now, layout, transparent, seconds, message: msg, i18n: t });
       if (tr.mode === 'server') {
         if (tr.status !== 'online') { offlineSince = offlineSince || Date.now(); } else offlineSince = null;
         offline.hidden = !chrome || !offlineSince || Date.now() - offlineSince < 2500;
@@ -125,6 +143,7 @@
         h('a', { href: '/agenda' }, h('b', null, t('Ablauf-Display')), h('span', null, 'Backstage · /agenda')),
         h('a', { href: '/clock' }, h('b', null, t('Uhr')), h('span', null, t('Nur Uhrzeit') + ' · /clock')),
         h('a', { href: '/moderation' }, h('b', null, t('Moderation')), h('span', null, t('Talkback und Meldungen') + ' · /moderation')),
+        ...(s ? s.pages : []).map(pg => h('a', { href: '/p/' + pg.slug }, h('b', null, pg.name), h('span', null, root.ETPages.KIND_NAMES[pg.kind] + ' · /p/' + pg.slug))),
         h('a', { href: '/cues' }, h('b', null, t('Cue-Display')), h('span', null, '/cues')));
     };
     const off = tr.subscribe(render);

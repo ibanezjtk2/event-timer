@@ -56,10 +56,11 @@ event-timer.local/1               # dasselbe, wenn „Ohne Portnummer (Port 80)�
 | Pfad | Zweck |
 |---|---|
 | `/control` | Regie |
-| `/1` … `/8` (auch `/timer1`) | DSM (Downstage-Monitor): Vollbild-Timer |
+| `/1` … `/8` (auch `/timer1`) | DSM (Downstage-Monitor): Vollbild-Timer – oder deine eigene DSM-Seite, wenn sie „Standard für /1“ ist |
+| `/p/<name>` | eigene Seite aus Modulen (*Menü → Seiten*), z. B. `/p/dsm-links` |
 | `/agenda` | Backstage-Display mit Ablaufplan, Abweichung und Ende-Prognose |
 | `/plan` | Ablaufplan für die Moderation: laufender Punkt mit Restzeit und Balken, ganzer Tagesablauf daneben |
-| `/moderation` | Handy/iPad der Moderation: Restzeit, Programm mit Hinweisen, Talkback von der Regie mit „Verstanden“, Schnellmeldungen an die Regie (ohne PIN). Auf dem iPad quer zweispaltig. |
+| `/moderation` | Handy/iPad der Moderation: Restzeit, Hinweis, Programm, „Von der Regie“ mit „Verstanden“, „An die Regie“ (ohne PIN). Auf dem iPad quer zweispaltig. Oder deine eigene Moderationsseite, wenn sie „Standard für /moderation“ ist. |
 | `/cues` | Cue-Liste groß für weitere Operatoren (Licht, Video, Ton) |
 | `/uhr` (auch `/clock`) | nur die Uhrzeit, sonst nichts (`?sec=0` ohne Sekunden) |
 | `/display?t=2&layout=clock` | Uhrzeit groß, Timer klein (alle Ansichten baut dir *Menü → Verbindung → Display-Link erstellen* mit Vorschau zusammen) |
@@ -73,7 +74,11 @@ Displays brauchen nie eine PIN, halten den Bildschirm wach (Wake Lock) und synch
 - **Bis zu 8 Timer**: Countdown, Count-up (mit optionalem Limit), Zielzeit („Beginn um 14:30“), **Uhrzeit** (schaltet den DSM in der Pause per Klick auf die Uhr) oder **Ablaufplan** (zeigt den laufenden Programmpunkt mit Restzeit und „Danach“, z. B. auf einem zweiten Display). *Set* setzt eine Dauer, *Set & Go* (⇧ ↵) startet sie sofort.
 - **Blinken bei Überzeit**: Der Bildschirm pulsiert rot, sobald die Zeit um ist. Abschaltbar pro Design.
 - **Ablaufplan**: Programmpunkte mit Titel, Sprecher*in und Dauer; *Nächster Punkt* lädt und startet den nächsten Programmpunkt. Zeigt die Abweichung vom Plan in Worten („4:50 vor Plan“), das voraussichtliche Ende und mit *Planbeginn* die Uhrzeit jedes Programmpunkts. Import per Copy & Paste (`Titel; Sprecher*in; Minuten`, auch direkt aus Excel).
-- **DSM-Einblendung** mit Schnellnachrichten und Blinken; der Status „LIVE auf DSM“ / „Ausgeblendet“ zeigt immer, was gerade auf dem Monitor steht.
+- **Drei klare Wege für Nachrichten**, jeder mit eigener Farbe und eigenem Platz:
+  - **An DSM** (gelb): Einblendung auf dem Bühnenmonitor, öffentlich, an *Alle DSMs* oder gezielt an einen. „LIVE auf DSM“ / „Ausgeblendet“ zeigt immer, was gerade wo steht.
+  - **An Moderation** (blau): Talkback, privat, mit „Verstanden“.
+  - **Von Moderation** (rot): Meldungen in der Alarmzone.
+- **Seiten aus Modulen**: DSM- und Moderationsseiten selbst zusammenstellen (siehe unten).
 - **Alarmzone**: Meldungen von der Bühne stehen fest oben unter der Kopfzeile und scrollen nie weg. Daneben die große Uhrzeit. Cues haben ihr eigenes, ruhiges Panel.
 - **Layout**: eine Spalte auf Handy/iPad, zwei am Laptop, ab 1600 px drei (Timer · Ablaufplan · Cues und Talkback). Seltene Timer-Einstellungen liegen eingeklappt unter *Optionen*.
 - **Designs**: 4 eingebaute (Stage, Daylight, Overlay zum Keying, Nur Ziffern) plus eigene, mit Live-Vorschau, frei pro Timer wählbar
@@ -101,12 +106,29 @@ Jeder Programmpunkt kann technische Cues haben, z. B. „Einspieler starten“ o
 - Die Zeiten zählen ab dem Moment, in dem der Programmpunkt per GO startet.
 - **`/cues`** zeigt die Liste groß, z. B. am Lichtpult – ebenso ruhig.
 
+## Seiten aus Modulen
+
+Unter **Menü → Seiten** stellst du eigene Seiten zusammen. Es gibt zwei Arten:
+
+| Art | Für | Module |
+|---|---|---|
+| **DSM** | Bühnenmonitore, Backstage-TV – nur Anzeige, kein Touch | Timer, Uhr, Nächster Punkt, Ablaufplan, Einblendung |
+| **Moderation** | Handy oder Tablet der Moderation | alle: zusätzlich Hinweis, Von der Regie, An die Regie (die Einblendung erscheint hier als Spiegel „Steht auf dem DSM“) |
+
+- **Anlegen:** *Neue DSM-Seite* / *Neue Moderationsseite* oder eine eingebaute Seite **kopieren**.
+- **Bearbeiten:** Layout wählen (DSM: Vollbild, Haupt + Seite, Haupt + Leiste unten; Moderation: zwei Spalten oder eine), mit **+ Modul** Module hinzufügen, mit ↑ ↓ sortieren, ⚙ für Einstellungen (welcher Timer, Darstellung, Sekunden), 🗑 entfernen. Rechts siehst du eine Live-Vorschau (Bildschirm, iPad quer/hoch, Handy).
+- **Übernehmen:** Bis dahin ist alles nur ein Entwurf. Erst danach geht die Seite live; geöffnete Geräte wechseln von selbst, ohne Neuladen.
+- **Adresse:** jede Seite hat `/p/<name>` und einen QR-Code. Mit **„Als Standard für“** ersetzt sie `/moderation` bzw. `/1` … `/8` – Lesezeichen und Kiosk-Browser bleiben, wie sie sind.
+- Bis zu 16 eigene Seiten, bis zu 8 Module pro Bereich. `/cues` bleibt eine feste Seite.
+
+Auf dem Handy steht offenes Talkback immer ganz oben und das Programm ganz unten; im iPad-Querformat stehen die Spalten nebeneinander, ohne dass die Seite scrollt.
+
 ## Talkback und Meldungen (Regie ↔ Moderation)
 
-Die Moderation öffnet **`/moderation`** auf dem Handy oder iPad. Sie sieht die eigene Restzeit, das ganze Programm (laufender Punkt mit Balken, im manuellen Modus auch „2:10 hinter Plan“), den **Hinweis** zum laufenden Punkt und die aktuelle DSM-Einblendung. Hinweise trägst du in der Regie beim Bearbeiten eines Programmpunkts ein (Feld „Hinweis für die Moderation“). Im iPad-Querformat steht links das Jetzt, rechts Knöpfe und Programm – ohne Scrollen.
+Die Moderation öffnet **`/moderation`** (oder ihre eigene Seite) auf dem Handy oder iPad. Die eingebaute Seite zeigt links Restzeit, Hinweis und Programm, rechts „Von der Regie“ und „An die Regie“. Hinweise trägst du in der Regie beim Bearbeiten eines Programmpunkts ein (Feld „Hinweis für die Moderation“). DSM-Einblendungen sieht die Moderation nur, wenn ihre Seite das Modul „Einblendung“ hat.
 
 **Regie → Moderation (Talkback)**
-- Im Panel *Talkback* per Preset („Noch 5 Minuten“, „Bitte strecken“, „Einspieler kommt“ …) oder Freitext senden.
+- Im Panel *An Moderation* per Preset („Noch 5 Minuten“, „Bitte strecken“, „Einspieler kommt“ …) oder Freitext senden.
 - Auf dem Handy erscheint die Nachricht groß und blau (mit Vibration) und dem Knopf **Verstanden**.
 - In der Regie steht danach „verstanden ✓ 14:32“. „Verstanden“ braucht keine PIN.
 
@@ -127,7 +149,7 @@ Modul **Generic HTTP**, GET-Requests (bei gesetzter PIN `?pin=…` anhängen):
 /api/companion/timer1/{start|pause|toggle|reset}
 /api/companion/timer1/add/60          /api/companion/timer1/subtract/30
 /api/companion/timer1/preset/10       (?start=1 startet sofort)
-/api/companion/timer1/message?text=Bitte%20zum%20Ende&flash=1
+/api/companion/timer1/message?text=Bitte%20zum%20Ende&flash=1   (Einblendung auf dem DSM hinter /1)
 /api/companion/timer1/{clear-message|flash}
 /api/companion/agenda/{next|prev|reset}   /api/companion/agenda/go/3
 /api/companion/blackout/{on|off|toggle}
@@ -161,6 +183,8 @@ src/server.rs   HTTP, WebSocket, PIN, API   tests/scenarios.json  gemeinsame Tes
 src/json.rs     JSON ohne Crates            web/js/control.js  Regie
 src/http.rs     HTTP/WebSocket-Protokoll    web/js/display.js  Display-Renderer (auch für die Kacheln)
 src/store.rs    Speichern                   web/js/qr.js       QR-Code-Encoder
+                                            web/js/pages.js    Seiten aus Modulen (DSM, Moderation)
+                                            web/js/pageeditor.js  Menü → Seiten, Seiten-Editor
 ```
 
 Die Web-Oberfläche wird beim Kompilieren ins Programm eingebettet.
