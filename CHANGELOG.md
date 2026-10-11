@@ -2,6 +2,16 @@
 
 Alle Änderungen an Event Timer, neueste zuerst. Versionen nach [Semantic Versioning](https://semver.org/lang/de/): PATCH = Fehlerbehebung, MINOR = neue Funktionen (Bestehendes läuft weiter), MAJOR = etwas Bestehendes ändert sich.
 
+## 1.5.3 – 2026-10-11
+
+### Geändert
+- **Cues ruhiger:** Cues stehen nicht mehr in der Alarmzone, sondern in ihrem eigenen Panel mit festem Platz. Fällige Cues sind gelb statt rot, nichts blinkt – auch nicht auf `/cues`. Cues haben keinen Ton. Die Alarmzone gehört allein den Meldungen von der Bühne.
+- **Neue Talkback-Presets:** Noch 5 Minuten · Noch 1 Minute · Bitte zum Ende kommen · Bitte strecken · Keine Fragen mehr · Einspieler kommt · Mikrofon ist aus · Technisches Problem – bitte überbrücken. Eine unveränderte alte Liste wird automatisch ersetzt, eigene Listen bleiben.
+- Die Timer-Art **„Ablaufplan“** und `/plan` folgen jetzt dem laufenden Ablauf (GO für GO) inklusive Pause und ± am verknüpften Timer.
+
+### Entfernt
+- Ablauf-Modus **„Automatisch nach Uhrzeit“** samt Hold, ±-Korrekturen und „Punkt jetzt beenden“. Der Ablauf läuft immer per GO; Beginn/Ende-Zeiten bleiben als Planzeiten. Gespeicherte Shows im alten Modus laufen beim ersten Start einfach manuell weiter.
+
 ## 1.5.2 – 2026-10-11
 
 ### Neu

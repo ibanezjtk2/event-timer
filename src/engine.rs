@@ -34,7 +34,18 @@ const DEFAULT_STAGE: [&str; 6] = [
     "Bitte Pause einlegen",
     "Alles okay",
 ];
-const DEFAULT_TALK: [&str; 6] = [
+const DEFAULT_TALK: [&str; 8] = [
+    "Noch 5 Minuten",
+    "Noch 1 Minute",
+    "Bitte zum Ende kommen",
+    "Bitte strecken",
+    "Keine Fragen mehr",
+    "Einspieler kommt",
+    "Mikrofon ist aus",
+    "Technisches Problem – bitte überbrücken",
+];
+/// talkback defaults up to 1.5.2 – an untouched old list is swapped for the new one
+const OLD_TALK: [&str; 6] = [
     "Noch 5 Minuten",
     "Bitte zum Ende kommen",
     "Letzte Frage",
@@ -59,7 +70,7 @@ pub enum Kind {
     Clock,
     /// shows the wall clock only
     Time,
-    /// follows the clock-driven run of show (rendered by the clients)
+    /// mirrors the running run of show (rendered by the clients)
     Schedule,
 }
 
@@ -138,9 +149,6 @@ pub struct Item {
     /// fixed clock times "HH:MM" (empty = follows the previous slot)
     pub start: String,
     pub end: String,
-    /// live corrections: this slot longer/shorter, and how much later everything after it runs
-    pub extra_ms: i64,
-    pub ripple_ms: i64,
     pub cues: Vec<Cue>,
     pub started_at: Option<i64>,
     pub ended_at: Option<i64>,
@@ -180,11 +188,6 @@ pub struct Agenda {
     pub timer_id: String,
     pub planned_start: String,
     pub auto_start: bool,
-    /// "manual" (Weiter-Knopf) or "clock" (follows the wall clock)
-    pub mode: String,
-    /// whole plan moved by this much; on hold the plan stands still since hold_at
-    pub shift_ms: i64,
-    pub hold_at: Option<i64>,
     pub cursor: i64,
     pub items: Vec<Item>,
 }
@@ -325,9 +328,6 @@ impl Default for State {
                 timer_id: "t1".into(),
                 planned_start: String::new(),
                 auto_start: true,
-                mode: "manual".into(),
-                shift_ms: 0,
-                hold_at: None,
                 cursor: -1,
                 items: vec![],
             },
@@ -770,8 +770,6 @@ fn sanitize_item(s: &mut State, it: &Json) -> Item {
         note: text(it.get("note"), 300),
         start: hhmm(it.get("start")),
         end: hhmm(it.get("end")),
-        extra_ms: 0,
-        ripple_ms: 0,
         cues: Vec::new(),
         started_at: None,
         ended_at: None,
@@ -1280,9 +1278,6 @@ fn apply_inner(s: &mut State, kind: &str, a: &Json, now: i64) -> bool {
             if a.has("autoStart") {
                 s.agenda.auto_start = a.get("autoStart").truthy();
             }
-            if let Some(m @ ("manual" | "clock")) = a.get("mode").as_str() {
-                s.agenda.mode = m.to_string();
-            }
             true
         }
         "agenda.replace" => {
@@ -1434,62 +1429,6 @@ fn apply_inner(s: &mut State, kind: &str, a: &Json, now: i64) -> bool {
             load_segment(s, target, now);
             true
         }
-        "agenda.adjust" => {
-            let ms = num(a.get("ms"), -12 * HOUR, 12 * HOUR, Some(0)).unwrap_or(0);
-            let iid = a.get("itemId").as_str().unwrap_or("");
-            let Some(it) = s.agenda.items.iter_mut().find(|x| x.id == iid) else {
-                return false;
-            };
-            if ms == 0 {
-                return false;
-            }
-            it.extra_ms = (it.extra_ms + ms).clamp(-DAY, DAY);
-            if a.get("ripple").truthy() {
-                it.ripple_ms = (it.ripple_ms + ms).clamp(-DAY, DAY);
-            }
-            true
-        }
-        "agenda.shift" => {
-            let ms = num(a.get("ms"), -DAY, DAY, Some(0)).unwrap_or(0);
-            if ms == 0 {
-                return false;
-            }
-            s.agenda.shift_ms = (s.agenda.shift_ms + ms).clamp(-DAY, DAY);
-            true
-        }
-        "agenda.hold" => {
-            if s.agenda.hold_at.is_some() {
-                return false;
-            }
-            s.agenda.hold_at = Some(now);
-            true
-        }
-        "agenda.resume" => {
-            let Some(held_since) = s.agenda.hold_at.take() else {
-                return false;
-            };
-            let ms = (now - held_since).clamp(0, DAY);
-            let after = a.get("mode").as_str() == Some("after");
-            let iid = a.get("itemId").as_str().unwrap_or("");
-            if let Some(it) = s.agenda.items.iter_mut().find(|x| x.id == iid) {
-                it.ripple_ms = (it.ripple_ms + ms).clamp(-DAY, DAY);
-                if !after {
-                    it.extra_ms = (it.extra_ms + ms).clamp(-DAY, DAY);
-                }
-            } else {
-                s.agenda.shift_ms = (s.agenda.shift_ms + ms).clamp(-DAY, DAY);
-            }
-            true
-        }
-        "agenda.clearAdjust" => {
-            s.agenda.shift_ms = 0;
-            s.agenda.hold_at = None;
-            for it in s.agenda.items.iter_mut() {
-                it.extra_ms = 0;
-                it.ripple_ms = 0;
-            }
-            true
-        }
         "agenda.reset" => {
             s.agenda.cursor = -1;
             for it in s.agenda.items.iter_mut() {
@@ -1622,8 +1561,6 @@ impl Item {
             .with("note", &self.note)
             .with("start", &self.start)
             .with("end", &self.end)
-            .with("extraMs", self.extra_ms)
-            .with("rippleMs", self.ripple_ms)
             .with(
                 "cues",
                 Json::Arr(
@@ -1652,8 +1589,6 @@ impl Item {
             note: j.get("note").as_str().unwrap_or("").to_string(),
             start: hhmm(j.get("start")),
             end: hhmm(j.get("end")),
-            extra_ms: j.get("extraMs").as_i64().unwrap_or(0).clamp(-DAY, DAY),
-            ripple_ms: j.get("rippleMs").as_i64().unwrap_or(0).clamp(-DAY, DAY),
             cues: j
                 .get("cues")
                 .as_array()
@@ -1743,9 +1678,6 @@ impl State {
                     .with("timerId", &self.agenda.timer_id)
                     .with("plannedStart", &self.agenda.planned_start)
                     .with("autoStart", self.agenda.auto_start)
-                    .with("mode", &self.agenda.mode)
-                    .with("shiftMs", self.agenda.shift_ms)
-                    .with("holdAt", self.agenda.hold_at)
                     .with("cursor", self.agenda.cursor)
                     .with(
                         "items",
@@ -1834,6 +1766,9 @@ impl State {
                 .filter_map(|x| x.as_str().map(String::from))
                 .take(12)
                 .collect();
+            if s.talk_quick.iter().map(String::as_str).eq(OLD_TALK.iter().copied()) {
+                s.talk_quick = DEFAULT_TALK.iter().map(|s| s.to_string()).collect();
+            }
         }
         if let Some(list) = j.get("talkback").as_array() {
             s.talkback = list
@@ -1867,11 +1802,6 @@ impl State {
         if a.has("autoStart") {
             s.agenda.auto_start = a.get("autoStart").truthy();
         }
-        if let Some(m @ ("manual" | "clock")) = a.get("mode").as_str() {
-            s.agenda.mode = m.to_string();
-        }
-        s.agenda.shift_ms = a.get("shiftMs").as_i64().unwrap_or(0).clamp(-DAY, DAY);
-        s.agenda.hold_at = a.get("holdAt").as_i64();
         if let Some(list) = a.get("items").as_array() {
             s.agenda.items = list
                 .iter()
@@ -1997,6 +1927,22 @@ mod tests {
         let j = s.to_json();
         let back = State::from_json(&json::parse(&j.to_string()).unwrap());
         assert_eq!(back.to_json(), j);
+    }
+
+    #[test]
+    fn migrates_old_shows() {
+        // 1.5.2 file: untouched talkback list, run of show "by the clock"
+        let old = r#"{"talkQuick":["Noch 5 Minuten","Bitte zum Ende kommen","Letzte Frage","Mikrofon ist aus","Fragen aus dem Saal nehmen","Pause wird verlängert"],
+            "agenda":{"mode":"clock","shiftMs":60000,"holdAt":5,"items":[{"id":"a1","title":"A","durationMs":60000,"extraMs":1000,"rippleMs":2000}]}}"#;
+        let s = State::from_json(&json::parse(old).unwrap());
+        assert_eq!(s.talk_quick, DEFAULT_TALK.iter().map(|x| x.to_string()).collect::<Vec<_>>());
+        let out = s.to_json().to_string();
+        for gone in ["\"mode\"", "shiftMs", "holdAt", "extraMs", "rippleMs"] {
+            assert!(!out.contains(gone), "{gone} still saved");
+        }
+        // an edited list stays as it is
+        let own = State::from_json(&json::parse(r#"{"talkQuick":["Eigene"]}"#).unwrap());
+        assert_eq!(own.talk_quick, vec!["Eigene".to_string()]);
     }
 
     #[test]

@@ -1,6 +1,6 @@
 [package]
 name = "event-timer"
-version = "1.5.2"
+version = "1.5.3"
 edition = "2021"
 description = "Event Timer – Countdown, Redezeit und Ablaufplan für Bühne und Regie"
 license = "GPL-3.0-or-later"

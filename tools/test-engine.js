@@ -42,94 +42,77 @@ for (const [ms, want] of fmt) { const got = E.formatMs(ms); if (got !== want) { 
 const parse = [['10', 600000], ['1:30', 90000], ['1:00:00', 3600000], ['90s', 90000], ['1h 5m', 3900000], ['2,5', 150000], ['x', null]];
 for (const [inp, want] of parse) { const got = E.parseDuration(inp); if (got !== want) { failed++; console.log(`✗ parseDuration(${inp}) = ${got}, expected ${want}`); } else passed++; }
 
-// clock-driven schedule (local time zone dependent → pin it)
+// planned times + running run of show (local time zone dependent → pin it)
 process.env.TZ = 'Europe/Berlin';
 {
+  const at = (h, m) => new Date(2026, 9, 10, h, m).getTime();
+  const check = (label, got, want) => { if (JSON.stringify(got) !== JSON.stringify(want)) { failed++; console.log(`✗ plan ${label}: got ${JSON.stringify(got)}, expected ${JSON.stringify(want)}`); } else passed++; };
   const s = E.defaultState();
   E.apply(s, { type: 'agenda.replace', items: [
     { title: 'A', start: '13:00', end: '15:00' },
     { title: 'B', durationMs: 30 * 60000 },
     { title: 'C', start: '16:00', durationMs: 60 * 60000 },
   ] }, 0);
-  const at = (h, m) => new Date(2026, 9, 10, h, m).getTime();
-  const check = (label, got, want) => { if (JSON.stringify(got) !== JSON.stringify(want)) { failed++; console.log(`✗ schedule ${label}: got ${JSON.stringify(got)}, expected ${JSON.stringify(want)}`); } else passed++; };
-  let v = E.scheduleView(s, at(14, 0));
-  check('current', v.current && v.current.item.title, 'A');
-  check('remaining', v.remainingMs, 3600000);
-  check('progress', v.progress, 0.5);
-  check('next', v.next && v.next.item.title, 'B');
-  check('B start', E.toHHMM(v.rows[1].start), '15:00');
-  check('B end', E.toHHMM(v.rows[1].end), '15:30');
-  v = E.scheduleView(s, at(15, 40));
-  check('gap current', v.current, null);
-  check('gap ms', v.gapMs, 20 * 60000);
-  check('gap next', v.next && v.next.item.title, 'C');
-  check('statuses', v.rows.map(r => r.status), ['done', 'done', 'todo']);
-  v = E.scheduleView(s, at(17, 30));
-  check('finished', v.finished, true);
-  check('endAt', E.toHHMM(v.endAt), '17:00');
-  v = E.scheduleView(s, at(12, 0));
-  check('before', [v.current, v.next && v.next.item.title, v.gapMs], [null, 'A', 3600000]);
+  let p = E.planView(s, at(14, 0));
+  check('A', [E.toHHMM(p.rows[0].start), E.toHHMM(p.rows[0].end)], ['13:00', '15:00']);
+  check('B follows', [E.toHHMM(p.rows[1].start), E.toHHMM(p.rows[1].end)], ['15:00', '15:30']);
+  check('C fixed', E.toHHMM(p.rows[2].start), '16:00');
+  check('endAt', E.toHHMM(p.endAt), '17:00');
   const s2 = E.defaultState();
   E.apply(s2, { type: 'agenda.replace', items: [{ title: 'X', durationMs: 600000 }] }, 0);
-  check('no times', E.scheduleView(s2, at(12, 0)).ready, false);
+  check('no times', E.planView(s2, at(12, 0)).rows[0].start, null);
   E.apply(s2, { type: 'agenda.settings', plannedStart: '11:55' }, 0);
-  v = E.scheduleView(s2, at(12, 0));
-  check('planned start', [v.current && v.current.item.title, v.remainingMs], ['X', 300000]);
-  // past midnight
+  check('planned start', E.toHHMM(E.planView(s2, at(12, 0)).rows[0].end), '12:05');
   const s3 = E.defaultState();
   E.apply(s3, { type: 'agenda.replace', items: [{ title: 'Late', start: '23:30', end: '00:30' }, { title: 'Later', durationMs: 600000 }] }, 0);
-  v = E.scheduleView(s3, at(23, 45));
-  check('midnight', [v.current.item.title, v.remainingMs, E.toHHMM(v.rows[1].end)], ['Late', 45 * 60000, '00:40']);
+  check('midnight', E.toHHMM(E.planView(s3, at(23, 45)).rows[1].end), '00:40');
 
-  // live corrections: A 13–15, B follows (30 min), C fixed at 16:00
-  const s4 = E.defaultState();
-  E.apply(s4, { type: 'agenda.replace', items: [
-    { title: 'A', start: '13:00', end: '15:00' }, { title: 'B', durationMs: 30 * 60000 }, { title: 'C', start: '16:00', durationMs: 3600000 },
-  ] }, 0);
-  E.apply(s4, { type: 'agenda.adjust', itemId: 's1', ms: 10 * 60000, ripple: true }, 0);
-  v = E.scheduleView(s4, at(14, 0));
-  check('extend ripple', [E.toHHMM(v.rows[0].end), E.toHHMM(v.rows[1].start), E.toHHMM(v.rows[2].start)], ['15:10', '15:10', '16:10']);
-  check('extend remaining', v.remainingMs, 70 * 60000);
-  E.apply(s4, { type: 'agenda.adjust', itemId: 's2', ms: 40 * 60000 }, 0);
-  v = E.scheduleView(s4, at(14, 0));
-  check('no overlap', [E.toHHMM(v.rows[1].end), E.toHHMM(v.rows[2].start)], ['16:20', '16:20']);
-  E.apply(s4, { type: 'agenda.clearAdjust' }, 0);
-  E.apply(s4, { type: 'agenda.hold' }, at(14, 0));
-  v = E.scheduleView(s4, at(14, 30));
-  check('held', [v.held, v.remainingMs, v.heldMs], [true, 3600000, 30 * 60000]);
-  E.apply(s4, { type: 'agenda.resume', itemId: 's1' }, at(14, 30));
-  v = E.scheduleView(s4, at(14, 30));
-  check('resumed', [v.held, v.remainingMs, E.toHHMM(v.rows[2].start)], [false, 3600000, '16:30']);
-  E.apply(s4, { type: 'agenda.clearAdjust' }, 0);
-  E.apply(s4, { type: 'agenda.shift', ms: -15 * 60000 }, 0);
-  v = E.scheduleView(s4, at(14, 0));
-  // cues: clock mode (A 13–15, B 15–15:30, C 16–17)
+  // runView: GO by GO, remaining time follows the linked timer
+  let v = E.runView(s, at(12, 0));
+  check('before start', [v.started, v.current, v.next.item.title, v.rows.map(r => r.status)], [false, null, 'A', ['next', 'todo', 'todo']]);
+  E.apply(s, { type: 'agenda.next' }, at(13, 0));
+  v = E.runView(s, at(14, 0));
+  check('live A', [v.current.item.title, v.remainingMs, v.progress, v.running, v.next.item.title], ['A', 3600000, 0.5, true, 'B']);
+  check('statuses', v.rows.map(r => r.status), ['live', 'next', 'todo']);
+  E.apply(s, { type: 'timer.adjust', id: 't1', ms: 5 * 60000 }, at(14, 0));
+  E.apply(s, { type: 'timer.pause', id: 't1' }, at(14, 0));
+  v = E.runView(s, at(14, 30));
+  check('follows timer', [v.remainingMs, v.running], [65 * 60000, false]);
+  E.apply(s, { type: 'agenda.next' }, at(15, 0));
+  E.apply(s, { type: 'agenda.next' }, at(15, 30));
+  E.apply(s, { type: 'agenda.next' }, at(16, 30));
+  v = E.runView(s, at(16, 31));
+  check('finished', [v.finished, v.current], [true, null]);
+
+  // cues: untimed until the slot starts, then counted from the real start
   const s5 = E.defaultState();
   E.apply(s5, { type: 'agenda.replace', items: [
-    { title: 'A', start: '13:00', end: '15:00' }, { title: 'B', durationMs: 30 * 60000 }, { title: 'C', start: '16:00', durationMs: 3600000 },
+    { title: 'A', durationMs: 10 * 60000 }, { title: 'B', durationMs: 30 * 60000 }, { title: 'C', durationMs: 3600000 },
   ] }, 0);
-  E.apply(s5, { type: 'agenda.settings', mode: 'clock' }, 0);
   E.apply(s5, { type: 'cue.add', itemId: 's1', text: 'Abmod', ref: 'end', offsetMs: -2 * 60000 }, 0);
   E.apply(s5, { type: 'cue.add', itemId: 's2', text: 'Kaffee-Musik', ref: 'start', offsetMs: 0 }, 0);
   E.apply(s5, { type: 'cue.add', itemId: 's3', text: 'Panel-Mikros', ref: 'start', offsetMs: -5 * 60000 }, 0);
-  let cv = E.cueView(s5, at(14, 57) + 30000);
-  check('cue standby', cv.map(c => c.cue.text + ':' + c.status), ['Abmod:standby', 'Kaffee-Musik:later', 'Panel-Mikros:later']);
-  cv = E.cueView(s5, at(14, 58));
+  let cv = E.cueView(s5, at(12, 0));
+  check('cue untimed', cv.map(c => c.cue.text + ':' + c.status), ['Abmod:ready', 'Kaffee-Musik:later', 'Panel-Mikros:later']);
+  E.apply(s5, { type: 'agenda.next' }, at(12, 0));
+  cv = E.cueView(s5, at(12, 7) + 30000);
+  check('cue standby', [cv[0].cue.text, cv[0].status], ['Abmod', 'standby']);
+  cv = E.cueView(s5, at(12, 8));
   check('cue go', [cv[0].cue.text, cv[0].status, cv[0].inMs], ['Abmod', 'go', 0]);
-  E.apply(s5, { type: 'cue.done', itemId: 's1', cueId: cv[0].cue.id }, 0);
-  cv = E.cueView(s5, at(15, 54) + 30000);
-  check('cue later + missed', cv.map(c => c.cue.text + ':' + c.status), ['Panel-Mikros:standby', 'Kaffee-Musik:missed', 'Abmod:done']);
-  // manual mode: untimed until the slot starts
-  E.apply(s5, { type: 'agenda.settings', mode: 'manual' }, 0);
-  cv = E.cueView(s5, at(12, 0));
-  check('manual untimed', cv.filter(c => c.cue.text === 'Kaffee-Musik').map(c => c.status), ['later']);
-  E.apply(s5, { type: 'agenda.go', index: 1 }, at(12, 0));
-  cv = E.cueView(s5, at(12, 0) + 1000);
-  check('manual go on start', cv.filter(c => c.cue.text === 'Kaffee-Musik').map(c => c.status), ['go']);
-  check('manual next ready', cv.filter(c => c.cue.text === 'Panel-Mikros').map(c => c.status), ['ready']);
+  E.apply(s5, { type: 'agenda.go', index: 1 }, at(12, 9));
+  cv = E.cueView(s5, at(12, 9) + 1000);
+  check('go on start', cv.filter(c => c.cue.text === 'Kaffee-Musik').map(c => c.status), ['go']);
+  check('next ready', cv.filter(c => c.cue.text === 'Panel-Mikros').map(c => c.status), ['ready']);
+  check('missed', cv.filter(c => c.cue.text === 'Abmod').map(c => c.status), ['missed']);
 
-  check('shift all', [E.toHHMM(v.rows[0].start), E.toHHMM(v.rows[2].start), v.remainingMs], ['12:45', '15:45', 45 * 60000]);
+  // migration from 1.5.2
+  const old = E.defaultState();
+  Object.assign(old.agenda, { mode: 'clock', shiftMs: 5, holdAt: 1 });
+  old.talkQuick = ['Noch 5 Minuten', 'Bitte zum Ende kommen', 'Letzte Frage', 'Mikrofon ist aus', 'Fragen aus dem Saal nehmen', 'Pause wird verlängert'];
+  E.normalize(old);
+  check('migrated', ['mode' in old.agenda, 'holdAt' in old.agenda, old.talkQuick.length, old.talkQuick[1]], [false, false, 8, 'Noch 1 Minute']);
+  const own = E.defaultState(); own.talkQuick = ['Eigene']; E.normalize(own);
+  check('own list kept', own.talkQuick, ['Eigene']);
 }
 
 console.log(`JS engine: ${passed} passed, ${failed} failed`);

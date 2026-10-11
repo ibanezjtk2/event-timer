@@ -70,11 +70,11 @@ Displays brauchen nie eine PIN, halten den Bildschirm wach (Wake Lock) und synch
 
 ## Funktionen
 
-- **Bis zu 8 Timer**: Countdown, Count-up (mit optionalem Limit), Zielzeit („Beginn um 14:30“), **Uhrzeit** (schaltet den DSM in der Pause per Klick auf die Uhr) oder **Ablaufplan** (folgt dem Ablauf nach Uhrzeit). *Set* setzt eine Dauer, *Set & Go* (⇧ ↵) startet sie sofort.
+- **Bis zu 8 Timer**: Countdown, Count-up (mit optionalem Limit), Zielzeit („Beginn um 14:30“), **Uhrzeit** (schaltet den DSM in der Pause per Klick auf die Uhr) oder **Ablaufplan** (zeigt den laufenden Programmpunkt mit Restzeit und „Danach“, z. B. auf einem zweiten Display). *Set* setzt eine Dauer, *Set & Go* (⇧ ↵) startet sie sofort.
 - **Blinken bei Überzeit**: Der Bildschirm pulsiert rot, sobald die Zeit um ist. Abschaltbar pro Design.
 - **Ablaufplan**: Programmpunkte mit Titel, Sprecher*in und Dauer; *Nächster Punkt* lädt und startet den nächsten Programmpunkt. Zeigt die Abweichung vom Plan in Worten („4:50 vor Plan“), das voraussichtliche Ende und mit *Planbeginn* die Uhrzeit jedes Programmpunkts. Import per Copy & Paste (`Titel; Sprecher*in; Minuten`, auch direkt aus Excel).
 - **DSM-Einblendung** mit Schnellnachrichten und Blinken; der Status „LIVE auf DSM“ / „Ausgeblendet“ zeigt immer, was gerade auf dem Monitor steht.
-- **Alarmzone**: Meldungen von der Bühne und fällige GO-Cues stehen fest oben unter der Kopfzeile und scrollen nie weg. Daneben die große Uhrzeit.
+- **Alarmzone**: Meldungen von der Bühne stehen fest oben unter der Kopfzeile und scrollen nie weg. Daneben die große Uhrzeit. Cues haben ihr eigenes, ruhiges Panel.
 - **Layout**: eine Spalte auf Handy/iPad, zwei am Laptop, ab 1600 px drei (Timer · Ablaufplan · Cues und Talkback). Seltene Timer-Einstellungen liegen eingeklappt unter *Optionen*.
 - **Designs**: 4 eingebaute (Stage, Daylight, Overlay zum Keying, Nur Ziffern) plus eigene, mit Live-Vorschau, frei pro Timer wählbar
 - **All Blackout** für alle Displays
@@ -83,19 +83,13 @@ Displays brauchen nie eine PIN, halten den Bildschirm wach (Wake Lock) und synch
 - **PIN** für die Regie (Menü → Sicherheit oder `--pin`). Am Rechner selbst (localhost) ist keine nötig.
 - Deutsch / Englisch. Tastenkürzel stehen direkt auf den Knöpfen: Leertaste, R, ↑/↓ (±1 min), ←/→ (±10 s), ⇧ ↵ (Set & Go), G (nächster Programmpunkt), C (GO), B (All Blackout), 1–8
 
-## Ablaufplan automatisch nach Uhrzeit
+## Uhrzeiten im Ablaufplan
 
-Im Ablaufplan **„Automatisch nach Uhrzeit“** wählen (statt „Manuell weiterschalten“). Dann läuft der Ablauf von selbst nach der Uhr:
+Der Ablauf läuft immer **Punkt für Punkt per GO** (*Nächster Punkt* oder Taste **G**). Uhrzeiten dienen nur der Planung:
 
 - Programmpunkte mit **Beginn/Ende** eintragen (`13:00–15:00 Workshop A`) oder nur mit Dauer. Punkte ohne Uhrzeit schließen direkt an den vorherigen an, der erste an den *Planbeginn*.
-- Der laufende Punkt bekommt einen Balken, der bis zum Ende durchläuft. Lücken zeigen „Pause – weiter in …“.
-- **`/plan`** zeigt der Moderation den ganzen Tag mit Restzeit des laufenden Punkts. Die Timer-Art **„Ablaufplan“** macht dasselbe auf jedem normalen Display (`/1` …).
-- **Eingreifen aus der Regie:**
-  - **Hold/Fortsetzen:** Die Haltezeit hängt sich an den laufenden Punkt, alles Folgende rutscht mit.
-  - **±1/±5 Min** für den laufenden Punkt, mit oder ohne „Nachfolgende Punkte mitverschieben“
-  - **Punkt jetzt beenden:** beendet den laufenden Punkt sofort.
-  - **Gesamtplan ±5:** z. B. wenn ihr später anfangt
-  - **Originalplan wiederherstellen:** alle Anpassungen zurücknehmen
+- Regie, `/plan` und `/moderation` zeigen diese Planzeiten an; die Abweichung („4:50 hinter Plan“) rechnet mit den echten Startzeiten.
+- **`/plan`** zeigt der Moderation den ganzen Ablauf mit Restzeit des laufenden Punkts. Die Timer-Art **„Ablaufplan“** zeigt dasselbe auf jedem normalen Display (`/2` …).
 - Der Import versteht Uhrzeiten: `13:00-15:00; Workshop A; Anna Schmidt`
 
 ## Cues für die Regie
@@ -103,16 +97,16 @@ Im Ablaufplan **„Automatisch nach Uhrzeit“** wählen (statt „Manuell weite
 Jeder Programmpunkt kann technische Cues haben, z. B. „Einspieler starten“ oder „Panel-Mikros auf“. Du legst sie im Ablaufplan über den Stift an der Zeile an.
 
 - **Wann:** bei Start, x Min. vor oder nach dem Start, x Min. vor dem Ende oder bei Ende.
-- **Cue-Leiste** in der Regie: 60 Sekunden vorher steht der Cue gelb auf *Standby*, zum Zeitpunkt rot blinkend auf **GO** (zusätzlich oben in der Alarmzone), bis du **GO** drückst (oder die Taste **C**). Cues ohne feste Zeit stehen *Auf Abruf*.
-- Nach Uhrzeit laufen die Cues vollautomatisch mit. Im Modus „Manuell weiterschalten“ zählen sie ab dem Moment, in dem der Punkt startet.
-- **`/cues`** zeigt die Liste groß, z. B. am Lichtpult.
+- **Cue-Panel** in der Regie mit festem Platz – bewusst ruhig, weil Cues meist andere Gewerke auslösen: 60 Sekunden vorher bekommt der Cue einen gelben Rahmen (*Standby*), zum Zeitpunkt steht er gelb auf **jetzt**, bis du **GO** drückst (oder die Taste **C**). Kein Rot, kein Blinken, kein Ton. Cues ohne feste Zeit stehen *Auf Abruf*.
+- Die Zeiten zählen ab dem Moment, in dem der Programmpunkt per GO startet.
+- **`/cues`** zeigt die Liste groß, z. B. am Lichtpult – ebenso ruhig.
 
 ## Talkback und Meldungen (Regie ↔ Moderation)
 
 Die Moderation öffnet **`/moderation`** auf dem Handy oder iPad. Sie sieht die eigene Restzeit, das ganze Programm (laufender Punkt mit Balken, im manuellen Modus auch „2:10 hinter Plan“), den **Hinweis** zum laufenden Punkt und die aktuelle DSM-Einblendung. Hinweise trägst du in der Regie beim Bearbeiten eines Programmpunkts ein (Feld „Hinweis für die Moderation“). Im iPad-Querformat steht links das Jetzt, rechts Knöpfe und Programm – ohne Scrollen.
 
 **Regie → Moderation (Talkback)**
-- Im Panel *Talkback* per Preset („Noch 5 Minuten“, „Letzte Frage“ …) oder Freitext senden.
+- Im Panel *Talkback* per Preset („Noch 5 Minuten“, „Bitte strecken“, „Einspieler kommt“ …) oder Freitext senden.
 - Auf dem Handy erscheint die Nachricht groß und blau (mit Vibration) und dem Knopf **Verstanden**.
 - In der Regie steht danach „verstanden ✓ 14:32“. „Verstanden“ braucht keine PIN.
 

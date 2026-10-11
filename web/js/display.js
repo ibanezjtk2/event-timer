@@ -93,7 +93,7 @@
       const wall = ctx.wallNow || Date.now();
       // wall-clock mode: timer kind "time" or the /clock layout
       const isTime = t.kind === 'time' || layout === 'time';
-      // clock-driven schedule: timer kind "schedule" or the /plan layout
+      // run of show: timer kind "schedule" (mirror) or the /plan layout
       const isSched = !isTime && (t.kind === 'schedule' || layout === 'plan');
 
       let txt = isTime ? clockText(wall, ctx.seconds !== false) : E.formatMs(v.ms, { up: t.kind === 'countup' });
@@ -110,36 +110,33 @@
         if (n) nextText = label('Danach') + ': ' + n.title + (n.speaker ? ' – ' + n.speaker : '');
       }
 
-      let sv = null;
+      let rv = null;
       if (isSched) {
-        sv = E.scheduleView(s, wall);
+        rv = E.runView(s, ctx.now);
         const hm = ms => clockText(ms, false);
         progress = 0;
         nextText = '';
-        if (sv.current) {
-          const c = sv.current;
-          txt = E.formatMs(sv.remainingMs);
-          phase = sv.remainingMs <= t.critMs ? 'crit' : sv.remainingMs <= t.warnMs ? 'warn' : 'normal';
-          state = sv.held ? 'paused' : 'running';
-          progress = sv.progress;
+        if (rv.current) {
+          const c = rv.current;
+          txt = E.formatMs(rv.remainingMs);
+          phase = rv.remainingMs < 0 ? 'over' : rv.remainingMs <= t.critMs ? 'crit' : rv.remainingMs <= t.warnMs ? 'warn' : 'normal';
+          state = rv.running ? 'running' : 'paused';
+          progress = rv.progress;
           titleText = c.item.title;
           speakerText = c.item.speaker;
-          subText = sv.held ? label('Hold aktiv') : hm(c.start) + ' – ' + hm(c.end);
-          if (sv.next) nextText = label('Danach') + ' ' + hm(sv.next.start) + ': ' + sv.next.item.title;
-        } else if (sv.next) {
-          txt = E.formatMs(sv.gapMs);
-          phase = 'normal';
-          state = 'paused';
-          titleText = sv.rows.some(x => x.status === 'done') ? label('Pause') : (s.event.title || label('Gleich geht es los'));
-          speakerText = '';
-          subText = (sv.held ? label('Hold aktiv') + ' · ' : '') + label('Weiter um') + ' ' + hm(sv.next.start) + ': ' + sv.next.item.title;
+          subText = c.start != null ? hm(c.start) + ' – ' + hm(c.end) : '';
+          if (rv.next) nextText = label('Danach') + ': ' + rv.next.item.title + (rv.next.item.speaker ? ' – ' + rv.next.item.speaker : '');
         } else {
           txt = clockText(wall, false);
           phase = 'normal';
           state = 'idle';
-          titleText = sv.finished ? label('Programm beendet') : label('Ablaufplan ohne Uhrzeiten');
           speakerText = '';
-          subText = '';
+          if (rv.finished) { titleText = label('Programm beendet'); subText = ''; }
+          else {
+            titleText = s.event.title || label('Gleich geht es los');
+            const first = rv.next;
+            subText = first ? (first.start != null ? label('Beginn') + ' ' + hm(first.start) + ': ' : '') + first.item.title : '';
+          }
         }
       }
       const showOver = phase === 'over';
@@ -182,40 +179,39 @@
       setText(msgText, msgOn ? m.text : '');
       setAttr(msg, 'data-long', m.text.length > 60 ? 2 : m.text.length > 24 ? 1 : 0);
 
-      const showProgress = isSched ? Boolean(sv && sv.current) : (ctx.show ? ctx.show.progress : p.showProgress) && !isTime && t.kind !== 'clock' && t.durationMs > 0;
+      const showProgress = isSched ? Boolean(rv && rv.current) : (ctx.show ? ctx.show.progress : p.showProgress) && !isTime && t.kind !== 'clock' && t.durationMs > 0;
       setAttr(prog, 'data-on', showProgress ? 1 : 0);
       const w = (progress * 100).toFixed(2) + '%';
       if (bar.style.width !== w) bar.style.width = w;
 
       if (layout === 'clock') setText(clock, clockText(wall, true));
       if (layout === 'agenda') renderList(s, ctx);
-      if (layout === 'plan') renderPlan(sv, ctx);
+      if (layout === 'plan') renderPlan(rv, ctx);
     }
 
     let liveBar = null;
-    function renderPlan(sv, ctx) {
-      const label = ctx.i18n || (x => x);
-      const key = JSON.stringify(sv.rows.map(x => [x.item.id, x.item.title, x.item.speaker, x.start, x.end, x.status]));
+    function renderPlan(rv, ctx) {
+      const key = JSON.stringify(rv.rows.map(x => [x.item.id, x.item.title, x.item.speaker, x.item.durationMs, x.start, x.status]));
       if (key !== listKey) {
         listKey = key;
         list.innerHTML = '';
         liveBar = null;
-        sv.rows.forEach(row => {
+        rv.rows.forEach(row => {
           const li = el('li', 'dsp-row', list);
-          li.dataset.status = row.status === 'unknown' ? 'todo' : row.status;
-          el('span', 'dsp-row-time', li).textContent = row.start != null ? clockText(row.start, false) : '–';
+          li.dataset.status = row.status;
+          el('span', 'dsp-row-time', li).textContent = row.start != null ? clockText(row.start, false) : String(row.index + 1);
           const tx = el('span', 'dsp-row-text', li);
           el('b', null, tx).textContent = row.item.title || '—';
           if (row.item.speaker) el('span', null, tx).textContent = row.item.speaker;
-          el('span', 'dsp-row-dur', li).textContent = row.end != null ? label('bis') + ' ' + clockText(row.end, false) : '';
+          el('span', 'dsp-row-dur', li).textContent = E.formatMs(row.item.durationMs);
           if (row.status === 'live') liveBar = el('i', 'dsp-row-bar', li);
         });
         // keep the live slot in view on long programmes
         const live = list.querySelector('[data-status="live"]');
         if (live) list.scrollTop = Math.max(0, live.offsetTop - list.clientHeight / 3);
       }
-      if (liveBar && sv.current) {
-        const w = (sv.progress * 100).toFixed(2) + '%';
+      if (liveBar && rv.current) {
+        const w = (rv.progress * 100).toFixed(2) + '%';
         if (liveBar.style.width !== w) liveBar.style.width = w;
       }
     }
@@ -226,7 +222,7 @@
       if (key !== listKey) {
         listKey = key;
         list.innerHTML = '';
-        const rows = E.scheduleView(s, ctx.wallNow || Date.now()).rows;
+        const rows = E.planView(s, ctx.wallNow || Date.now()).rows;
         a.items.forEach((it, i) => {
           const plan = rows[i] && rows[i].start;
           const li = el('li', 'dsp-row', list);
