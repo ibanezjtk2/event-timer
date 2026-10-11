@@ -20,6 +20,7 @@ Alle Änderungen an Event Timer, neueste zuerst. Versionen nach [Semantic Versio
 - Release-Texte kommen aus diesem CHANGELOG.
 
 ### Behoben
+- Windows: Browser wird über die normale Windows-Funktion geöffnet statt über `rundll32` – das sah für Virenscanner und Chromes Download-Prüfung verdächtig aus.
 - Strg+C, Schließen des Terminals oder Herunterfahren (macOS/Linux) speichern jetzt noch, bevor das Programm endet.
 
 ## 1.5.1 – 2026-10-10
