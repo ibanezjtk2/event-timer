@@ -20,6 +20,15 @@
   const pad = n => String(n).padStart(2, '0');
   const clockText = (ms, secs) => { const d = new Date(ms); return pad(d.getHours()) + ':' + pad(d.getMinutes()) + (secs ? ':' + pad(d.getSeconds()) : ''); };
 
+  /** "Ende 14:32" (running), "Ende ~14:35" (paused, still moving), "Ende war 14:32" (past) – '' without an end */
+  function endText(t, now, wall, label) {
+    const e = E.endInfo(t, now);
+    if (!e) return '';
+    const hm = clockText(e.at - now + wall, false);
+    const tr = label || (x => x);
+    return e.state === 'past' ? tr('Ende war') + ' ' + hm : tr('Ende') + ' ' + (e.state === 'paused' ? '~' : '') + hm;
+  }
+
   function el(tag, cls, parent) {
     const e = document.createElement(tag);
     if (cls) e.className = cls;
@@ -153,10 +162,12 @@
           }
         }
       }
+      // end time under the digits while it counts down; not in overtime, not while paused (it would wander)
+      if (!isTime && !isSched && !subText && p.showEnd !== false && v.state === 'running' && !v.over) subText = endText(t, ctx.now, wall, label);
       const showOver = phase === 'over';
       setAttr(r, 'data-kind', isTime ? 'time' : t.kind);
       setAttr(r, 'data-sched', isSched ? 1 : 0);
-      setAttr(r, 'data-flashover', p.flashOver === false ? 0 : 1);
+      setAttr(r, 'data-overflash', E.flashStyleOf(p));
       // the /plan view uses the backstage layout, filled from the schedule
       setAttr(r, 'data-layout', layout === 'plan' ? 'agenda' : layout);
       setAttr(r, 'data-phase', phase);
@@ -261,5 +272,5 @@
     return { update, root: r };
   }
 
-  root.ETDisplay = { create, FONT_STACKS, clockText, applyPreset };
+  root.ETDisplay = { create, FONT_STACKS, clockText, endText, applyPreset };
 })(globalThis);

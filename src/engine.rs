@@ -14,16 +14,18 @@ const HOUR: i64 = 60 * 60 * 1000;
 
 const FONTS: [&str; 5] = ["din", "grotesk", "mono", "serif", "rounded"];
 const BG_STYLES: [&str; 3] = ["solid", "glow", "transparent"];
+const FLASH_STYLES: [&str; 3] = ["off", "soft", "hard"];
 const COLOR_KEYS: [&str; 9] = [
     "bg", "fg", "accent", "warn", "crit", "overBg", "overFg", "msgFg", "msgBg",
 ];
-const BOOL_KEYS: [&str; 6] = [
+const BOOL_KEYS: [&str; 7] = [
     "showProgress",
     "showClock",
     "showTitle",
     "showNext",
     "showNotice",
     "flashOver",
+    "showEnd",
 ];
 const TEXT_KEYS: [&str; 3] = ["warnText", "expiredText", "overText"];
 const DEFAULT_STAGE: [&str; 6] = [
@@ -130,7 +132,8 @@ pub struct Preset {
     pub bg_style: String,
     pub font: String,
     pub weight: i64,
-    pub bools: [bool; 6],
+    pub bools: [bool; 7],
+    pub flash_style: String,
     pub texts: [String; 3],
 }
 
@@ -694,7 +697,8 @@ fn builtin(
     bg_style: &str,
     font: &str,
     weight: i64,
-    bools: [bool; 6],
+    bools: [bool; 7],
+    flash_style: &str,
     texts: [&str; 3],
 ) -> Preset {
     Preset {
@@ -706,6 +710,7 @@ fn builtin(
         font: font.into(),
         weight,
         bools,
+        flash_style: flash_style.into(),
         texts: texts.map(String::from),
     }
 }
@@ -723,7 +728,8 @@ pub fn builtin_presets() -> Vec<Preset> {
             "solid",
             "din",
             700,
-            [true; 6],
+            [true; 7],
+            "soft",
             de,
         ),
         builtin(
@@ -736,7 +742,8 @@ pub fn builtin_presets() -> Vec<Preset> {
             "solid",
             "grotesk",
             700,
-            [true; 6],
+            [true; 7],
+            "soft",
             de,
         ),
         builtin(
@@ -749,7 +756,8 @@ pub fn builtin_presets() -> Vec<Preset> {
             "transparent",
             "din",
             700,
-            [false; 6],
+            [false; 7],
+            "off",
             ["", "", ""],
         ),
         builtin(
@@ -762,7 +770,8 @@ pub fn builtin_presets() -> Vec<Preset> {
             "solid",
             "mono",
             600,
-            [false, false, false, false, false, true],
+            [false, false, false, false, false, true, false],
+            "soft",
             ["", "", ""],
         ),
     ]
@@ -1200,6 +1209,16 @@ fn sanitize_preset(p: &Json, base: &Preset, id: String) -> Preset {
             texts[i] = text(p.get(k), 60);
         }
     }
+    // overtime flashing has three levels; without one, "on" means soft (older designs flashed hard)
+    let fallback = if !bools[5] {
+        "off"
+    } else if base.flash_style != "off" {
+        base.flash_style.as_str()
+    } else {
+        "soft"
+    };
+    let flash_style = pick(p.get("flashStyle"), &FLASH_STYLES, fallback);
+    bools[5] = flash_style != "off";
     Preset {
         id,
         name: if name.is_empty() {
@@ -1213,6 +1232,7 @@ fn sanitize_preset(p: &Json, base: &Preset, id: String) -> Preset {
         font: pick(p.get("font"), &FONTS, &base.font),
         weight: num(p.get("weight"), 300, 900, Some(base.weight)).unwrap_or(base.weight),
         bools,
+        flash_style,
         texts,
     }
 }
@@ -2117,6 +2137,7 @@ impl Preset {
         for (i, k) in BOOL_KEYS.iter().enumerate() {
             j.set(k, self.bools[i]);
         }
+        j.set("flashStyle", &self.flash_style);
         for (i, k) in TEXT_KEYS.iter().enumerate() {
             j.set(k, &self.texts[i]);
         }
@@ -2629,6 +2650,18 @@ mod tests {
         // an edited list stays as it is
         let own = State::from_json(&json::parse(r#"{"talkQuick":["Eigene"]}"#).unwrap());
         assert_eq!(own.talk_quick, vec!["Eigene".to_string()]);
+    }
+
+    #[test]
+    fn migrates_designs_without_flash_levels() {
+        // 1.6.0-beta.2: designs only knew flashOver on/off and had no end time switch
+        let old = r#"{"presets":[{"id":"p1","name":"An","flashOver":true},{"id":"p2","name":"Aus","flashOver":false}]}"#;
+        let s = State::from_json(&json::parse(old).unwrap());
+        let got: Vec<(&str, bool, bool)> = s.presets[4..]
+            .iter()
+            .map(|p| (p.flash_style.as_str(), p.bools[5], p.bools[6]))
+            .collect();
+        assert_eq!(got, vec![("soft", true, true), ("off", false, true)]);
     }
 
     #[test]

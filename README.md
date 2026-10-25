@@ -73,7 +73,8 @@ Displays brauchen nie eine PIN, halten den Bildschirm wach (Wake Lock) und synch
 
 - **Screens und Timer getrennt** – wie Ausgänge und Quellen an einer Kreuzschiene: Die Kacheln oben in der Regie sind die **Screens** (was die Geräte zeigen, live gerendert). Die **Timer** sind Quellen mit Namen (z. B. „Bühne“, „Q&A“) und können auf mehreren Screens gleichzeitig laufen. Screen anklicken → darunter steuerst du seinen Timer; „läuft auf: …“ zeigt, was alles mitläuft.
 - **Bis zu 8 Timer**: Countdown, Hochzählen (mit optionalem Limit), Zielzeit („Beginn um 14:30“) oder **Uhrzeit** (schaltet die Screens in der Pause per Klick auf die Uhr). *Setzen* übernimmt eine Dauer, *Setzen & Start* (⇧ ↵) startet sie sofort.
-- **Blinken bei Überzeit**: Der Bildschirm pulsiert rot, sobald die Zeit um ist. Abschaltbar pro Design.
+- **Blinken bei Überzeit** in drei Stufen pro Design: *Aus*, *Sanft* (Standard, der Hintergrund atmet langsam) und *Stark* (harter Wechsel im Sekundentakt). Ist am Gerät „Bewegung reduzieren“ eingestellt, blinkt nichts.
+- **Endzeit**: Neben dem laufenden Countdown steht „Ende 14:32“, in der Regie, auf der Moderation und auf den Screens (abschaltbar pro Design: *Endzeit anzeigen*). Pausiert wandert sie mit („Ende ~14:35“), bei Überzeit steht „Ende war 14:32“.
 - **Agenda**: Programmpunkte mit Titel, Sprecher*in und Dauer; *Nächster Punkt* lädt und startet den nächsten Programmpunkt im verknüpften Timer – und damit auf allen Screens, die diesen Timer zeigen. Zeigt die Abweichung vom Plan in Worten („4:50 vor Plan“), das voraussichtliche Ende und mit *Planbeginn* die Uhrzeit jedes Programmpunkts. Import per Copy & Paste (`Titel; Sprecher*in; Minuten`, auch direkt aus Excel).
 - **Drei klare Wege für Nachrichten**, jeder mit eigener Farbe und eigenem Platz:
   - **Einblendung → Screens** (gelb): öffentlich, an *Alle Screens* oder an den ausgewählten Screen bzw. die ausgewählte Gruppe. „LIVE“ / „Ausgeblendet“ zeigt immer, was gerade wo steht.

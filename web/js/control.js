@@ -70,7 +70,9 @@
       () => { act({ type: 'timer.remove', id: sel }); });
 
     const readTime = h('div', { class: 'readout-time' }, '00:00');
-    const readState = h('div', { class: 'readout-state' }, h('b'), h('span'));
+    const readSub = h('span');
+    const readEnd = h('small');
+    const readState = h('div', { class: 'readout-state' }, h('b'), readSub, readEnd);
     const readBar = h('i');
     const readout = h('div', { class: 'readout' }, readTime, readState, h('div', { class: 'readout-bar' }, readBar));
 
@@ -879,7 +881,9 @@
           readout.dataset.phase = phase;
           readout.dataset.state = state;
           if (readState.firstChild.textContent !== st) readState.firstChild.textContent = st;
-          if (readState.lastChild.textContent !== sub) readState.lastChild.textContent = sub;
+          if (readSub.textContent !== sub) readSub.textContent = sub;
+          const end = isTime ? '' : D.endText(tm, now, now, t);
+          if (readEnd.textContent !== end) readEnd.textContent = end;
           readBar.style.width = (prog * 100).toFixed(2) + '%';
           const running = tm.running;
           const label = running ? 'pause' : 'play';
@@ -1086,6 +1090,7 @@
       if (!designId || !s.presets.some(p => p.id === designId)) designId = tm.presetId;
       const p = s.presets.find(x => x.id === designId);
       const draft = JSON.parse(JSON.stringify(p));
+      draft.flashStyle = E.flashStyleOf(draft);
       const pick = h('select', { class: 'input' },
         h('optgroup', { label: t('Eingebaut') }, s.presets.filter(x => x.builtin).map(x => h('option', { value: x.id }, x.name))),
         s.presets.some(x => !x.builtin) ? h('optgroup', { label: t('Eigenes') }, s.presets.filter(x => !x.builtin).map(x => h('option', { value: x.id }, x.name))) : null);
@@ -1161,10 +1166,11 @@
         h('div', { class: 'grid2' },
           selField('font', 'Schrift', [['din', 'DIN / Bahnschrift'], ['grotesk', 'Grotesk'], ['mono', 'Monospace'], ['serif', 'Serif'], ['rounded', 'Rounded']]),
           selField('weight', 'Stärke', [[400, '400'], [500, '500'], [600, '600'], [700, '700'], [800, '800'], [900, '900']]),
-          selField('bgStyle', 'Fläche', [['solid', 'Einfarbig'], ['glow', 'Leuchten'], ['transparent', 'Transparent']])),
+          selField('bgStyle', 'Fläche', [['solid', 'Einfarbig'], ['glow', 'Leuchten'], ['transparent', 'Transparent']]),
+          selField('flashStyle', 'Blinken bei Überzeit', [['off', 'Aus'], ['soft', 'Sanft'], ['hard', 'Stark']])),
         h('div', { class: 'grid2' },
           boolField('showProgress', 'Fortschrittsbalken'), boolField('showClock', 'Uhrzeit'), boolField('showTitle', 'Titel und Sprecher*in'),
-          boolField('showNext', 'Nächsten Programmpunkt anzeigen'), boolField('showNotice', 'Hinweise'), boolField('flashOver', 'Blinken bei Überzeit')),
+          boolField('showNext', 'Nächsten Programmpunkt anzeigen'), boolField('showNotice', 'Hinweise'), boolField('showEnd', 'Endzeit anzeigen')),
         h('div', { class: 'grid2' }, textField('warnText', 'Text bei Warnung'), textField('expiredText', 'Text bei Zeitende'), textField('overText', 'Text bei Überzeit')),
         actions,
       ];
