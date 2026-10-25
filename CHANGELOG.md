@@ -4,6 +4,10 @@ Alle Änderungen an Event Timer, neueste zuerst. Versionen nach [Semantic Versio
 
 ## Unveröffentlicht
 
+### Neu
+- **Endzeit** neben dem laufenden Countdown: „Ende 14:32“ in der Regie, auf der Moderation und auf den Screens unter den Ziffern. Pausiert „Ende ~14:35“, bei Überzeit „Ende war 14:32“ (nicht auf den Screens). Gilt für Countdowns und Hochzählen mit Limit. Pro Design abschaltbar (*Endzeit anzeigen*, Standard an).
+- **Blinken bei Überzeit** in drei Stufen: *Aus*, *Sanft* und *Stark* (das bisherige harte Blinken).
+
 ### Geändert
 - **Begriffe vereinheitlicht** (siehe README → Begriffe): Die Moderation zeigt die Agenda jetzt als „Agenda“ statt „Programm“, `/plan` heißt überall **Agenda-Monitor**, die Backstage-Ansicht **Agenda (Backstage)**, „Programm beendet“ wird zu **Agenda beendet**. „Feste Seiten“ heißen **Feste Screens**, „Display-Link erstellen“ heißt **Ansichts-Link erstellen**, Hilfetexte sprechen von Screens statt Displays.
 - Knöpfe auf Deutsch: **Setzen**, **Setzen & Start**, **Zurücksetzen**, **Hochzählen**, **Blackout alle**; das eingebaute Design „Stage“ heißt **Bühne**.
@@ -16,6 +20,9 @@ Alle Änderungen an Event Timer, neueste zuerst. Versionen nach [Semantic Versio
 - Multiviewer: Der Screen-Name steht als Leiste unter dem Bild und verdeckt keine Hinweise oder den Balken mehr.
 - „Ton aus – klicken“ blinkt nur noch kurz und bleibt dann ruhig stehen.
 - Moderation: Der eigene Name oben rechts trägt einen Stift, damit klar ist, dass man ihn antippen und ändern kann.
+- Bestehende Designs mit „Blinken bei Überzeit“ blinken nach dem Update **sanft**. Wer das harte Blinken will, stellt im Design auf *Stark*.
+- Ist am Gerät „Bewegung reduzieren“ eingestellt, blinkt bei Überzeit und bei Einblendungen nichts mehr.
+- Alle Puls- und Blink-Effekte nutzen zwei gemeinsame Takte (sanft 2 s, hart 1 s).
 
 ### Behoben
 - „Noch keine Agenda“ brach auf der Moderation und auf `/plan` nach jedem Wort um.

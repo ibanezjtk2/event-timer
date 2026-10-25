@@ -966,6 +966,20 @@
     ]
   },
   {
+    "name": "overtime flashing levels and end time switch",
+    "steps": [
+      { "at": 0, "expect": { "presets.0.flashStyle": "soft", "presets.2.flashStyle": "off", "presets.0.showEnd": true, "presets.2.showEnd": false } },
+      { "at": 0, "do": { "type": "preset.save", "preset": { "baseId": "stage", "name": "A" } } },
+      { "at": 0, "expect": { "presets.4.flashStyle": "soft", "presets.4.flashOver": true, "presets.4.showEnd": true } },
+      { "at": 0, "do": { "type": "preset.save", "preset": { "id": "p1", "flashOver": false } } },
+      { "at": 0, "expect": { "presets.4.flashStyle": "off", "presets.4.flashOver": false } },
+      { "at": 0, "do": { "type": "preset.save", "preset": { "id": "p1", "flashStyle": "hard", "showEnd": false } } },
+      { "at": 0, "expect": { "presets.4.flashStyle": "hard", "presets.4.flashOver": true, "presets.4.showEnd": false } },
+      { "at": 0, "do": { "type": "preset.save", "preset": { "id": "p1", "flashOver": true, "flashStyle": "blink" } } },
+      { "at": 0, "expect": { "presets.4.flashStyle": "hard" } }
+    ]
+  },
+  {
     "name": "misc and validation",
     "steps": [
       {
