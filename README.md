@@ -71,7 +71,7 @@ Displays brauchen nie eine PIN, halten den Bildschirm wach (Wake Lock) und synch
 
 ## Funktionen
 
-- **Regie als Cockpit** (ab 1600 px Breite): ganz oben die **Zeitleiste** (Plan gegen Ist, mit Abweichung und Show-Ende; Taste **T** klappt sie zu, ohne Agenda ist sie weg), darunter drei Spalten – links die Agenda, in der Mitte der Timer mit *Nächster Punkt* und dem, was danach kommt, rechts die Kontrollseite mit Screens, Talkback, Einblendung und Cues. Auf kleineren Bildschirmen zwei Spalten bzw. eine.
+- **Regie als Cockpit** (ab 1600 px Breite): ganz oben die **Zeitleiste** (Plan gegen Ist, mit Zeitkonto und Show-Ende; Taste **T** klappt sie zu, ohne Agenda ist sie weg), darunter drei Spalten – links die Agenda, in der Mitte der Timer mit *Nächster Punkt* und dem, was danach kommt, rechts die Kontrollseite mit Screens, Talkback, Einblendung und Cues. Auf kleineren Bildschirmen zwei Spalten bzw. eine.
 - **Screens und Timer getrennt** – wie Ausgänge und Quellen an einer Kreuzschiene: Die Kacheln in der Regie sind die **Screens** (was die Geräte zeigen, live gerendert). Die **Timer** sind Quellen mit Namen (z. B. „Bühne“, „Q&A“) und können auf mehreren Screens gleichzeitig laufen. Screen anklicken → darunter steuerst du seinen Timer; „läuft auf: …“ zeigt, was alles mitläuft.
 - **Bis zu 8 Timer**: Countdown, Hochzählen (mit optionalem Limit), Zielzeit („Beginn um 14:30“) oder **Uhrzeit** (schaltet die Screens in der Pause per Klick auf die Uhr). *Setzen* übernimmt eine Dauer, *Setzen & Start* (⇧ ↵) startet sie sofort.
 - **Blinken bei Überzeit** in drei Stufen pro Design: *Aus*, *Sanft* (Standard, der Hintergrund atmet langsam) und *Stark* (harter Wechsel im Sekundentakt). Ist am Gerät „Bewegung reduzieren“ eingestellt, blinkt nichts.
@@ -104,6 +104,8 @@ Ein Wort pro Sache, in der Oberfläche wie hier:
 | **Feste Screens** | die immer vorhandenen Adressen `/moderation`, `/plan`, `/uhr`, `/cues` |
 | **Monitor / Gerät** | die Hardware, auf der ein Screen läuft |
 | **Überzeit** | die Zeit läuft über null hinaus weiter (`+00:42`) |
+| **Zeitkonto** | wie viel die Show vor oder hinter dem Plan liegt (geplantes gegen vorausgesagtes Show-Ende) |
+| **Puffer** | ein Programmpunkt, der zum Ausgleich des Zeitkontos gekürzt werden darf |
 | **Einblendung** | öffentlicher Text auf Screens (gelb) |
 | **Talkback** | privat von der Regie an die Moderation (blau), mit „Verstanden“ |
 | **Hinweis** | feste Notiz der Regie zu einem Programmpunkt, nur für die Moderation |
