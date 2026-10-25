@@ -40,13 +40,18 @@ jobs:
     needs: [lint, test]
     strategy:
       fail-fast: false
+      # pull requests build Linux x64 only (private repo: macOS minutes count
+      # 10x, Windows 2x); main and tags build every platform
       matrix:
-        include:
-          - { os: windows-latest, target: x86_64-pc-windows-msvc, name: windows-x64 }
-          - { os: macos-latest, target: universal, name: macos }
-          - { os: ubuntu-latest, target: x86_64-unknown-linux-musl, name: linux-x64 }
-          - { os: ubuntu-latest, target: aarch64-unknown-linux-musl, name: linux-arm64 }
-          - { os: ubuntu-latest, target: armv7-unknown-linux-musleabihf, name: linux-armv7 }
+        include: ${{ fromJSON(github.event_name == 'pull_request' && '[
+          {"os":"ubuntu-latest","target":"x86_64-unknown-linux-musl","name":"linux-x64"}
+          ]' || '[
+          {"os":"windows-latest","target":"x86_64-pc-windows-msvc","name":"windows-x64"},
+          {"os":"macos-latest","target":"universal","name":"macos"},
+          {"os":"ubuntu-latest","target":"x86_64-unknown-linux-musl","name":"linux-x64"},
+          {"os":"ubuntu-latest","target":"aarch64-unknown-linux-musl","name":"linux-arm64"},
+          {"os":"ubuntu-latest","target":"armv7-unknown-linux-musleabihf","name":"linux-armv7"}
+          ]') }}
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
