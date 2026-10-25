@@ -2,7 +2,7 @@
    Copyright (C) 2026 Felix Spindler <f-spindler@pm.me> */
 /*
  * Screens: the outputs. Every device outside the Regie opens a screen (/1 … /16, or /p/<name>).
- *  show – display only (DSM, backstage, foyer): nothing can be sent or confirmed there
+ *  show – display only (DSM, backstage, clock only): nothing can be sent or confirmed there
  *  mod  – the presenter's phone/tablet: everything, including talkback and messages to the Regie
  * A screen is built from modules (timer, agenda, …). Screens in a group show the group's layout
  * unless they have their own ("Eigener Aufbau"). /plan and /uhr are fixed pages; /moderation shows
@@ -26,14 +26,14 @@
     talkback: { label: 'Von der Regie', help: 'Talkback der Regie mit „Verstanden“.' },
     request: { label: 'An die Regie', help: 'Meldungen an die Regie: Schnelltasten, Freitext und ob sie bestätigt sind.' },
   };
-  const LAYOUTS = { full: 'Vollbild', side: 'Haupt + Seite', bottom: 'Haupt + Leiste unten', two: 'Zwei Spalten', one: 'Eine Spalte' };
-  const SLOT_NAMES = { full: ['Bild'], side: ['Haupt', 'Seite'], bottom: ['Haupt', 'Leiste unten'], two: ['Spalte A', 'Spalte B'], one: ['Spalte'] };
+  const LAYOUTS = { full: 'Vollbild', side: 'Haupt + Spalte rechts', bottom: 'Haupt + Leiste unten', two: 'Zwei Spalten', one: 'Eine Spalte' };
+  const SLOT_NAMES = { full: ['Bild'], side: ['Haupt', 'Spalte rechts'], bottom: ['Haupt', 'Leiste unten'], two: ['Spalte A', 'Spalte B'], one: ['Spalte'] };
   const KIND_NAMES = { show: 'Anzeige', mod: 'Moderation' };
   /** starting points for "Neuer Screen" */
   const TEMPLATES = [
     ['dsm', 'DSM (Vorschau-Monitor)', 'Vollbild-Timer mit Einblendung – für die Monitore vor der Bühne.'],
     ['agenda', 'Agenda-Monitor', 'Timer und Agenda nebeneinander – z. B. Backstage.'],
-    ['clock', 'Uhr', 'Nur die Uhrzeit – z. B. Foyer.'],
+    ['clock', 'Uhr', 'Nur die Uhrzeit, sonst nichts.'],
     ['mod', 'Moderation', 'Restzeit, Hinweis und Agenda, dazu Talkback und Meldungen an die Regie.'],
     ['empty-show', 'Leere Anzeige', 'Ohne Module – selbst zusammenstellen.'],
     ['empty-mod', 'Leere Moderation', 'Ohne Module – selbst zusammenstellen.'],
@@ -223,7 +223,7 @@
       slots[i].append(box);
       if (DSM[m.type]) mods.push(DSM[m.type](box, m, c));
     }));
-    if (!mods.length) rootEl.append(h('div', { class: 'pg-empty' }, t('Diese Seite hat noch keine Module.')));
+    if (!mods.length) rootEl.append(h('div', { class: 'pg-empty' }, t('Dieser Screen hat noch keine Module.')));
     let presetKey = '';
     return {
       tick(st, now) {
@@ -269,7 +269,8 @@
             if (avail > 0 && need > avail) time.style.fontSize = (parseFloat(getComputedStyle(time).fontSize) * avail / need).toFixed(1) + 'px';
           }
           setData(time, 'phase', v.phase || 'normal');
-          setText(sub, { running: t('Läuft'), paused: t('Pausiert'), idle: t('Bereit'), finished: t('Abgelaufen') }[v.state] || '');
+          const end = E.isStatic(tm.kind) ? '' : D.endText(tm, now, now, t, true);
+          setText(sub, ({ running: t('Läuft'), paused: t('Pausiert'), idle: t('Bereit'), finished: t('Abgelaufen') }[v.state] || '') + (end ? ' · ' + end : ''));
           bar.style.width = ((v.progress || 0) * 100).toFixed(1) + '%';
           setText(next, nx ? t('Danach') + ': ' + nx.title : '');
           // deviation from the plan – only for the timer that runs the show
@@ -299,7 +300,7 @@
           const rv = E.runView(s, now);
           const nx = rv.next;
           setText(lbl, t(rv.started ? 'Danach' : 'Als Erstes'));
-          setText(what, nx ? nx.item.title + (nx.item.speaker ? ' – ' + nx.item.speaker : '') : t(rv.finished ? 'Programm beendet' : 'Nichts mehr geplant'));
+          setText(what, nx ? nx.item.title + (nx.item.speaker ? ' – ' + nx.item.speaker : '') : t(rv.finished ? 'Agenda beendet' : 'Nichts mehr geplant'));
           setText(when, nx && nx.start != null ? t('Plan') + ' ' + hm(nx.start) : '');
         },
       };
@@ -319,7 +320,7 @@
     },
     agenda(box) {
       const list = h('ol', { class: 'mod-prog-list' });
-      box.append(h('div', { class: 'mod-h' }, t('Programm')), list);
+      box.append(h('div', { class: 'mod-h' }, t('Agenda')), list);
       let key = '', bar = null, rest = null, live = null;
       return {
         tick(s, now) {
@@ -337,7 +338,7 @@
                 right);
               if (r.status === 'live') { bar = h('i', { class: 'mod-prog-bar' }); li.prepend(bar); rest = right; live = li; }
               return li;
-            }) : [h('li', { class: 'muted' }, t('Noch keine Agenda'))]));
+            }) : [h('li', { class: 'muted mod-prog-empty' }, t('Noch keine Agenda'))]));
             if (live) setTimeout(() => { list.scrollTop = Math.max(0, live.offsetTop - list.offsetTop - 40); }, 0);
           }
           if (live && rv.current) {
@@ -372,7 +373,7 @@
       const text = h('div', { class: 'mod-talk-text' });
       const meta = h('small');
       const ok = h('button', { class: 'btn btn-go mod-talk-ok', onclick: () => c.tr.talkAck() }, icon('check'), t('Verstanden'));
-      const idle = h('div', { class: 'mpg-talk-idle' }, icon('talk'), h('span', null, t('Von der Regie')), h('small', null, t('keine offene Nachricht')));
+      const idle = h('div', { class: 'mpg-talk-idle' }, icon('talk'), h('span', null, t('Von der Regie')), h('small', null, t('kein Talkback offen')));
       const card = h('div', { class: 'mod-talk', role: 'alert' }, h('div', { class: 'mod-talk-head' }, icon('talk'), h('b', null, t('Von der Regie')), meta), text, ok);
       box.append(idle, card);
       const seen = new Set();
@@ -439,11 +440,12 @@
     let me = store.get(nameKey) || pg.name;
     const conn = h('i', { class: 'mod-dot' });
     const event = h('span', { class: 'mod-event' });
-    const who = h('button', { class: 'chip', title: t('Name ändern') });
+    const whoName = h('span');
+    const who = h('button', { class: 'chip mod-who', title: t('Name ändern') }, whoName, icon('edit'));
     who.addEventListener('click', () => {
       if (o.preview) return;
       const field = h('input', { class: 'input', value: me, maxlength: 30, 'aria-label': t('Name ändern') });
-      const done = () => { me = field.value.trim() || pg.name; store.set(nameKey, me); field.replaceWith(who); who.textContent = me; };
+      const done = () => { me = field.value.trim() || pg.name; store.set(nameKey, me); field.replaceWith(who); whoName.textContent = me; };
       field.addEventListener('keydown', e => { if (e.key === 'Enter') done(); });
       field.addEventListener('blur', done);
       who.replaceWith(field);
@@ -462,7 +464,7 @@
       cols[i].append(box);
       if (MOD[m.type]) mods.push(MOD[m.type](box, m, c));
     }));
-    if (!mods.length) cols[0].append(h('p', { class: 'muted' }, t('Diese Seite hat noch keine Module.')));
+    if (!mods.length) cols[0].append(h('p', { class: 'muted' }, t('Dieser Screen hat noch keine Module.')));
     const onVis = () => { if (!document.hidden) keepAwake(); };
     if (!o.preview) {
       document.addEventListener('visibilitychange', onVis);
@@ -473,7 +475,7 @@
       tick(s, now) {
         conn.dataset.status = tr.status;
         setText(event, s.event.title || 'Event Timer');
-        setText(who, me);
+        setText(whoName, me);
         for (const md of mods) md.tick(s, now);
       },
       destroy() {
@@ -512,7 +514,7 @@
       host.classList.toggle('pg-host-mod', kind === 'mod');
       if (!o.preview) {
         document.body.dataset.view = pg && pg.kind === 'mod' ? 'moderation' : 'display';
-        document.title = (pg ? pg.name : t('Seite nicht gefunden')) + ' – Event Timer';
+        document.title = (pg ? pg.name : t('Screen nicht gefunden')) + ' – Event Timer';
         if (pg && pg.kind === 'show' && params.get('bg') === 'transparent') {
           document.body.style.background = 'transparent'; document.documentElement.style.background = 'transparent'; document.documentElement.style.colorScheme = 'normal';
         }
@@ -527,8 +529,8 @@
         }
       }
       if (!pg) {
-        host.append(h('div', { class: 'pg-missing' }, h('b', null, t('Diese Seite gibt es (noch) nicht.')),
-          h('span', null, t('Sie erscheint automatisch, sobald sie in der Regie angelegt ist.'))));
+        host.append(h('div', { class: 'pg-missing' }, h('b', null, t('Diesen Screen gibt es (noch) nicht.')),
+          h('span', null, t('Er erscheint automatisch, sobald er in der Regie angelegt ist.'))));
         return;
       }
       inst = pg.kind === 'show' ? buildDsm(host, tr, pg, params, o) : buildMod(host, tr, pg, params, o);
