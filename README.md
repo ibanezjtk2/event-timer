@@ -197,7 +197,7 @@ cargo test && node tools/test-engine.js
 
 Es gibt keine Abhängigkeiten, deshalb klappt der Build auch offline. Ins eigene GitHub-Repo gepusht, baut `.github/workflows/build.yml` automatisch alle Plattformen (Windows-Icon und Versionsinfos erzeugt `build.rs` selbst, die Mac-App und die Linux-Pakete der Workflow).
 
-**Versionen:** Semantic Versioning (MAJOR.MINOR.PATCH), die Nummer steht nur in `Cargo.toml`. Änderungen pro Version stehen in [`CHANGELOG.md`](CHANGELOG.md). Ein Tag `vX.Y.Z` erzeugt ein GitHub-Release mit allen Dateien; der Text kommt aus dem CHANGELOG. Tags mit Bindestrich (`v1.6.0-beta.1`) werden als Vorabversion markiert.
+**Versionen:** Semantic Versioning (MAJOR.MINOR.PATCH), die Nummer steht nur in `Cargo.toml`. Änderungen pro Version stehen in [`CHANGELOG.md`](CHANGELOG.md). Ein Tag `vX.Y.Z` erzeugt ein GitHub-Release mit allen Dateien; der Text kommt aus dem CHANGELOG. Tags mit Bindestrich (`v0.7.0-beta.1`) werden als Vorabversion markiert.
 
 ## Aufbau
 
