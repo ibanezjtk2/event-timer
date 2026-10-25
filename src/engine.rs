@@ -960,12 +960,28 @@ pub fn timer_view(t: &Timer, now: i64) -> TimerView {
         && !t.overtime
         && raw <= 0
         && !(t.kind == Kind::Clock && t.target_at.is_none());
+    // a threshold as long as the whole timer would colour it from the start: halve it (warn) or quarter it (crit)
+    let dur = if matches!(t.kind, Kind::Countdown | Kind::Countup) {
+        t.duration_ms
+    } else {
+        0
+    };
+    let warn_ms = if dur > 0 && t.warn_ms >= dur {
+        dur / 2
+    } else {
+        t.warn_ms
+    };
+    let crit_ms = if dur > 0 && t.crit_ms >= dur {
+        dur / 4
+    } else {
+        t.crit_ms
+    };
     let phase = if over || finished {
         "over"
     } else {
         match remaining {
-            Some(r) if r <= t.crit_ms => "crit",
-            Some(r) if r <= t.warn_ms => "warn",
+            Some(r) if r <= crit_ms => "crit",
+            Some(r) if r <= warn_ms => "warn",
             _ => "normal",
         }
     };
