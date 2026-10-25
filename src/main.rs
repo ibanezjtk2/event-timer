@@ -8,6 +8,7 @@
 // (and to the terminal, if started from one).
 #![cfg_attr(all(windows, not(debug_assertions)), windows_subsystem = "windows")]
 
+mod access;
 mod assets;
 mod engine;
 mod http;

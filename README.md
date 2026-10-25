@@ -86,7 +86,7 @@ Displays brauchen nie eine PIN, halten den Bildschirm wach (Wake Lock) und synch
 - **All Blackout** für alle Displays
 - **Multiviewer**: Die Regie zeigt jeden Timer als Live-Kachel mit Tally-Rahmen (grün läuft, gelb Warnung, rot kritisch/überzogen)
 - **Speichern**: Jede Änderung landet sofort in `event-timer-data.json`. Nach einem Absturz oder Neustart läuft ein laufender Timer zeitlich korrekt weiter.
-- **PIN** für die Regie (Menü → Sicherheit oder `--pin`). Am Rechner selbst (localhost) ist keine nötig.
+- **PIN** für die Regie (Menü → Sicherheit oder `--pin`). Am Rechner selbst (localhost) ist keine nötig. Nach 5 falschen Versuchen ist ein Gerät 1 Minute gesperrt. Fremde Webseiten im Browser können Event Timer nicht steuern.
 - Deutsch / Englisch. Tastenkürzel stehen direkt auf den Knöpfen: Leertaste, R, ↑/↓ (±1 min), ←/→ (±10 s), ⇧ ↵ (Set & Go), G (nächster Programmpunkt), C (GO), B (All Blackout), 1–8
 
 ## Uhrzeiten in der Agenda
