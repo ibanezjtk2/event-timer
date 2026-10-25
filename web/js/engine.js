@@ -16,11 +16,12 @@
 
   const FONTS = ['din', 'grotesk', 'mono', 'serif', 'rounded'];
   const BG_STYLES = ['solid', 'glow', 'transparent'];
+  const FLASH_STYLES = ['off', 'soft', 'hard'];
   const KINDS = ['countdown', 'countup', 'clock', 'time'];
   // kinds that don't count by themselves (wall clock, mirror of the run of show)
   const isStatic = k => k === 'time';
   const COLOR_KEYS = ['bg', 'fg', 'accent', 'warn', 'crit', 'overBg', 'overFg', 'msgFg', 'msgBg'];
-  const PRESET_BOOLS = ['showProgress', 'showClock', 'showTitle', 'showNext', 'showNotice', 'flashOver'];
+  const PRESET_BOOLS = ['showProgress', 'showClock', 'showTitle', 'showNext', 'showNotice', 'flashOver', 'showEnd'];
   const PRESET_TEXTS = ['warnText', 'expiredText', 'overText'];
 
   const BUILTIN_PRESETS = [
@@ -29,7 +30,7 @@
       bg: '#000000', bgStyle: 'solid', fg: '#f4f6f8', accent: '#2fd47a', warn: '#ffb020', crit: '#ff4757',
       overBg: '#4a0710', overFg: '#ffffff', msgFg: '#000000', msgBg: '#ffd84d',
       font: 'din', weight: 700,
-      showProgress: true, showClock: true, showTitle: true, showNext: true, showNotice: true, flashOver: true,
+      showProgress: true, showClock: true, showTitle: true, showNext: true, showNotice: true, flashOver: true, showEnd: true, flashStyle: 'soft',
       warnText: 'Bitte zum Ende kommen', expiredText: 'Zeit abgelaufen', overText: 'Überzeit',
     },
     {
@@ -37,7 +38,7 @@
       bg: '#eef1f4', bgStyle: 'solid', fg: '#0d1620', accent: '#0f9d58', warn: '#c77700', crit: '#d0192e',
       overBg: '#d0192e', overFg: '#ffffff', msgFg: '#ffffff', msgBg: '#0d1620',
       font: 'grotesk', weight: 700,
-      showProgress: true, showClock: true, showTitle: true, showNext: true, showNotice: true, flashOver: true,
+      showProgress: true, showClock: true, showTitle: true, showNext: true, showNotice: true, flashOver: true, showEnd: true, flashStyle: 'soft',
       warnText: 'Bitte zum Ende kommen', expiredText: 'Zeit abgelaufen', overText: 'Überzeit',
     },
     {
@@ -45,7 +46,7 @@
       bg: '#000000', bgStyle: 'transparent', fg: '#ffffff', accent: '#2fd47a', warn: '#ffb020', crit: '#ff4757',
       overBg: '#c4122b', overFg: '#ffffff', msgFg: '#000000', msgBg: '#ffd84d',
       font: 'din', weight: 700,
-      showProgress: false, showClock: false, showTitle: false, showNext: false, showNotice: false, flashOver: false,
+      showProgress: false, showClock: false, showTitle: false, showNext: false, showNotice: false, flashOver: false, showEnd: false, flashStyle: 'off',
       warnText: '', expiredText: '', overText: '',
     },
     {
@@ -53,7 +54,7 @@
       bg: '#000000', bgStyle: 'solid', fg: '#ffffff', accent: '#2fd47a', warn: '#ffb020', crit: '#ff4757',
       overBg: '#000000', overFg: '#ff4757', msgFg: '#000000', msgBg: '#ffffff',
       font: 'mono', weight: 600,
-      showProgress: false, showClock: false, showTitle: false, showNext: false, showNotice: false, flashOver: true,
+      showProgress: false, showClock: false, showTitle: false, showNext: false, showNotice: false, flashOver: true, showEnd: false, flashStyle: 'soft',
       warnText: '', expiredText: '', overText: '',
     },
   ];
@@ -170,6 +171,18 @@
     return { ms, over, phase, state, progress, remaining };
   }
 
+  /**
+   * When the timer reaches zero, as epoch ms – for "Ende 14:32". Only for timers with an end
+   * (countdown, count-up with limit) that have been started. state: running | paused | past.
+   */
+  function endInfo(t, now) {
+    if (!(t.kind === 'countdown' || (t.kind === 'countup' && t.durationMs > 0))) return null;
+    const v = timerView(t, now);
+    if (v.state === 'idle' || v.remaining === Infinity) return null;
+    const state = v.remaining <= 0 || v.state === 'finished' ? 'past' : v.state === 'paused' ? 'paused' : 'running';
+    return { at: now + v.remaining, state };
+  }
+
   /** Run-of-show summary: drift (+ = behind schedule) and projected end. */
   function agendaView(s, now) {
     const a = s.agenda;
@@ -262,8 +275,14 @@
     out.weight = num(p.weight, 300, 900, base.weight);
     for (const k of PRESET_BOOLS) out[k] = k in p ? Boolean(p[k]) : base[k];
     for (const k of PRESET_TEXTS) out[k] = k in p ? text(p[k], 60) : base[k];
+    // overtime flashing has three levels; without one, "on" means soft (older designs flashed hard)
+    out.flashStyle = pick(p.flashStyle, FLASH_STYLES, out.flashOver ? (base.flashStyle && base.flashStyle !== 'off' ? base.flashStyle : 'soft') : 'off');
+    out.flashOver = out.flashStyle !== 'off';
     return out;
   }
+
+  /** flashing level of a design, also for designs saved before there were levels */
+  const flashStyleOf = p => FLASH_STYLES.includes(p.flashStyle) ? p.flashStyle : p.flashOver === false ? 'off' : 'soft';
 
   function sanitizeItem(s, raw, keepId) {
     const it = raw || {};
@@ -944,6 +963,8 @@
     for (const k of Object.keys(d.agenda)) if (!(k in st.agenda)) st.agenda[k] = clone(d.agenda[k]);
     // built-in designs always come fresh from this version; custom ones are kept
     st.presets = clone(BUILTIN_PRESETS).concat((st.presets || []).filter(p => p && !p.builtin));
+    // 1.6.x: designs from before the flashing levels and the end time
+    st.presets.forEach(p => { p.flashStyle = flashStyleOf(p); p.flashOver = p.flashStyle !== 'off'; if (!('showEnd' in p)) p.showEnd = true; });
     st.timers.forEach(t => { if (!st.presets.some(p => p.id === t.presetId)) t.presetId = 'stage'; });
     st.agenda.items.forEach(it => {
       if (!Array.isArray(it.cues)) it.cues = [];
@@ -994,7 +1015,7 @@
 
   const api = {
     MAX_TIMERS, BUILTIN_PRESETS, FONTS, KINDS, MAX_SCREENS, MAX_GROUPS, PAGE_LAYOUTS, SLOT_COUNT, MODULE_KINDS, SLUG, templateAufbau,
-    defaultState, apply, timerView, agendaView, planView, runView, cueView, normalize, toHHMM, isStatic, rawValue, formatMs, parseDuration, clone,
+    defaultState, apply, timerView, endInfo, flashStyleOf, agendaView, planView, runView, cueView, normalize, toHHMM, isStatic, rawValue, formatMs, parseDuration, clone,
   };
   root.ETEngine = api;
   if (typeof module !== 'undefined' && module.exports) module.exports = api;

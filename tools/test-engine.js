@@ -137,6 +137,11 @@ process.env.TZ = 'Europe/Berlin';
   E.normalize(b1);
   check('beta.1 → screens', b1.screens.map(x => [x.num, x.id, x.kind, x.slug]), [[1, 'p5', 'show', 'dsm-ablauf'], [2, b1.screens[1].id, 'show', 'dsm-2'], [3, 'p8', 'mod', 'moderation-lea']]);
   check('beta.1 overlays', [b1.dsmMsg.p5.text, b1.dsmMsg[b1.screens[1].id].text, 'pages' in b1, 'routes' in b1], ['Eins', 'Hallo', false, false]);
+  // 1.6.0-beta.2 designs: no flashing level, no end time switch
+  const b2 = E.defaultState();
+  b2.presets.push({ id: 'p1', name: 'An', flashOver: true }, { id: 'p2', name: 'Aus', flashOver: false });
+  E.normalize(b2);
+  check('beta.2 designs', b2.presets.slice(4).map(p => [p.flashStyle, p.flashOver, p.showEnd]), [['soft', true, true], ['off', false, true]]);
   const own = E.defaultState(); own.talkQuick = ['Eigene']; E.normalize(own);
   check('own list kept', own.talkQuick, ['Eigene']);
 }

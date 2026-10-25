@@ -7,6 +7,11 @@
   // ---------------------------------------------------------------- i18n
   // German is the source language; English translations below.
   const EN = {
+    "Endzeit anzeigen": "Show end time",
+    "Ende war": "Ended",
+    "Aus": "Off",
+    "Sanft": "Soft",
+    "Stark": "Strong",
     "Screens": "Screens",
     "Ersetzt die bisherige Agenda.": "Replaces the current agenda.",
     "Agenda": "Agenda",

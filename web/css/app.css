@@ -24,6 +24,9 @@
   --r-s: 4px;   /* buttons, inputs, chips */
   --r-m: 6px;   /* containers */
   --r-l: 6px;   /* panels */
+  /* two pulses for the whole app: soft breathing and a hard on/off */
+  --pulse-soft: 2s ease-in-out infinite;
+  --pulse-hard: 1s steps(1) infinite;
   color-scheme: dark;
 }
 
@@ -183,6 +186,8 @@ input[type="color"].input { padding: 3px; height: 40px; cursor: pointer; }
 .readout[data-phase="crit"] .readout-time, .readout[data-phase="over"] .readout-time { color: var(--stop); }
 .readout-state { text-align: right; font-size: 14px; color: var(--muted); padding-bottom: 8px; }
 .readout-state b { display: block; color: var(--text); font-size: 15px; }
+.readout-state small { display: block; color: var(--text); font-size: 20px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.readout-state small:empty { display: none; }
 .readout[data-state="running"] .readout-state b { color: var(--go); }
 .readout-bar { grid-column: 1 / -1; height: 6px; border-radius: 3px; background: #262c34; overflow: hidden; }
 .readout-bar i { display: block; height: 100%; width: 0; background: var(--go); border-radius: 3px; }
@@ -202,7 +207,7 @@ input[type="color"].input { padding: 3px; height: 40px; cursor: pointer; }
 .msg-card[data-state="live"] .badge { background: var(--stop); color: #fff; }
 .msg-card[data-state="live"] .badge::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: #fff; animation: blink 1s steps(2) infinite; }
 .msg-card[data-state="live"] .msg-card-text { background: #ffd84d; color: #000; }
-.msg-card[data-state="live"][data-flash="1"] .msg-card-text { animation: msg-flash 1s steps(1) infinite; }
+.msg-card[data-state="live"][data-flash="1"] .msg-card-text { animation: msg-flash var(--pulse-hard); }
 @keyframes msg-flash { 50% { background: #000; color: #ffd84d; } }
 .msg-card[data-state="hidden"] .msg-card-text { background: var(--raised); color: var(--muted); }
 .msg-card[data-state="empty"] { padding: 6px 8px; }
@@ -321,7 +326,7 @@ dialog.drawer::backdrop { background: rgba(5, 7, 10, .55); }
 .alerts { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 420px), 1fr)); gap: 8px; padding: 0 18px; max-height: 40vh; overflow-y: auto; }
 .alerts:not(:empty) { padding-bottom: 10px; }
 .alert { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 12px; align-items: center; padding: 8px 8px 8px 12px; border-radius: var(--r-m); border: 2px solid; }
-.alert-req { background: #3d1218; border-color: var(--stop); animation: req-pulse 1.2s ease-in-out infinite; }
+.alert-req { background: #3d1218; border-color: var(--stop); animation: req-pulse var(--pulse-soft); }
 .alert-req > svg { width: 22px; height: 22px; color: #ffc0c6; }
 .alert-text { min-width: 0; display: grid; }
 .alert-text b { font-size: 17px; overflow-wrap: anywhere; }
@@ -379,7 +384,7 @@ body[data-view="moderation"], body[data-view="cues"] { background: var(--bg); }
 .pgm-msg-text { font-size: clamp(14px, 7cqw, 160px); overflow-wrap: anywhere; }
 .pgm-msg[data-long="1"] .pgm-msg-text { font-size: clamp(13px, 5.2cqw, 120px); }
 .pgm-msg[data-long="2"] .pgm-msg-text { font-size: clamp(12px, 3.8cqw, 90px); }
-.pgm-msg[data-flash="1"] { animation: dsp-flash 1s steps(1) infinite; }
+.pgm-msg[data-flash="1"] { animation: dsp-flash var(--pulse-hard); }
 .pgm-ros { list-style: none; margin: 0; padding: 2.4cqh 2.4cqw; height: 100%; overflow: hidden; display: flex; flex-direction: column; gap: .35em; font-size: clamp(11px, min(4.6cqh, 5.4cqw), 46px); }
 .pgm-ros li { position: relative; flex: none; display: grid; grid-template-columns: 3.2em minmax(0, 1fr) auto; gap: .7em; align-items: baseline; padding: .45em .6em; border-radius: .3em; background: color-mix(in srgb, var(--d-fg, #fff) 6%, transparent); overflow: hidden; }
 .pgm-ros li > :not(.pgm-ros-bar) { position: relative; }
@@ -492,7 +497,7 @@ body[data-view="moderation"], body[data-view="cues"] { background: var(--bg); }
 .mod-mine li { display: flex; justify-content: space-between; gap: 10px; padding: 8px 12px; border-radius: var(--r-s); background: var(--sunken); }
 .mod-mine li small { color: var(--muted); white-space: nowrap; }
 .mod-mine li[data-ack="1"] small { color: var(--go); }
-.mod-talk { background: #0c2a40; border: 2px solid var(--pvw); border-radius: var(--r-m); padding: 12px 14px; display: grid; gap: 10px; animation: talk-pulse 1.4s ease-in-out infinite; }
+.mod-talk { background: #0c2a40; border: 2px solid var(--pvw); border-radius: var(--r-m); padding: 12px 14px; display: grid; gap: 10px; animation: talk-pulse var(--pulse-soft); }
 .mod-talk-head { display: flex; align-items: center; gap: 8px; color: var(--pvw); }
 .mod-talk-head svg { width: 20px; height: 20px; }
 .mod-talk-head small { margin-left: auto; color: #9fd3ff; }
@@ -581,7 +586,7 @@ body[data-view="moderation"], body[data-view="cues"] { background: var(--bg); }
 .dsp-msg-text { font-size: clamp(9px, 11cqh, 220px); overflow-wrap: anywhere; }
 .dsp-msg[data-long="1"] .dsp-msg-text { font-size: clamp(8px, 8cqh, 160px); }
 .dsp-msg[data-long="2"] .dsp-msg-text { font-size: clamp(8px, 5.6cqh, 110px); }
-.dsp-msg[data-flash="1"] { animation: dsp-flash 1s steps(1) infinite; }
+.dsp-msg[data-flash="1"] { animation: dsp-flash var(--pulse-hard); }
 @keyframes dsp-flash { 50% { background: var(--d-fg); color: var(--d-bg); } }
 
 .dsp-bottom { display: flex; justify-content: space-between; gap: 3cqw; padding: 0 3.2cqw 3.4cqh; font-size: clamp(8px, 4.2cqh, 70px); line-height: 1.2; }
@@ -616,12 +621,17 @@ body[data-view="moderation"], body[data-view="cues"] { background: var(--bg); }
 .dsp[data-kind="time"] .dsp-time { color: var(--d-fg); opacity: 1; }
 .dsp[data-layout="time"] { grid-template-rows: minmax(0, 1fr); }
 
-/* overtime: the whole screen pulses (text only when keyed over video) */
+/* overtime: the screen pulses (text only when keyed over video) – soft breathes, hard flips */
 @keyframes dsp-over-bg { 50% { background-color: var(--d-crit); } }
 @keyframes dsp-over-txt { 50% { opacity: .2; } }
-.dsp[data-phase="over"][data-flashover="1"]:not([data-bgstyle="transparent"]):not([data-layout="lower"]) { animation: dsp-over-bg 1s steps(1) infinite; }
-.dsp[data-phase="over"][data-flashover="1"][data-bgstyle="transparent"] .dsp-time,
-.dsp[data-phase="over"][data-flashover="1"][data-layout="lower"] .dsp-time { animation: dsp-over-txt 1s steps(1) infinite; }
+@keyframes dsp-over-bg-soft { 50% { background-color: color-mix(in oklch, var(--d-overbg) 72%, var(--d-crit)); } }
+@keyframes dsp-over-txt-soft { 50% { opacity: .55; } }
+.dsp[data-phase="over"][data-overflash="hard"]:not([data-bgstyle="transparent"]):not([data-layout="lower"]) { animation: dsp-over-bg var(--pulse-hard); }
+.dsp[data-phase="over"][data-overflash="hard"][data-bgstyle="transparent"] .dsp-time,
+.dsp[data-phase="over"][data-overflash="hard"][data-layout="lower"] .dsp-time { animation: dsp-over-txt var(--pulse-hard); }
+.dsp[data-phase="over"][data-overflash="soft"]:not([data-bgstyle="transparent"]):not([data-layout="lower"]) { animation: dsp-over-bg-soft var(--pulse-soft); }
+.dsp[data-phase="over"][data-overflash="soft"][data-bgstyle="transparent"] .dsp-time,
+.dsp[data-phase="over"][data-overflash="soft"][data-layout="lower"] .dsp-time { animation: dsp-over-txt-soft var(--pulse-soft); }
 
 /* layout: lower third strip for keying over video */
 .dsp[data-layout="lower"] { grid-template-rows: 1fr auto; background: transparent; }
@@ -721,6 +731,8 @@ body[data-view="moderation"], body[data-view="cues"] { background: var(--bg); }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { transition: none !important; }
   .conn i { animation: none !important; }
+  /* overtime stays dark red with "+" and the notice, nothing flashes */
+  .dsp, .dsp-time, .dsp-msg { animation: none !important; }
 }
 
 /* ------------------------------------------- Regie → Menü → Seiten (pageeditor.js) */
