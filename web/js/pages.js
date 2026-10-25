@@ -269,7 +269,8 @@
             if (avail > 0 && need > avail) time.style.fontSize = (parseFloat(getComputedStyle(time).fontSize) * avail / need).toFixed(1) + 'px';
           }
           setData(time, 'phase', v.phase || 'normal');
-          setText(sub, { running: t('Läuft'), paused: t('Pausiert'), idle: t('Bereit'), finished: t('Abgelaufen') }[v.state] || '');
+          const end = E.isStatic(tm.kind) ? '' : D.endText(tm, now, now, t);
+          setText(sub, ({ running: t('Läuft'), paused: t('Pausiert'), idle: t('Bereit'), finished: t('Abgelaufen') }[v.state] || '') + (end ? ' · ' + end : ''));
           bar.style.width = ((v.progress || 0) * 100).toFixed(1) + '%';
           setText(next, nx ? t('Danach') + ': ' + nx.title : '');
           // deviation from the plan – only for the timer that runs the show

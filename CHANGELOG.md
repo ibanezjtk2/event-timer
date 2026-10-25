@@ -2,6 +2,17 @@
 
 Alle Änderungen an Event Timer, neueste zuerst. Versionen nach [Semantic Versioning](https://semver.org/lang/de/): PATCH = Fehlerbehebung, MINOR = neue Funktionen (Bestehendes läuft weiter), MAJOR = etwas Bestehendes ändert sich.
 
+## Unveröffentlicht
+
+### Neu
+- **Endzeit** neben dem laufenden Countdown: „Ende 14:32“ in der Regie, auf der Moderation und auf den Screens unter den Ziffern. Pausiert „Ende ~14:35“, bei Überzeit „Ende war 14:32“ (nicht auf den Screens). Gilt für Countdowns und Count-ups mit Limit. Pro Design abschaltbar (*Endzeit anzeigen*, Standard an).
+- **Blinken bei Überzeit** in drei Stufen: *Aus*, *Sanft* und *Stark* (das bisherige harte Blinken).
+
+### Geändert
+- Bestehende Designs mit „Blinken bei Überzeit“ blinken nach dem Update **sanft**. Wer das harte Blinken will, stellt im Design auf *Stark*.
+- Ist am Gerät „Bewegung reduzieren“ eingestellt, blinkt bei Überzeit und bei Einblendungen nichts mehr.
+- Alle Puls- und Blink-Effekte nutzen zwei gemeinsame Takte (sanft 2 s, hart 1 s).
+
 ## 1.6.0-beta.2 – 2026-10-11
 
 Zweite Testversion von 1.6 mit neuem Grundkonzept: **Screens sind die Ausgänge, Timer die Quellen.**
