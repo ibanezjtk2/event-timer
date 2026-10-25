@@ -77,6 +77,16 @@
     ]
   },
   {
+    "name": "short timer: thresholds longer than the timer are halved (warn) and quartered (crit)",
+    "steps": [
+      { "at": 0, "do": { "type": "timer.set", "id": "t1", "ms": 60000, "start": true } },
+      { "at": 1000, "expect": { "view.t1.phase": "normal" } },
+      { "at": 31000, "expect": { "view.t1.phase": "warn" } },
+      { "at": 46000, "expect": { "view.t1.phase": "crit" } },
+      { "at": 61000, "expect": { "view.t1.phase": "over" } }
+    ]
+  },
+  {
     "name": "phases and overtime",
     "steps": [
       {
@@ -953,6 +963,20 @@
           "timers.0.presetId": "stage"
         }
       }
+    ]
+  },
+  {
+    "name": "overtime flashing levels and end time switch",
+    "steps": [
+      { "at": 0, "expect": { "presets.0.flashStyle": "soft", "presets.2.flashStyle": "off", "presets.0.showEnd": true, "presets.2.showEnd": false } },
+      { "at": 0, "do": { "type": "preset.save", "preset": { "baseId": "stage", "name": "A" } } },
+      { "at": 0, "expect": { "presets.4.flashStyle": "soft", "presets.4.flashOver": true, "presets.4.showEnd": true } },
+      { "at": 0, "do": { "type": "preset.save", "preset": { "id": "p1", "flashOver": false } } },
+      { "at": 0, "expect": { "presets.4.flashStyle": "off", "presets.4.flashOver": false } },
+      { "at": 0, "do": { "type": "preset.save", "preset": { "id": "p1", "flashStyle": "hard", "showEnd": false } } },
+      { "at": 0, "expect": { "presets.4.flashStyle": "hard", "presets.4.flashOver": true, "presets.4.showEnd": false } },
+      { "at": 0, "do": { "type": "preset.save", "preset": { "id": "p1", "flashOver": true, "flashStyle": "blink" } } },
+      { "at": 0, "expect": { "presets.4.flashStyle": "hard" } }
     ]
   },
   {
@@ -2054,6 +2078,22 @@
         },
         "changed": false
       }
+    ]
+  },
+  {
+    "name": "agenda: buffer flag and plan length (frozen while the show runs)",
+    "steps": [
+      { "at": 1000, "do": { "type": "agenda.replace", "items": [{ "title": "A", "durationMs": 600000 }, { "title": "Pause", "durationMs": 900000, "buffer": true }] } },
+      { "at": 1000, "expect": { "agenda.items.0.buffer": false, "agenda.items.1.buffer": true, "agenda.items.1.planMs": 900000 } },
+      { "at": 2000, "do": { "type": "agenda.update", "itemId": "s2", "patch": { "durationMs": 600000 } } },
+      { "at": 2000, "expect": { "agenda.items.1.planMs": 600000 } },
+      { "at": 3000, "do": { "type": "agenda.next" } },
+      { "at": 4000, "do": { "type": "agenda.update", "itemId": "s2", "patch": { "durationMs": 300000, "buffer": false } } },
+      { "at": 4000, "expect": { "agenda.items.1.durationMs": 300000, "agenda.items.1.planMs": 600000, "agenda.items.1.buffer": false } },
+      { "at": 5000, "do": { "type": "agenda.add", "item": { "title": "C" } } },
+      { "at": 5000, "expect": { "agenda.items.2.planMs": 0, "agenda.items.2.durationMs": 600000 } },
+      { "at": 6000, "do": { "type": "agenda.reset" } },
+      { "at": 6000, "expect": { "agenda.items.1.planMs": 300000, "agenda.items.2.planMs": 600000 } }
     ]
   }
 ]

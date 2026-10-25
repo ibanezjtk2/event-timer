@@ -4,6 +4,38 @@ Alle Änderungen an Event Timer, neueste zuerst. Versionen nach [Semantic Versio
 
 ## Unveröffentlicht
 
+### Neu
+- **Regie als Cockpit** (ab 1600 px Breite): Zeitleiste „Plan gegen Ist“ ganz oben, darunter drei Spalten – Agenda links, Timer in der Mitte, Kontrollseite rechts (Screens als kleine Kacheln, Talkback, Einblendung, Cues).
+- **Zeitleiste** über die ganze Breite: geplante und tatsächliche bzw. vorausgesagte Programmpunkte, Jetzt-Linie, geplantes Ende, dazu Zeitkonto, Show-Ende und Gesamtdauer. Mit **T** oder Klick zuklappen (merkt sich der Browser), ohne Agenda ausgeblendet.
+- **Zeitkonto mit Vorschlägen:** Die Zeitleiste zeigt, wie viel die Show vor oder hinter dem Plan liegt (geplantes gegen vorausgesagtes Show-Ende), und schlägt passende Ausgleiche vor: hinten dran einen **Puffer** kürzen (bis 5 Min. bleiben) oder den nächsten Punkt kürzen, vorne dran dem laufenden Punkt Zeit geben oder sie in den Puffer schieben. *So lassen* blendet die Vorschläge aus, bis sich das Konto um eine Minute ändert.
+- **Puffer:** Programmpunkte lassen sich als Puffer markieren („darf zum Ausgleich gekürzt werden“), in der Agenda mit Etikett, in der Zeitleiste schraffiert. Die geplante Länge jedes Punkts wird beim Start der Agenda festgehalten, damit Kürzungen während der Show das Konto ausgleichen statt den Plan zu verschieben; *Agenda zurücksetzen* übernimmt die gespielten Längen als neuen Plan.
+- **Nächster Punkt in der Timer-Kachel:** Trägt der gewählte Timer die Agenda, sitzt GO direkt unter den Zeit-Knöpfen, Start/Pause und Zurücksetzen als Symbol daneben, darunter „Danach“ mit Titel, Dauer, voraussichtlichem Beginn und Cues.
+- **Endzeit** neben dem laufenden Countdown: „Ende 14:32“ in der Regie, auf der Moderation und auf den Screens unter den Ziffern. Pausiert „Ende ~14:35“, bei Überzeit „Ende war 14:32“ (nicht auf den Screens). Gilt für Countdowns und Hochzählen mit Limit. Pro Design abschaltbar (*Endzeit anzeigen*, Standard an).
+- **Blinken bei Überzeit** in drei Stufen: *Aus*, *Sanft* und *Stark* (das bisherige harte Blinken).
+
+### Geändert
+- Regie: Uhrzeiten tragen „Uhr“ („Ende 18:34 Uhr“, „Show-Ende 19:44 Uhr“), damit sie nicht wie Dauern aussehen. Gilt auch für die Moderation; die Screens bleiben kurz.
+- Regie: **+5:00** als fünfter Zeit-Knopf.
+- Agenda: Ein Klick auf einen Programmpunkt öffnet ihn zum Bearbeiten. Planbeginn, verknüpfter Timer und Autostart stehen unter *Einstellungen* (zugeklappt, mit Zusammenfassung). Laden und Verschieben erscheinen im Cockpit beim Überfahren mit der Maus.
+- Tastenhilfe: „Blackout alle“ statt „All Blackout“, neu **T** für die Zeitleiste.
+- **Begriffe vereinheitlicht** (siehe README → Begriffe): Die Moderation zeigt die Agenda jetzt als „Agenda“ statt „Programm“, `/plan` heißt überall **Agenda-Monitor**, die Backstage-Ansicht **Agenda (Backstage)**, „Programm beendet“ wird zu **Agenda beendet**. „Feste Seiten“ heißen **Feste Screens**, „Display-Link erstellen“ heißt **Ansichts-Link erstellen**, Hilfetexte sprechen von Screens statt Displays.
+- Knöpfe auf Deutsch: **Setzen**, **Setzen & Start**, **Zurücksetzen**, **Hochzählen**, **Blackout alle**; das eingebaute Design „Stage“ heißt **Bühne**.
+- Design-Option „Text bei Ablauf“ heißt **Text bei Zeitende** (nicht zu verwechseln mit dem Text bei Überzeit). Layout „Haupt + Seite“ heißt **Haupt + Spalte rechts**.
+- Auf dem Agenda-Display heißt die Prognose fürs Ende der ganzen Show **Show-Ende**, damit „Ende“ frei für die Endzeit eines Timers ist.
+- Menü → System: Der Abschnitt zum Beenden heißt „Beenden“ statt „Programm“.
+- **Kurze Timer:** Ist die Vorwarnung oder Kritisch-Schwelle so lang wie der ganze Timer (z. B. 1-Minuten-Timer mit „Kritisch 1“), war bisher alles sofort rot. Solche Schwellen greifen jetzt bei der Hälfte (Vorwarnung) bzw. einem Viertel (Kritisch) der Dauer.
+- Regie: Das Status-Wort neben der Zeit („Läuft“) hat dieselbe Farbe wie die Ziffern, nicht mehr grün neben rot.
+- Moderation: Der Fortschrittsbalken unter der Zeit wird bei Vorwarnung gelb und bei Kritisch/Überzeit rot.
+- Multiviewer: Der Screen-Name steht als Leiste unter dem Bild und verdeckt keine Hinweise oder den Balken mehr.
+- „Ton aus – klicken“ blinkt nur noch kurz und bleibt dann ruhig stehen.
+- Moderation: Der eigene Name oben rechts trägt einen Stift, damit klar ist, dass man ihn antippen und ändern kann.
+- Bestehende Designs mit „Blinken bei Überzeit“ blinken nach dem Update **sanft**. Wer das harte Blinken will, stellt im Design auf *Stark*.
+- Ist am Gerät „Bewegung reduzieren“ eingestellt, blinkt bei Überzeit und bei Einblendungen nichts mehr.
+- Alle Puls- und Blink-Effekte nutzen zwei gemeinsame Takte (sanft 2 s, hart 1 s).
+
+### Behoben
+- „Noch keine Agenda“ brach auf der Moderation und auf `/plan` nach jedem Wort um.
+
 ### Sicherheit
 - **Fremde Webseiten können die Show nicht mehr steuern.** Bisher konnte jede Webseite, die im Browser des Regie-Rechners offen war, über `localhost` Timer bedienen, Einblendungen setzen und das Programm beenden. Jetzt lehnt Event Timer Anfragen ab, die ein Browser im Auftrag einer anderen Website schickt (`Sec-Fetch-Site`, `Origin`), auch beim WebSocket.
 - Die PIN-Freiheit am Rechner selbst gilt nur noch unter einem lokalen Namen (`localhost`, IP-Adresse, `*.local`, Rechnername). Das schützt vor DNS-Rebinding.

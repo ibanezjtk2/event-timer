@@ -14,16 +14,18 @@ const HOUR: i64 = 60 * 60 * 1000;
 
 const FONTS: [&str; 5] = ["din", "grotesk", "mono", "serif", "rounded"];
 const BG_STYLES: [&str; 3] = ["solid", "glow", "transparent"];
+const FLASH_STYLES: [&str; 3] = ["off", "soft", "hard"];
 const COLOR_KEYS: [&str; 9] = [
     "bg", "fg", "accent", "warn", "crit", "overBg", "overFg", "msgFg", "msgBg",
 ];
-const BOOL_KEYS: [&str; 6] = [
+const BOOL_KEYS: [&str; 7] = [
     "showProgress",
     "showClock",
     "showTitle",
     "showNext",
     "showNotice",
     "flashOver",
+    "showEnd",
 ];
 const TEXT_KEYS: [&str; 3] = ["warnText", "expiredText", "overText"];
 const DEFAULT_STAGE: [&str; 6] = [
@@ -130,7 +132,8 @@ pub struct Preset {
     pub bg_style: String,
     pub font: String,
     pub weight: i64,
-    pub bools: [bool; 6],
+    pub bools: [bool; 7],
+    pub flash_style: String,
     pub texts: [String; 3],
 }
 
@@ -144,6 +147,10 @@ pub struct Item {
     /// fixed clock times "HH:MM" (empty = follows the previous slot)
     pub start: String,
     pub end: String,
+    /// may be shortened to balance the time account (Zeitkonto)
+    pub buffer: bool,
+    /// planned length: follows the duration until the show starts, then stays put
+    pub plan_ms: i64,
     pub cues: Vec<Cue>,
     pub started_at: Option<i64>,
     pub ended_at: Option<i64>,
@@ -743,7 +750,8 @@ fn builtin(
     bg_style: &str,
     font: &str,
     weight: i64,
-    bools: [bool; 6],
+    bools: [bool; 7],
+    flash_style: &str,
     texts: [&str; 3],
 ) -> Preset {
     Preset {
@@ -755,6 +763,7 @@ fn builtin(
         font: font.into(),
         weight,
         bools,
+        flash_style: flash_style.into(),
         texts: texts.map(String::from),
     }
 }
@@ -764,7 +773,7 @@ pub fn builtin_presets() -> Vec<Preset> {
     vec![
         builtin(
             "stage",
-            "Stage",
+            "Bühne",
             [
                 "#000000", "#f4f6f8", "#2fd47a", "#ffb020", "#ff4757", "#4a0710", "#ffffff",
                 "#000000", "#ffd84d",
@@ -772,7 +781,8 @@ pub fn builtin_presets() -> Vec<Preset> {
             "solid",
             "din",
             700,
-            [true; 6],
+            [true; 7],
+            "soft",
             de,
         ),
         builtin(
@@ -785,7 +795,8 @@ pub fn builtin_presets() -> Vec<Preset> {
             "solid",
             "grotesk",
             700,
-            [true; 6],
+            [true; 7],
+            "soft",
             de,
         ),
         builtin(
@@ -798,7 +809,8 @@ pub fn builtin_presets() -> Vec<Preset> {
             "transparent",
             "din",
             700,
-            [false; 6],
+            [false; 7],
+            "off",
             ["", "", ""],
         ),
         builtin(
@@ -811,7 +823,8 @@ pub fn builtin_presets() -> Vec<Preset> {
             "solid",
             "mono",
             600,
-            [false, false, false, false, false, true],
+            [false, false, false, false, false, true, false],
+            "soft",
             ["", "", ""],
         ),
     ]
@@ -1016,12 +1029,28 @@ pub fn timer_view(t: &Timer, now: i64) -> TimerView {
         && !t.overtime
         && raw <= 0
         && !(t.kind == Kind::Clock && t.target_at.is_none());
+    // a threshold as long as the whole timer would colour it from the start: halve it (warn) or quarter it (crit)
+    let dur = if matches!(t.kind, Kind::Countdown | Kind::Countup) {
+        t.duration_ms
+    } else {
+        0
+    };
+    let warn_ms = if dur > 0 && t.warn_ms >= dur {
+        dur / 2
+    } else {
+        t.warn_ms
+    };
+    let crit_ms = if dur > 0 && t.crit_ms >= dur {
+        dur / 4
+    } else {
+        t.crit_ms
+    };
     let phase = if over || finished {
         "over"
     } else {
         match remaining {
-            Some(r) if r <= t.crit_ms => "crit",
-            Some(r) if r <= t.warn_ms => "warn",
+            Some(r) if r <= crit_ms => "crit",
+            Some(r) if r <= warn_ms => "warn",
             _ => "normal",
         }
     };
@@ -1234,6 +1263,16 @@ fn sanitize_preset(p: &Json, base: &Preset, id: String) -> Preset {
             texts[i] = text(p.get(k), 60);
         }
     }
+    // overtime flashing has three levels; without one, "on" means soft (older designs flashed hard)
+    let fallback = if !bools[5] {
+        "off"
+    } else if base.flash_style != "off" {
+        base.flash_style.as_str()
+    } else {
+        "soft"
+    };
+    let flash_style = pick(p.get("flashStyle"), &FLASH_STYLES, fallback);
+    bools[5] = flash_style != "off";
     Preset {
         id,
         name: if name.is_empty() {
@@ -1247,6 +1286,7 @@ fn sanitize_preset(p: &Json, base: &Preset, id: String) -> Preset {
         font: pick(p.get("font"), &FONTS, &base.font),
         weight: num(p.get("weight"), 300, 900, Some(base.weight)).unwrap_or(base.weight),
         bools,
+        flash_style,
         texts,
     }
 }
@@ -1284,12 +1324,17 @@ fn sanitize_item(s: &mut State, it: &Json) -> Item {
         note: text(it.get("note"), 300),
         start: hhmm(it.get("start")),
         end: hhmm(it.get("end")),
+        buffer: it.get("buffer").truthy(),
+        plan_ms: 0,
         cues: Vec::new(),
         started_at: None,
         ended_at: None,
     };
     if !out.start.is_empty() && !out.end.is_empty() {
         out.duration_ms = span_ms(&out.start, &out.end);
+    }
+    if s.agenda.cursor < 0 {
+        out.plan_ms = out.duration_ms;
     }
     out
 }
@@ -1911,8 +1956,8 @@ fn apply_inner(s: &mut State, kind: &str, a: &Json, now: i64) -> bool {
                 return false;
             };
             let list: Vec<Json> = list.iter().take(MAX_ITEMS).cloned().collect();
-            s.agenda.items = list.iter().map(|it| sanitize_item(s, it)).collect();
             s.agenda.cursor = -1;
+            s.agenda.items = list.iter().map(|it| sanitize_item(s, it)).collect();
             for t in s.timers.iter_mut() {
                 t.segment_id = None;
             }
@@ -1955,6 +2000,9 @@ fn apply_inner(s: &mut State, kind: &str, a: &Json, now: i64) -> bool {
             if p.has("end") {
                 it.end = hhmm(p.get("end"));
             }
+            if p.has("buffer") {
+                it.buffer = p.get("buffer").truthy();
+            }
             let fixed = !it.start.is_empty() && !it.end.is_empty();
             if p.has("durationMs") || p.has("start") || p.has("end") {
                 it.duration_ms = if fixed {
@@ -1962,6 +2010,9 @@ fn apply_inner(s: &mut State, kind: &str, a: &Json, now: i64) -> bool {
                 } else {
                     num(p.get("durationMs"), 0, DAY, Some(it.duration_ms)).unwrap_or(it.duration_ms)
                 };
+                if s.agenda.cursor < 0 {
+                    it.plan_ms = it.duration_ms;
+                }
                 let (id, dur, untouched) = (it.id.clone(), it.duration_ms, it.started_at.is_none());
                 if let Some(lt) = s
                     .timers
@@ -2057,9 +2108,11 @@ fn apply_inner(s: &mut State, kind: &str, a: &Json, now: i64) -> bool {
         }
         "agenda.reset" => {
             s.agenda.cursor = -1;
+            // what was played becomes the plan for the next run
             for it in s.agenda.items.iter_mut() {
                 it.started_at = None;
                 it.ended_at = None;
+                it.plan_ms = it.duration_ms;
                 for c in it.cues.iter_mut() {
                     c.done = false;
                 }
@@ -2157,6 +2210,7 @@ impl Preset {
         for (i, k) in BOOL_KEYS.iter().enumerate() {
             j.set(k, self.bools[i]);
         }
+        j.set("flashStyle", &self.flash_style);
         for (i, k) in TEXT_KEYS.iter().enumerate() {
             j.set(k, &self.texts[i]);
         }
@@ -2174,6 +2228,8 @@ impl Item {
             .with("note", &self.note)
             .with("start", &self.start)
             .with("end", &self.end)
+            .with("buffer", self.buffer)
+            .with("planMs", self.plan_ms)
             .with(
                 "cues",
                 Json::Arr(
@@ -2202,6 +2258,14 @@ impl Item {
             note: j.get("note").as_str().unwrap_or("").to_string(),
             start: hhmm(j.get("start")),
             end: hhmm(j.get("end")),
+            buffer: j.get("buffer").truthy(),
+            // saved before there was a plan: the duration is the plan
+            plan_ms: j
+                .get("planMs")
+                .as_i64()
+                .or(j.get("durationMs").as_i64())
+                .unwrap_or(0)
+                .clamp(0, DAY),
             cues: j
                 .get("cues")
                 .as_array()
@@ -2714,6 +2778,18 @@ mod tests {
         // an edited list stays as it is
         let own = State::from_json(&json::parse(r#"{"talkQuick":["Eigene"]}"#).unwrap());
         assert_eq!(own.talk_quick, vec!["Eigene".to_string()]);
+    }
+
+    #[test]
+    fn migrates_designs_without_flash_levels() {
+        // 1.6.0-beta.2: designs only knew flashOver on/off and had no end time switch
+        let old = r#"{"presets":[{"id":"p1","name":"An","flashOver":true},{"id":"p2","name":"Aus","flashOver":false}]}"#;
+        let s = State::from_json(&json::parse(old).unwrap());
+        let got: Vec<(&str, bool, bool)> = s.presets[4..]
+            .iter()
+            .map(|p| (p.flash_style.as_str(), p.bools[5], p.bools[6]))
+            .collect();
+        assert_eq!(got, vec![("soft", true, true), ("off", false, true)]);
     }
 
     #[test]
