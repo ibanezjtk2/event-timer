@@ -2,7 +2,9 @@
 
 Alle Änderungen an Event Timer, neueste zuerst. Versionen nach [Semantic Versioning](https://semver.org/lang/de/): PATCH = Fehlerbehebung, MINOR = neue Funktionen (Bestehendes läuft weiter), MAJOR = etwas Bestehendes ändert sich.
 
-## Unveröffentlicht
+## 0.6.0 – 2026-10-25
+
+Erste Version mit der neuen Nummerierung: Bis 1.0 zählt Event Timer als 0.x, weil sich Datenformat und Companion-Schnittstelle noch ändern dürfen. Die bisherigen Versionen 1.0 bis 1.6 heißen jetzt 0.0 bis 0.6 (1.5.3 → 0.5.3). 0.6.0 ersetzt eine laufende 1.6 wie gewohnt, gespeicherte Shows bleiben erhalten.
 
 ### Neu
 - **Regie als Cockpit** (ab 1600 px Breite): Zeitleiste „Plan gegen Ist“ ganz oben, darunter drei Spalten – Agenda links, Timer in der Mitte, Kontrollseite rechts (Screens als kleine Kacheln, Talkback, Einblendung, Cues).
@@ -36,7 +38,21 @@ Alle Änderungen an Event Timer, neueste zuerst. Versionen nach [Semantic Versio
 ### Behoben
 - „Noch keine Agenda“ brach auf der Moderation und auf `/plan` nach jedem Wort um.
 
-## 1.6.0-beta.2 – 2026-10-11
+### Sicherheit
+- **Fremde Webseiten können die Show nicht mehr steuern.** Bisher konnte jede Webseite, die im Browser des Regie-Rechners offen war, über `localhost` Timer bedienen, Einblendungen setzen und das Programm beenden. Jetzt lehnt Event Timer Anfragen ab, die ein Browser im Auftrag einer anderen Website schickt (`Sec-Fetch-Site`, `Origin`), auch beim WebSocket.
+- Die PIN-Freiheit am Rechner selbst gilt nur noch unter einem lokalen Namen (`localhost`, IP-Adresse, `*.local`, Rechnername). Das schützt vor DNS-Rebinding.
+- **PIN-Sperre:** Nach 5 falschen PINs ist das Gerät 1 Minute gesperrt, über WebSocket und HTTP.
+- Höchstens 32 gleichzeitige Verbindungen pro Gerät und 256 insgesamt.
+- CORS (`Access-Control-Allow-Origin: *`) nur noch für lesende Endpunkte: `/api/status`, `/api/state`, `/api/companion`, `/api/companion/status`.
+
+### Für Companion
+- Keine Änderung: Companion, curl und andere Programme ohne Browser senden die geprüften Header nicht und funktionieren wie bisher, auch mit `?pin=`.
+
+### Intern
+- CI prüft `cargo fmt`, Clippy und die JavaScript-Syntax; Dependabot hält die GitHub Actions aktuell.
+- Neue Tests für die Zugriffsregeln, darunter Ende-zu-Ende-Tests gegen das laufende Programm.
+
+## 0.6.0-beta.2 – 2026-10-11 (früher 1.6.0-beta.2)
 
 Zweite Testversion von 1.6 mit neuem Grundkonzept: **Screens sind die Ausgänge, Timer die Quellen.**
 
@@ -58,7 +74,7 @@ Zweite Testversion von 1.6 mit neuem Grundkonzept: **Screens sind die Ausgänge,
 ### Umstellung beim ersten Start
 - Aus jedem Timer N wird Screen N, der genau diesen Timer zeigt – `/1` sieht also aus wie vorher. Eigene Seiten aus beta.1 werden zu Screens (eine Seite, die „Standard für /1“ war, wird Screen 1). Gibt es keinen Moderations-Screen, wird einer angelegt. Einblendungen bleiben erhalten.
 
-## 1.6.0-beta.1 – 2026-10-11
+## 0.6.0-beta.1 – 2026-10-11 (früher 1.6.0-beta.1)
 
 Erste Testversion von 1.6. Bitte in einem Probelauf testen, noch nicht bei einer echten Veranstaltung.
 
@@ -79,7 +95,7 @@ Erste Testversion von 1.6. Bitte in einem Probelauf testen, noch nicht bei einer
 ### Für Companion
 - `timerN/message`, `clear-message` und `flash` steuern die Einblendung auf dem DSM hinter `/N`.
 
-## 1.5.3 – 2026-10-11
+## 0.5.3 – 2026-10-11 (früher 1.5.3)
 
 ### Geändert
 - **Cues ruhiger:** Cues stehen nicht mehr in der Alarmzone, sondern in ihrem eigenen Panel mit festem Platz. Fällige Cues sind gelb statt rot, nichts blinkt – auch nicht auf `/cues`. Cues haben keinen Ton. Die Alarmzone gehört allein den Meldungen von der Bühne.
@@ -89,7 +105,7 @@ Erste Testversion von 1.6. Bitte in einem Probelauf testen, noch nicht bei einer
 ### Entfernt
 - Ablauf-Modus **„Automatisch nach Uhrzeit“** samt Hold, ±-Korrekturen und „Punkt jetzt beenden“. Der Ablauf läuft immer per GO; Beginn/Ende-Zeiten bleiben als Planzeiten. Gespeicherte Shows im alten Modus laufen beim ersten Start einfach manuell weiter.
 
-## 1.5.2 – 2026-10-11
+## 0.5.2 – 2026-10-11 (früher 1.5.2)
 
 ### Neu
 - **Eigenes App-Icon** (Stoppuhr mit grün-gelbem Ablaufring) – gleich auf Windows, macOS, Linux und im Browser.
@@ -110,7 +126,7 @@ Erste Testversion von 1.6. Bitte in einem Probelauf testen, noch nicht bei einer
 - Windows: Browser wird über die normale Windows-Funktion geöffnet statt über `rundll32` – das sah für Virenscanner und Chromes Download-Prüfung verdächtig aus.
 - Strg+C, Schließen des Terminals oder Herunterfahren (macOS/Linux) speichern jetzt noch, bevor das Programm endet.
 
-## 1.5.1 – 2026-10-10
+## 0.5.1 – 2026-10-10 (früher 1.5.1)
 
 ### Neu
 - `/moderation`: ganzes Programm mit laufendem Punkt, Abweichung vom Plan und **Hinweisen**; iPad im Querformat zweispaltig ohne Scrollen.
@@ -118,7 +134,7 @@ Erste Testversion von 1.6. Bitte in einem Probelauf testen, noch nicht bei einer
 - **Signalton** als kräftiges Intercom-Signal mit Lautstärke, Erinnerung alle 15 s bis zur Bestätigung und Hinweis „Ton aus – klicken“.
 - *Display-Link erstellen* mit Erklärung je Ansicht und Live-Vorschau.
 
-## 1.5.0 – 2026-10-10
+## 0.5.0 – 2026-10-10 (früher 1.5.0)
 
 ### Neu
 - **Talkback** Regie → Moderation mit Presets, Freitext und „Verstanden“.
@@ -128,27 +144,27 @@ Erste Testversion von 1.6. Bitte in einem Probelauf testen, noch nicht bei einer
 ### Geändert
 - Neues Regie-Layout (Menü ☰, aufklappbare Optionen, Tastenkürzel auf den Knöpfen, drei Spalten ab 1600 px, Touch-Ziele ≥ 44 px), weniger runde Ecken, einheitliche professionelle Begriffe.
 
-## 1.4.0 – 2026-10-10
+## 0.4.0 – 2026-10-10 (früher 1.4.0)
 
 ### Neu
 - **Cue-Liste** pro Programmpunkt mit Standby/GO und Cue-Display `/cues`.
 - **Rückkanal** Bühne → Regie: `/moderation` mit Schnellmeldungen und Freitext.
 
-## 1.3.0 – 2026-10-10
+## 0.3.0 – 2026-10-10 (früher 1.3.0)
 
 ### Neu
 - **Ablaufplan nach Uhrzeit** mit Fortschrittsbalken, `/plan` für die Moderation und Eingriffen aus der Regie (Hold, ± Minuten, Punkt jetzt beenden, ganzen Plan verschieben).
 
-## 1.2.0 – 2026-10-10
+## 0.2.0 – 2026-10-10 (früher 1.2.0)
 
 ### Neu
 - **Kurze Adressen** per Netzwerkname `event-timer.local`, optional ohne Portnummer (Port 80), Kurzpfade `/1`–`/8` und `/uhr`.
 
-## 1.1.0 – 2026-10-10
+## 0.1.0 – 2026-10-10 (früher 1.1.0)
 
 ### Neu
 - Uhrzeit-Modus und **Blinken bei Überzeit**.
 
-## 1.0.0 – 2026-10-10
+## 0.0.0 – 2026-10-10 (früher 1.0.0)
 
 - Kompletter Neubau als ein Programm in Rust mit Weboberfläche: Regie, Displays, Ablaufplan, Designs, PIN, Companion-Schnittstelle, Standalone-HTML.

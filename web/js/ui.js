@@ -305,6 +305,7 @@
     "Entsperren": "Unlock",
     "Nur ansehen": "View only",
     "Falsche PIN": "Wrong PIN",
+    "Zu viele Versuche – bitte 1 Minute warten": "Too many attempts – please wait 1 minute",
     "Bitfocus Companion: Modul „Generic HTTP“, Aktion GET auf diese Adressen.": "Bitfocus Companion: use the \"Generic HTTP\" module with GET requests to these URLs.",
     "Sprache": "Language",
     "Tastenkürzel": "Keyboard shortcuts",

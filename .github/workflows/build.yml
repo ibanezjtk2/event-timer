@@ -9,6 +9,23 @@ on:
   workflow_dispatch:
 
 jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      # pinned so new Clippy lints in a Rust release don't break CI unannounced;
+      # bump deliberately and fix what it reports
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: "1.97.0"
+          components: rustfmt, clippy
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+      - run: cargo fmt --check
+      - run: cargo clippy --all-targets --locked -- -D warnings
+      - name: JavaScript syntax
+        run: for f in web/js/*.js tools/*.js; do node --check "$f"; done
+
   test:
     runs-on: ubuntu-latest
     steps:
@@ -20,16 +37,21 @@ jobs:
       - run: node tools/test-engine.js
 
   build:
-    needs: test
+    needs: [lint, test]
     strategy:
       fail-fast: false
+      # pull requests build Linux x64 only (private repo: macOS minutes count
+      # 10x, Windows 2x); main and tags build every platform
       matrix:
-        include:
-          - { os: windows-latest, target: x86_64-pc-windows-msvc, name: windows-x64 }
-          - { os: macos-latest, target: universal, name: macos }
-          - { os: ubuntu-latest, target: x86_64-unknown-linux-musl, name: linux-x64 }
-          - { os: ubuntu-latest, target: aarch64-unknown-linux-musl, name: linux-arm64 }
-          - { os: ubuntu-latest, target: armv7-unknown-linux-musleabihf, name: linux-armv7 }
+        include: ${{ fromJSON(github.event_name == 'pull_request' && '[
+          {"os":"ubuntu-latest","target":"x86_64-unknown-linux-musl","name":"linux-x64"}
+          ]' || '[
+          {"os":"windows-latest","target":"x86_64-pc-windows-msvc","name":"windows-x64"},
+          {"os":"macos-latest","target":"universal","name":"macos"},
+          {"os":"ubuntu-latest","target":"x86_64-unknown-linux-musl","name":"linux-x64"},
+          {"os":"ubuntu-latest","target":"aarch64-unknown-linux-musl","name":"linux-arm64"},
+          {"os":"ubuntu-latest","target":"armv7-unknown-linux-musleabihf","name":"linux-armv7"}
+          ]') }}
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
@@ -94,7 +116,7 @@ jobs:
           path: out/*
 
   standalone:
-    needs: test
+    needs: [lint, test]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

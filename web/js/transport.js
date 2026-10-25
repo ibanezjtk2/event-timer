@@ -65,7 +65,7 @@
           // the fastest round trip gives the most trustworthy offset
           offset = samples.reduce((a, b) => (b.rtt < a.rtt ? b : a)).off;
         } else if (m.type === 'auth') {
-          authEv.emit(m.ok);
+          authEv.emit(m.ok, !!m.locked);
         } else if (m.type === 'error' && m.code === 'auth') {
           you = { canControl: false };
           authEv.emit(false);

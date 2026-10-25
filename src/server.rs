@@ -3,6 +3,7 @@
 
 //! Application server: routing, WebSocket sessions, PIN, Companion API.
 
+use crate::access::{self, ConnLimit, PinCheck, PinGuard};
 use crate::engine::{self, format_ms, timer_view, Kind, State};
 use crate::http::{self, Request, Response, WsEvent};
 use crate::json::{self, Json};
@@ -11,7 +12,7 @@ use crate::store::{self, ServerCfg};
 use crate::util::{hex, now_ms, query_param, salt, sha1};
 use crate::{assets, mdns, net, APP_ID, VERSION};
 use std::io::{BufReader, Write};
-use std::net::{Ipv4Addr, Shutdown, TcpListener, TcpStream};
+use std::net::{IpAddr, Ipv4Addr, Shutdown, TcpListener, TcpStream};
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, AtomicI64, AtomicU16, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex, MutexGuard};
@@ -22,7 +23,9 @@ pub struct Client {
     writer: Mutex<TcpStream>,
     role: Mutex<String>,
     authed: AtomicBool,
+    /// the computer Event Timer runs on, reached by a local name (no PIN needed)
     loopback: bool,
+    ip: IpAddr,
     /// last stage request (rate limit for devices without control rights)
     last_request: AtomicU64,
 }
@@ -47,6 +50,17 @@ pub struct App {
     port80_active: AtomicBool,
     port80_error: Mutex<Option<String>>,
     pub mdns_ok: AtomicBool,
+    pin_guard: PinGuard,
+    conns: ConnLimit,
+}
+
+/// Where a request comes from, as far as permissions go.
+struct Peer {
+    ip: IpAddr,
+    /// this computer, by a local host name, not on behalf of another site
+    local: bool,
+    /// a browser sent it for a page of another site
+    cross_site: bool,
 }
 
 /// Poisoned locks are recovered – one panicking connection must never stop the show.
@@ -73,6 +87,8 @@ impl App {
             port80_active: AtomicBool::new(false),
             port80_error: Mutex::new(None),
             mdns_ok: AtomicBool::new(false),
+            pin_guard: PinGuard::default(),
+            conns: ConnLimit::default(),
         }
     }
 
@@ -107,10 +123,12 @@ impl App {
         !lock(&self.cfg).pin_hash.is_empty()
     }
 
-    fn check_pin(&self, pin: &str) -> bool {
-        let cfg = lock(&self.cfg);
-        !cfg.pin_hash.is_empty()
-            && hex(&sha1(format!("{}{}", cfg.pin_salt, pin.trim()).as_bytes())) == cfg.pin_hash
+    fn check_pin(&self, ip: IpAddr, pin: &str) -> PinCheck {
+        self.pin_guard.check(ip, now_ms(), || {
+            let cfg = lock(&self.cfg);
+            !cfg.pin_hash.is_empty()
+                && hex(&sha1(format!("{}{}", cfg.pin_salt, pin.trim()).as_bytes())) == cfg.pin_hash
+        })
     }
 
     pub fn set_pin(&self, pin: &str) {
@@ -252,8 +270,17 @@ impl App {
 
 /// Serves an accepted connection on its own thread.
 pub fn spawn_connection(app: &Arc<App>, stream: TcpStream) {
+    let Ok(ip) = stream.peer_addr().map(|a| a.ip().to_canonical()) else {
+        return;
+    };
+    if !app.conns.acquire(ip) {
+        return; // dropping the stream closes it
+    }
     let app = app.clone();
-    std::thread::spawn(move || handle_connection(app, stream));
+    std::thread::spawn(move || {
+        handle_connection(&app, stream, ip);
+        app.conns.release(ip);
+    });
 }
 
 /// Optional second listener on port 80, so addresses work without ":2468".
@@ -315,11 +342,7 @@ fn send(c: &Client, text: &str) {
 
 // ------------------------------------------------------------ connections
 
-pub fn handle_connection(app: Arc<App>, stream: TcpStream) {
-    let loopback = stream
-        .peer_addr()
-        .map(|a| a.ip().to_canonical().is_loopback())
-        .unwrap_or(false);
+fn handle_connection(app: &Arc<App>, stream: TcpStream, ip: IpAddr) {
     let _ = stream.set_read_timeout(Some(Duration::from_secs(20)));
     let _ = stream.set_write_timeout(Some(Duration::from_secs(5)));
     let _ = stream.set_nodelay(true);
@@ -332,17 +355,30 @@ pub fn handle_connection(app: Arc<App>, stream: TcpStream) {
         Ok(Some(r)) => r,
         _ => return,
     };
+    let cross_site = access::is_cross_site(&req);
+    let peer = Peer {
+        ip,
+        local: ip.is_loopback()
+            && !cross_site
+            && access::is_local_host(req.header("host"), lock(&app.net).hostname.as_deref()),
+        cross_site,
+    };
     let upgrade = req
         .header("upgrade")
         .map(|v| v.eq_ignore_ascii_case("websocket"))
         .unwrap_or(false);
     if upgrade && req.path == "/ws" {
+        if peer.cross_site {
+            let resp = Response::text(403, "Cross-site WebSocket refused");
+            let _ = http::write_response(&mut stream, &resp, false);
+            return;
+        }
         if let Some(key) = req.header("sec-websocket-key").map(str::to_string) {
-            ws_session(app, stream, reader, &key, loopback);
+            ws_session(app.clone(), stream, reader, &key, &peer);
         }
         return;
     }
-    let resp = route(&app, &req, loopback);
+    let resp = route(app, &req, &peer);
     let _ = http::write_response(&mut stream, &resp, req.method == "HEAD");
 }
 
@@ -351,7 +387,7 @@ fn ws_session(
     mut stream: TcpStream,
     mut reader: BufReader<TcpStream>,
     key: &str,
-    loopback: bool,
+    peer: &Peer,
 ) {
     if http::ws_accept(&mut stream, key).is_err() {
         return;
@@ -365,7 +401,8 @@ fn ws_session(
         writer: Mutex::new(stream),
         role: Mutex::new(String::from("unknown")),
         authed: AtomicBool::new(false),
-        loopback,
+        loopback: peer.local,
+        ip: peer.ip,
         last_request: AtomicU64::new(0),
     });
     lock(&app.clients).push(client.clone());
@@ -409,14 +446,19 @@ fn handle_ws_message(app: &Arc<App>, c: &Client, text: &str) {
             app.broadcast();
         }
         "auth" => {
-            let ok = app.check_pin(msg.get("pin").as_str().unwrap_or(""));
+            let check = app.check_pin(c.ip, msg.get("pin").as_str().unwrap_or(""));
+            let ok = check == PinCheck::Ok;
             if !ok {
                 std::thread::sleep(Duration::from_millis(600)); // slows down guessing
             }
             c.authed.store(ok, Ordering::SeqCst);
             send(
                 c,
-                &Json::obj().with("type", "auth").with("ok", ok).to_string(),
+                &Json::obj()
+                    .with("type", "auth")
+                    .with("ok", ok)
+                    .with("locked", check == PinCheck::Locked)
+                    .to_string(),
             );
             app.send_state_to(c);
         }
@@ -504,15 +546,25 @@ fn handle_ws_message(app: &Arc<App>, c: &Client, text: &str) {
 
 // ------------------------------------------------------------------ routes
 
-fn http_authorized(app: &App, req: &Request, loopback: bool) -> bool {
-    if loopback || !app.pin_required() {
+fn http_authorized(app: &App, req: &Request, peer: &Peer) -> bool {
+    if peer.local || !app.pin_required() {
         return true;
     }
     let pin = req
         .header("x-event-timer-pin")
         .map(str::to_string)
         .or_else(|| query_param(&req.query, "pin"));
-    pin.map(|p| app.check_pin(&p)).unwrap_or(false)
+    pin.is_some_and(|p| app.check_pin(peer.ip, &p) == PinCheck::Ok)
+}
+
+/// API endpoints that only read; other sites may read them (CORS), e.g. a
+/// web dashboard. Everything else under /api changes the show.
+fn is_read_only_api(method: &str, path: &str) -> bool {
+    matches!(method, "GET" | "HEAD")
+        && matches!(
+            path,
+            "/api/status" | "/api/state" | "/api/companion" | "/api/companion/status"
+        )
 }
 
 fn is_app_route(path: &str) -> bool {
@@ -548,24 +600,34 @@ fn is_app_route(path: &str) -> bool {
                 .unwrap_or(false))
 }
 
-fn route(app: &App, req: &Request, loopback: bool) -> Response {
+fn route(app: &App, req: &Request, peer: &Peer) -> Response {
     let path = req.path.as_str();
     if req.method == "OPTIONS" {
         return Response::new(204, "text/plain", Vec::new())
             .header("Access-Control-Allow-Origin", "*")
-            .header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
-            .header(
-                "Access-Control-Allow-Headers",
-                "Content-Type, X-Event-Timer-Pin",
-            );
+            .header("Access-Control-Allow-Methods", "GET");
     }
+    if is_read_only_api(&req.method, path) {
+        return route_api(app, req, peer).header("Access-Control-Allow-Origin", "*");
+    }
+    if peer.cross_site && path.starts_with("/api/") {
+        return Response::json(
+            403,
+            r#"{"ok":false,"error":"Requests from other websites are not allowed"}"#.into(),
+        );
+    }
+    route_api(app, req, peer)
+}
+
+fn route_api(app: &App, req: &Request, peer: &Peer) -> Response {
+    let path = req.path.as_str();
     if path.starts_with("/api/companion") {
         if !matches!(req.method.as_str(), "GET" | "POST") {
             return Response::json(405, r#"{"ok":false,"error":"GET or POST required"}"#.into());
         }
         if path != "/api/companion"
             && path != "/api/companion/status"
-            && !http_authorized(app, req, loopback)
+            && !http_authorized(app, req, peer)
         {
             return Response::json(
                 401,
@@ -601,7 +663,7 @@ fn route(app: &App, req: &Request, loopback: bool) -> Response {
             Response::json(200, body.to_string())
         }
         ("POST", "/api/action") => {
-            if !http_authorized(app, req, loopback) {
+            if !http_authorized(app, req, peer) {
                 return Response::json(401, r#"{"ok":false,"error":"PIN required"}"#.into());
             }
             match json::parse(&String::from_utf8_lossy(&req.body)) {
@@ -622,7 +684,7 @@ fn route(app: &App, req: &Request, loopback: bool) -> Response {
             }
         }
         ("POST", "/api/shutdown") => {
-            if !loopback {
+            if !peer.local {
                 return Response::text(403, "Local access only");
             }
             app.save_now();
@@ -713,7 +775,12 @@ fn companion(app: &App, req: &Request) -> Response {
             )
             .with(
                 "timers",
-                Json::Arr(st.timers.iter().map(|t| timer_snapshot(&st, t, now)).collect()),
+                Json::Arr(
+                    st.timers
+                        .iter()
+                        .map(|t| timer_snapshot(&st, t, now))
+                        .collect(),
+                ),
             )
             .with(
                 "agenda",
