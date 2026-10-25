@@ -1037,7 +1037,7 @@
       const VIEWS = [
         ['full', 'Vollbild-Timer', 'Standard-DSM, wie /1.'],
         ['plan', 'Agenda-Monitor', 'Laufender Programmpunkt mit Restzeit, daneben die ganze Agenda (wie /plan).'],
-        ['time', 'Nur Uhrzeit', 'Nur die Uhr, z. B. fürs Foyer (wie /uhr).'],
+        ['time', 'Nur Uhrzeit', 'Nur die Uhrzeit groß, sonst nichts (wie /uhr).'],
         ['clock', 'Uhrzeit groß', 'Uhrzeit groß, der Timer klein darunter.'],
         ['lower', 'Bauchbinde (Keying)', 'Kleiner Timer unten rechts – für vMix/OBS als Browser-Input über dem Bild.'],
         ['agenda', 'Agenda (Backstage)', 'Timer plus Agenda mit Abweichung, für Backstage oder Greenroom.'],

@@ -132,7 +132,7 @@ Unter **Menü → Screens** stellst du die Screens zusammen. Jeder Screen hat ei
 
 | Art | Für | Module |
 |---|---|---|
-| **Anzeige** | DSM (Vorschau-Monitor vor der Bühne), Backstage, Foyer – nur Anzeige, kein Touch | Timer, Uhr, Nächster Punkt, Agenda, Einblendung |
+| **Anzeige** | DSM (Vorschau-Monitor vor der Bühne), Backstage, reine Uhr – nur Anzeige, kein Touch | Timer, Uhr, Nächster Punkt, Agenda, Einblendung |
 | **Moderation** | Handy oder Tablet der Moderation | alle: zusätzlich Hinweis, Von der Regie, An die Regie (die Einblendung erscheint hier als Spiegel) |
 
 - **Neuer Screen:** aus einer Vorlage starten – *DSM (Vorschau-Monitor)*, *Agenda-Monitor*, *Uhr*, *Moderation* oder leer.

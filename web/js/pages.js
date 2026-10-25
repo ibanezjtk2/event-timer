@@ -2,7 +2,7 @@
    Copyright (C) 2026 Felix Spindler <f-spindler@pm.me> */
 /*
  * Screens: the outputs. Every device outside the Regie opens a screen (/1 … /16, or /p/<name>).
- *  show – display only (DSM, backstage, foyer): nothing can be sent or confirmed there
+ *  show – display only (DSM, backstage, clock only): nothing can be sent or confirmed there
  *  mod  – the presenter's phone/tablet: everything, including talkback and messages to the Regie
  * A screen is built from modules (timer, agenda, …). Screens in a group show the group's layout
  * unless they have their own ("Eigener Aufbau"). /plan and /uhr are fixed pages; /moderation shows
@@ -33,7 +33,7 @@
   const TEMPLATES = [
     ['dsm', 'DSM (Vorschau-Monitor)', 'Vollbild-Timer mit Einblendung – für die Monitore vor der Bühne.'],
     ['agenda', 'Agenda-Monitor', 'Timer und Agenda nebeneinander – z. B. Backstage.'],
-    ['clock', 'Uhr', 'Nur die Uhrzeit – z. B. Foyer.'],
+    ['clock', 'Uhr', 'Nur die Uhrzeit, sonst nichts.'],
     ['mod', 'Moderation', 'Restzeit, Hinweis und Agenda, dazu Talkback und Meldungen an die Regie.'],
     ['empty-show', 'Leere Anzeige', 'Ohne Module – selbst zusammenstellen.'],
     ['empty-mod', 'Leere Moderation', 'Ohne Module – selbst zusammenstellen.'],
