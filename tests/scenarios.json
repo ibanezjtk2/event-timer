@@ -2079,5 +2079,21 @@
         "changed": false
       }
     ]
+  },
+  {
+    "name": "agenda: buffer flag and plan length (frozen while the show runs)",
+    "steps": [
+      { "at": 1000, "do": { "type": "agenda.replace", "items": [{ "title": "A", "durationMs": 600000 }, { "title": "Pause", "durationMs": 900000, "buffer": true }] } },
+      { "at": 1000, "expect": { "agenda.items.0.buffer": false, "agenda.items.1.buffer": true, "agenda.items.1.planMs": 900000 } },
+      { "at": 2000, "do": { "type": "agenda.update", "itemId": "s2", "patch": { "durationMs": 600000 } } },
+      { "at": 2000, "expect": { "agenda.items.1.planMs": 600000 } },
+      { "at": 3000, "do": { "type": "agenda.next" } },
+      { "at": 4000, "do": { "type": "agenda.update", "itemId": "s2", "patch": { "durationMs": 300000, "buffer": false } } },
+      { "at": 4000, "expect": { "agenda.items.1.durationMs": 300000, "agenda.items.1.planMs": 600000, "agenda.items.1.buffer": false } },
+      { "at": 5000, "do": { "type": "agenda.add", "item": { "title": "C" } } },
+      { "at": 5000, "expect": { "agenda.items.2.planMs": 0, "agenda.items.2.durationMs": 600000 } },
+      { "at": 6000, "do": { "type": "agenda.reset" } },
+      { "at": 6000, "expect": { "agenda.items.1.planMs": 300000, "agenda.items.2.planMs": 600000 } }
+    ]
   }
 ]
