@@ -160,7 +160,7 @@
     // agenda panel
     const ros = h('ol', { class: 'ros' });
     const stat = label => h('div', { class: 'stat' }, h('small', null, t(label)), h('b', null, '—'), h('span', { class: 'stat-note' }));
-    const statDrift = stat('Abweichung vom Plan');
+    const statDrift = stat('Zeitkonto');
     const statEnd = stat('Voraussichtliches Ende');
     const statTotal = stat('Gesamtdauer');
     const plannedInput = h('input', { class: 'input num', type: 'time', 'aria-label': t('Planbeginn') });
@@ -238,11 +238,15 @@
     // ------------------------------------------- timeline (plan against actual)
     // Full width above the desk; folds to one line with the time account, hidden without an agenda.
     let tlOpen = store.get('et-tl-open') !== '0';
+    // suggestions to balance the time account; "So lassen" hides them until the account moves a minute
+    const kontoActs = h('div', { class: 'konto-acts' });
+    let kontoDismiss = null;
+    let kontoKey = '';
     const tlLanes = h('div', { class: 'tl-lanes' });
     const tlFold = h('button', { class: 'tl-fold', 'aria-expanded': String(tlOpen), title: t('Zeitleiste auf- oder zuklappen') + ' (T)', onclick: () => setTlOpen(!tlOpen) },
       h('span', { class: 'tl-chev', 'aria-hidden': 'true' }, '▾'), t('Zeitleiste'), h('span', { class: 'tl-sub' }, t('Plan gegen Ist')), kbd('T'));
     const tlPanel = h('section', { class: 'panel tl', 'aria-label': t('Zeitleiste') },
-      h('div', { class: 'tl-head' }, tlFold, h('div', { class: 'ros-summary' }, statDrift, statEnd, statTotal)),
+      h('div', { class: 'tl-head' }, tlFold, h('div', { class: 'ros-summary' }, statDrift, statEnd, statTotal), kontoActs),
       tlLanes);
     function setTlOpen(v) {
       tlOpen = v;
@@ -253,10 +257,13 @@
     /** planned and actual/forecast span per programme item (epoch ms) */
     function timeline(s, now) {
       const a = s.agenda, rv = E.runView(s, now), n = a.items.length;
+      // the plan lane uses the planned lengths: shortening a buffer during the show does not move the plan
+      const planned = Object.assign({}, s, { agenda: Object.assign({}, a, { items: a.items.map(it => Object.assign({}, it, { durationMs: it.planMs != null ? it.planMs : it.durationMs })) }) });
+      const pv = E.planView(planned, now);
       // without planned times the plan starts where the show started (or now)
       const anchor = a.items[0] && a.items[0].startedAt != null ? a.items[0].startedAt : now;
       let pe = anchor;
-      const plan = rv.rows.map(r => {
+      const plan = pv.rows.map(r => {
         const x = r.start != null ? { s: r.start, e: r.end } : { s: pe, e: pe + r.item.durationMs };
         pe = x.e;
         return x;
@@ -295,18 +302,18 @@
       const t0 = Math.min(tl.plan[0].s, tl.ist[0].s, now);
       const t1 = Math.max(tl.planEnd, tl.istEnd, now) + 5 * MIN;
       const span = t1 - t0;
-      const key = JSON.stringify([Math.round(now / 5000), s.agenda.cursor, items.map(x => [x.title, x.durationMs]), tl.plan, tl.ist.map(x => [Math.round(x.s / 5000), Math.round(x.e / 5000), x.k]), root.ETUI.lang]);
+      const key = JSON.stringify([Math.round(now / 5000), s.agenda.cursor, items.map(x => [x.title, x.durationMs, x.buffer]), tl.plan, tl.ist.map(x => [Math.round(x.s / 5000), Math.round(x.e / 5000), x.k]), root.ETUI.lang]);
       if (key === tlKey) return;
       tlKey = key;
       const x = v => ((v - t0) / span * 100).toFixed(2) + '%';
       const w = (a, b) => (Math.max(0, b - a) / span * 100).toFixed(2) + '%';
-      const blk = (it, r, cls) => h('div', { class: 'tl-blk ' + cls, style: { left: x(r.s), width: w(r.s, r.e) }, title: it.title + ' · ' + hhmm(r.s) + '–' + hhmm(r.e) }, it.title || '—');
+      const blk = (it, r, cls) => r.e <= r.s ? null : h('div', { class: 'tl-blk ' + cls + (it.buffer ? ' tl-buf' : ''), style: { left: x(r.s), width: w(r.s, r.e) }, title: it.title + ' · ' + hhmm(r.s) + '–' + hhmm(r.e) }, it.title || '—');
       const step = span <= 3 * 60 * MIN ? 15 * MIN : span <= 6 * 60 * MIN ? 30 * MIN : 60 * MIN;
       const ticks = [];
       for (let v = Math.ceil(t0 / step) * step; v <= t1; v += step) ticks.push(h('span', { style: { left: x(v) } }, hhmm(v)));
       tlLanes.replaceChildren(
-        h('div', { class: 'tl-lane' }, h('span', { class: 'tl-tag' }, t('Plan')), ...items.map((it, i) => blk(it, tl.plan[i], 'tl-plan'))),
-        h('div', { class: 'tl-lane' }, h('span', { class: 'tl-tag' }, t('Ist und Prognose')), ...items.map((it, i) => blk(it, tl.ist[i], 'tl-' + tl.ist[i].k))),
+        h('div', { class: 'tl-lane' }, h('span', { class: 'tl-tag' }, t('Plan')), ...items.map((it, i) => blk(it, tl.plan[i], 'tl-plan')).filter(Boolean)),
+        h('div', { class: 'tl-lane' }, h('span', { class: 'tl-tag' }, t('Ist und Prognose')), ...items.map((it, i) => blk(it, tl.ist[i], 'tl-' + tl.ist[i].k)).filter(Boolean)),
         h('div', { class: 'tl-planend', style: { left: x(tl.planEnd) }, title: t('Geplantes Ende') }),
         h('div', { class: 'tl-now', style: { left: x(now) } }, h('span', null, t('jetzt') + ' ' + uhr(hhmm(now)))),
         h('div', { class: 'tl-axis' }, ...ticks));
@@ -761,7 +768,7 @@
         ros.appendChild(h('li', { class: 'ros-row', 'data-status': status, 'data-item': it.id, title: t('Klicken zum Bearbeiten'),
           onclick: e => { if (e.target.closest('button')) return; editingItem = it.id; buildAgenda(); } },
           h('span', { class: 'ros-when' }, when),
-          h('span', { class: 'ros-what' }, h('b', null, it.title || '—'), it.speaker ? h('span', null, it.speaker) : null,
+          h('span', { class: 'ros-what' }, h('b', null, it.title || '—'), it.buffer ? h('span', { class: 'ros-buf' }, t('Puffer')) : null, it.speaker ? h('span', null, it.speaker) : null,
             it.note ? h('span', { class: 'ros-note', title: it.note }, t('Hinweis') + ': ' + it.note) : null,
             it.cues && it.cues.length ? h('span', { class: 'ros-cues' }, it.cues.length + ' ' + t(it.cues.length === 1 ? 'Cue' : 'Cues')) : null),
           h('span', { class: 'ros-dur' }, E.formatMs(it.durationMs), sub),
@@ -797,7 +804,7 @@
     }
 
     function editRow(it) {
-      if (!editDraft || editDraft.id !== it.id) editDraft = { id: it.id, title: it.title, speaker: it.speaker, dur: minutesLabel(it.durationMs), start: it.start || '', end: it.end || '', note: it.note || '' };
+      if (!editDraft || editDraft.id !== it.id) editDraft = { id: it.id, title: it.title, speaker: it.speaker, dur: minutesLabel(it.durationMs), start: it.start || '', end: it.end || '', note: it.note || '', buffer: Boolean(it.buffer) };
       const dr = editDraft;
       const ti = h('input', { class: 'input', value: dr.title, maxlength: 80, 'aria-label': t('Titel') });
       const sp = h('input', { class: 'input', value: dr.speaker, maxlength: 80, placeholder: t('Sprecher*in'), 'aria-label': t('Sprecher*in') });
@@ -805,14 +812,16 @@
       const fr = h('input', { class: 'input num', type: 'time', value: dr.start, 'aria-label': t('Beginn') });
       const to = h('input', { class: 'input num', type: 'time', value: dr.end, 'aria-label': t('Ende') });
       const nt = h('input', { class: 'input', value: dr.note, maxlength: 300, placeholder: t('z. B. Sponsor erwähnen, Aussprache: Okafor'), 'aria-label': t('Hinweis für die Moderation') });
+      const bf = h('input', { type: 'checkbox', checked: dr.buffer });
       [[ti, 'title'], [sp, 'speaker'], [du, 'dur'], [fr, 'start'], [to, 'end'], [nt, 'note']].forEach(([el, k]) => el.addEventListener('input', () => { dr[k] = el.value; }));
+      bf.addEventListener('change', () => { dr.buffer = bf.checked; });
       const cueEd = h('div', { class: 'cue-edit' },
         h('span', { class: 'help' }, t('Cues')),
         ...(it.cues || []).map(c => cueEditRow(it, c)),
         h('div', { class: 'row' }, h('button', { class: 'btn btn-quiet', onclick: () => act({ type: 'cue.add', itemId: it.id, text: t('Neuer Cue'), ref: 'start', offsetMs: 0 }) }, icon('plus'), t('Cue hinzufügen'))));
       const save = () => {
         const ms = E.parseDuration(du.value);
-        act({ type: 'agenda.update', itemId: it.id, patch: { title: ti.value, speaker: sp.value, note: nt.value, start: fr.value, end: to.value, durationMs: ms == null ? it.durationMs : ms } });
+        act({ type: 'agenda.update', itemId: it.id, patch: { title: ti.value, speaker: sp.value, note: nt.value, start: fr.value, end: to.value, buffer: bf.checked, durationMs: ms == null ? it.durationMs : ms } });
         editingItem = null; editDraft = null; buildAgenda();
       };
       [ti, sp, du, fr, to, nt].forEach(x => x.addEventListener('keydown', e => { if (e.key === 'Enter') save(); if (e.key === 'Escape') { editingItem = null; editDraft = null; buildAgenda(); } }));
@@ -823,6 +832,7 @@
           h('label', { class: 'field' }, h('span', null, t('Ende')), to),
           h('label', { class: 'field' }, h('span', null, t('oder Dauer (Min.)')), du)),
         h('label', { class: 'field ros-edit-note' }, h('span', null, t('Hinweis für die Moderation')), nt),
+        h('label', { class: 'switch ros-edit-buf' }, bf, h('span', null, t('Puffer, darf zum Ausgleich gekürzt werden'))),
         cueEd,
         h('div', { class: 'row' },
           armed(h('button', { class: 'btn btn-quiet' }, icon('trash'), t('Entfernen')), () => { editingItem = null; editDraft = null; act({ type: 'agenda.remove', itemId: it.id }); }),
@@ -1039,15 +1049,16 @@
         // run of show stats
         const av = E.agendaView(s, now);
         const items = s.agenda.items;
-        const d = av.drift;
-        // drift in words: "4:50 vor Plan" reads faster than "−04:50"
-        const tone = !av.started ? '' : d > 30000 ? 'behind' : d < -30000 ? 'ahead' : '';
+        // time account: planned show end against the forecast (positive = time in hand)
+        const tl = items.length ? timeline(s, now) : null;
+        const d = tl && av.started ? tl.planEnd - tl.istEnd : 0;
+        // in words: "4:50 vor Plan" reads faster than "−04:50"
+        const tone = !av.started ? '' : d < -30000 ? 'behind' : d > 30000 ? 'ahead' : '';
         const dt = !av.started ? '—' : Math.abs(d) < 1000 ? '0:00' : E.formatMs(Math.abs(d));
-        const dn = !av.started ? '' : Math.abs(d) < 30000 ? t('im Plan') : d > 0 ? t('hinter Plan') : t('vor Plan');
-        setStat(statDrift, t('Abweichung vom Plan'), dt, tone, dn);
-        const wallEnd = Date.now() + (av.projectedEnd - now);
-        const planEnd = E.planView(s, now).endAt;
-        setStat(statEnd, t('Show-Ende'), items.length ? uhr(hhmm(wallEnd)) : '—', '', planEnd != null && items.length ? t('Plan') + ' ' + uhr(hhmm(planEnd)) : '');
+        const dn = !av.started ? '' : Math.abs(d) < 30000 ? t('im Plan') : d < 0 ? t('hinter Plan') : t('vor Plan');
+        setStat(statDrift, t('Zeitkonto'), dt, tone, dn);
+        syncKonto(s, av, d);
+        setStat(statEnd, t('Show-Ende'), tl ? uhr(hhmm(tl.istEnd)) : '—', '', tl ? t('Plan') + ' ' + uhr(hhmm(tl.planEnd)) : '');
         setStat(statTotal, t('Gesamtdauer'), items.length ? E.formatMs(av.totalPlanned) : '—', '', '');
         const live = ros.querySelector('[data-live]');
         if (live && av.current && av.current.startedAt != null) {
@@ -1058,6 +1069,43 @@
         }
       }
     }
+    /** what could balance the account: trim a buffer or the next item, or give time to the live one */
+    function kontoSuggestions(s, av, d) {
+      const a = s.agenda;
+      const m = Math.round(Math.abs(d) / MIN) * MIN;
+      if (!av.started || av.done || m < MIN) return [];
+      const fut = a.items.slice(a.cursor + 1).filter(it => !(it.start && it.end)); // fixed times stay
+      const buf = fut.find(it => it.buffer);
+      const short = x => x.length > 22 ? x.slice(0, 21) + '…' : x;
+      const out = [];
+      if (d < 0) {
+        if (buf) {
+          const can = Math.min(m, Math.floor(Math.max(0, buf.durationMs - 5 * MIN) / MIN) * MIN);
+          if (can >= MIN) out.push({ label: short(buf.title) + ' −' + minutesLabel(can), sub: can >= m ? t('fängt alles auf') : t('fängt {m} Min. auf').replace('{m}', minutesLabel(can)), act: { type: 'agenda.update', itemId: buf.id, patch: { durationMs: buf.durationMs - can } } });
+        }
+        const nx = fut.find(it => !it.buffer);
+        if (nx && nx.durationMs - m >= 5 * MIN) out.push({ label: short(nx.title) + ' −' + minutesLabel(m), sub: t('Moderation vorher informieren'), act: { type: 'agenda.update', itemId: nx.id, patch: { durationMs: nx.durationMs - m } } });
+      } else {
+        const cur = a.items[a.cursor];
+        if (cur && carriesAgenda()) out.push({ label: short(cur.title) + ' +' + minutesLabel(m), sub: t('Show-Ende bleibt im Plan'), act: { type: 'timer.adjust', id: a.timerId, ms: m } });
+        if (buf) out.push({ label: short(buf.title) + ' +' + minutesLabel(m), sub: t('Zeit wandert in den Puffer'), act: { type: 'agenda.update', itemId: buf.id, patch: { durationMs: buf.durationMs + m } } });
+      }
+      return out;
+    }
+    function syncKonto(s, av, d) {
+      const mins = Math.round(d / MIN);
+      if (kontoDismiss != null && kontoDismiss !== mins) kontoDismiss = null;
+      const sug = kontoDismiss != null ? [] : kontoSuggestions(s, av, d);
+      const key = JSON.stringify([sug.map(x => [x.label, x.sub]), kontoDismiss != null && av.started && !av.done && mins !== 0, root.ETUI.lang]);
+      if (key === kontoKey) return;
+      kontoKey = key;
+      kontoActs.replaceChildren(...(sug.length
+        ? sug.map(x => h('button', { class: 'btn konto-sug', onclick: () => { act(x.act); kontoDismiss = null; kontoKey = ''; } }, h('span', null, x.label), h('small', null, x.sub)))
+          .concat(h('button', { class: 'btn btn-quiet', onclick: () => { kontoDismiss = mins; kontoKey = ''; } }, t('So lassen')))
+        : kontoDismiss != null && av.started && !av.done && mins !== 0 ? [h('span', { class: 'help' }, t('bewusst so gelassen'))] : []));
+      kontoActs.hidden = !kontoActs.childElementCount;
+    }
+
     function setStat(el, label, value, tone, note) {
       const [l, b, n] = el.children;
       if (l.textContent !== label) l.textContent = label;
