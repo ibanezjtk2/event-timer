@@ -337,7 +337,7 @@
                 right);
               if (r.status === 'live') { bar = h('i', { class: 'mod-prog-bar' }); li.prepend(bar); rest = right; live = li; }
               return li;
-            }) : [h('li', { class: 'muted' }, t('Noch keine Agenda'))]));
+            }) : [h('li', { class: 'muted mod-prog-empty' }, t('Noch keine Agenda'))]));
             if (live) setTimeout(() => { list.scrollTop = Math.max(0, live.offsetTop - list.offsetTop - 40); }, 0);
           }
           if (live && rv.current) {
@@ -439,11 +439,12 @@
     let me = store.get(nameKey) || pg.name;
     const conn = h('i', { class: 'mod-dot' });
     const event = h('span', { class: 'mod-event' });
-    const who = h('button', { class: 'chip', title: t('Name ändern') });
+    const whoName = h('span');
+    const who = h('button', { class: 'chip mod-who', title: t('Name ändern') }, whoName, icon('edit'));
     who.addEventListener('click', () => {
       if (o.preview) return;
       const field = h('input', { class: 'input', value: me, maxlength: 30, 'aria-label': t('Name ändern') });
-      const done = () => { me = field.value.trim() || pg.name; store.set(nameKey, me); field.replaceWith(who); who.textContent = me; };
+      const done = () => { me = field.value.trim() || pg.name; store.set(nameKey, me); field.replaceWith(who); whoName.textContent = me; };
       field.addEventListener('keydown', e => { if (e.key === 'Enter') done(); });
       field.addEventListener('blur', done);
       who.replaceWith(field);
@@ -473,7 +474,7 @@
       tick(s, now) {
         conn.dataset.status = tr.status;
         setText(event, s.event.title || 'Event Timer');
-        setText(who, me);
+        setText(whoName, me);
         for (const md of mods) md.tick(s, now);
       },
       destroy() {

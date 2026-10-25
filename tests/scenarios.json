@@ -77,6 +77,16 @@
     ]
   },
   {
+    "name": "short timer: thresholds longer than the timer are halved (warn) and quartered (crit)",
+    "steps": [
+      { "at": 0, "do": { "type": "timer.set", "id": "t1", "ms": 60000, "start": true } },
+      { "at": 1000, "expect": { "view.t1.phase": "normal" } },
+      { "at": 31000, "expect": { "view.t1.phase": "warn" } },
+      { "at": 46000, "expect": { "view.t1.phase": "crit" } },
+      { "at": 61000, "expect": { "view.t1.phase": "over" } }
+    ]
+  },
+  {
     "name": "phases and overtime",
     "steps": [
       {
