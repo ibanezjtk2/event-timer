@@ -148,7 +148,7 @@ jobs:
           awk -v v="$V" 'index($0, "## " v " ") == 1 || $0 == "## " v {f=1; next} /^## / && f {exit} f' CHANGELOG.md > notes.md
           echo "PRE=$([[ "$V" == *-* ]] && echo true || echo false)" >> "$GITHUB_ENV"
           cat notes.md
-      - uses: softprops/action-gh-release@v2
+      - uses: softprops/action-gh-release@v3
         with:
           files: dist/*
           body_path: notes.md
