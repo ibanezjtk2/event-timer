@@ -5,10 +5,17 @@ Alle Änderungen an Event Timer, neueste zuerst. Versionen nach [Semantic Versio
 ## Unveröffentlicht
 
 ### Neu
+- **Regie als Cockpit** (ab 1600 px Breite): Zeitleiste „Plan gegen Ist“ ganz oben, darunter drei Spalten – Agenda links, Timer in der Mitte, Kontrollseite rechts (Screens als kleine Kacheln, Talkback, Einblendung, Cues).
+- **Zeitleiste** über die ganze Breite: geplante und tatsächliche bzw. vorausgesagte Programmpunkte, Jetzt-Linie, geplantes Ende, dazu Abweichung vom Plan, Show-Ende und Gesamtdauer. Mit **T** oder Klick zuklappen (merkt sich der Browser), ohne Agenda ausgeblendet.
+- **Nächster Punkt in der Timer-Kachel:** Trägt der gewählte Timer die Agenda, sitzt GO direkt unter den Zeit-Knöpfen, Start/Pause und Zurücksetzen als Symbol daneben, darunter „Danach“ mit Titel, Dauer, voraussichtlichem Beginn und Cues.
 - **Endzeit** neben dem laufenden Countdown: „Ende 14:32“ in der Regie, auf der Moderation und auf den Screens unter den Ziffern. Pausiert „Ende ~14:35“, bei Überzeit „Ende war 14:32“ (nicht auf den Screens). Gilt für Countdowns und Hochzählen mit Limit. Pro Design abschaltbar (*Endzeit anzeigen*, Standard an).
 - **Blinken bei Überzeit** in drei Stufen: *Aus*, *Sanft* und *Stark* (das bisherige harte Blinken).
 
 ### Geändert
+- Regie: Uhrzeiten tragen „Uhr“ („Ende 18:34 Uhr“, „Show-Ende 19:44 Uhr“), damit sie nicht wie Dauern aussehen. Gilt auch für die Moderation; die Screens bleiben kurz.
+- Regie: **+5:00** als fünfter Zeit-Knopf.
+- Agenda: Ein Klick auf einen Programmpunkt öffnet ihn zum Bearbeiten. Planbeginn, verknüpfter Timer und Autostart stehen unter *Einstellungen* (zugeklappt, mit Zusammenfassung). Laden und Verschieben erscheinen im Cockpit beim Überfahren mit der Maus.
+- Tastenhilfe: „Blackout alle“ statt „All Blackout“, neu **T** für die Zeitleiste.
 - **Begriffe vereinheitlicht** (siehe README → Begriffe): Die Moderation zeigt die Agenda jetzt als „Agenda“ statt „Programm“, `/plan` heißt überall **Agenda-Monitor**, die Backstage-Ansicht **Agenda (Backstage)**, „Programm beendet“ wird zu **Agenda beendet**. „Feste Seiten“ heißen **Feste Screens**, „Display-Link erstellen“ heißt **Ansichts-Link erstellen**, Hilfetexte sprechen von Screens statt Displays.
 - Knöpfe auf Deutsch: **Setzen**, **Setzen & Start**, **Zurücksetzen**, **Hochzählen**, **Blackout alle**; das eingebaute Design „Stage“ heißt **Bühne**.
 - Design-Option „Text bei Ablauf“ heißt **Text bei Zeitende** (nicht zu verwechseln mit dem Text bei Überzeit). Layout „Haupt + Seite“ heißt **Haupt + Spalte rechts**.
