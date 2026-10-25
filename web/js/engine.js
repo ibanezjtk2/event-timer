@@ -298,11 +298,15 @@
       note: text(it.note, 300),
       start: hhmm(it.start),
       end: hhmm(it.end),
+      // a buffer may be shortened to balance the time account (Zeitkonto)
+      buffer: Boolean(it.buffer),
       cues: [],
       startedAt: null,
       endedAt: null,
     };
     if (out.start && out.end) out.durationMs = spanMs(out.start, out.end);
+    // planned length: follows the duration until the show starts, then stays put
+    out.planMs = s.agenda && s.agenda.cursor >= 0 ? 0 : out.durationMs;
     return out;
   }
 
@@ -680,8 +684,8 @@
       }
       case 'agenda.replace': {
         if (!Array.isArray(a.items)) return false;
-        s.agenda.items = a.items.slice(0, MAX_ITEMS).map(it => sanitizeItem(s, it));
         s.agenda.cursor = -1;
+        s.agenda.items = a.items.slice(0, MAX_ITEMS).map(it => sanitizeItem(s, it));
         s.timers.forEach(x => { x.segmentId = null; });
         return true;
       }
@@ -703,12 +707,14 @@
         if ('note' in p) it.note = text(p.note, 300);
         if ('start' in p) it.start = hhmm(p.start);
         if ('end' in p) it.end = hhmm(p.end);
+        if ('buffer' in p) it.buffer = Boolean(p.buffer);
         const fixed = it.start && it.end;
         if ('durationMs' in p || ('start' in p || 'end' in p)) {
           it.durationMs = fixed ? spanMs(it.start, it.end) : num(p.durationMs, 0, DAY, it.durationMs);
           // keep a loaded-but-untouched timer in sync with the edited slot
           const lt = s.timers.find(x => x.segmentId === it.id);
           if (lt && !lt.running && it.startedAt == null) { lt.durationMs = it.durationMs; lt.baseMs = it.durationMs; }
+          if (s.agenda.cursor < 0) it.planMs = it.durationMs;
         }
         return true;
       }
@@ -846,7 +852,8 @@
 
       case 'agenda.reset': {
         s.agenda.cursor = -1;
-        s.agenda.items.forEach(it => { it.startedAt = null; it.endedAt = null; it.cues.forEach(c => { c.done = false; }); });
+        // what was played becomes the plan for the next run
+        s.agenda.items.forEach(it => { it.startedAt = null; it.endedAt = null; it.planMs = it.durationMs; it.cues.forEach(c => { c.done = false; }); });
         s.timers.forEach(x => { if (x.segmentId) { x.segmentId = null; resetTimer(x); } });
         return true;
       }
@@ -972,7 +979,7 @@
     st.timers.forEach(t => { if (!st.presets.some(p => p.id === t.presetId)) t.presetId = 'stage'; });
     st.agenda.items.forEach(it => {
       if (!Array.isArray(it.cues)) it.cues = [];
-      for (const [k, v] of [['start', ''], ['end', '']]) if (!(k in it)) it[k] = v;
+      for (const [k, v] of [['start', ''], ['end', ''], ['buffer', false], ['planMs', it.durationMs]]) if (!(k in it)) it[k] = v;
       delete it.extraMs; delete it.rippleMs;
     });
     // 1.5.3: the run of show always runs GO by GO ("by the clock" is gone)

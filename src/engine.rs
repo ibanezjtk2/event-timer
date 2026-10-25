@@ -147,6 +147,10 @@ pub struct Item {
     /// fixed clock times "HH:MM" (empty = follows the previous slot)
     pub start: String,
     pub end: String,
+    /// may be shortened to balance the time account (Zeitkonto)
+    pub buffer: bool,
+    /// planned length: follows the duration until the show starts, then stays put
+    pub plan_ms: i64,
     pub cues: Vec<Cue>,
     pub started_at: Option<i64>,
     pub ended_at: Option<i64>,
@@ -1270,12 +1274,17 @@ fn sanitize_item(s: &mut State, it: &Json) -> Item {
         note: text(it.get("note"), 300),
         start: hhmm(it.get("start")),
         end: hhmm(it.get("end")),
+        buffer: it.get("buffer").truthy(),
+        plan_ms: 0,
         cues: Vec::new(),
         started_at: None,
         ended_at: None,
     };
     if !out.start.is_empty() && !out.end.is_empty() {
         out.duration_ms = span_ms(&out.start, &out.end);
+    }
+    if s.agenda.cursor < 0 {
+        out.plan_ms = out.duration_ms;
     }
     out
 }
@@ -1891,8 +1900,8 @@ fn apply_inner(s: &mut State, kind: &str, a: &Json, now: i64) -> bool {
                 return false;
             };
             let list: Vec<Json> = list.iter().take(MAX_ITEMS).cloned().collect();
-            s.agenda.items = list.iter().map(|it| sanitize_item(s, it)).collect();
             s.agenda.cursor = -1;
+            s.agenda.items = list.iter().map(|it| sanitize_item(s, it)).collect();
             for t in s.timers.iter_mut() {
                 t.segment_id = None;
             }
@@ -1935,6 +1944,9 @@ fn apply_inner(s: &mut State, kind: &str, a: &Json, now: i64) -> bool {
             if p.has("end") {
                 it.end = hhmm(p.get("end"));
             }
+            if p.has("buffer") {
+                it.buffer = p.get("buffer").truthy();
+            }
             let fixed = !it.start.is_empty() && !it.end.is_empty();
             if p.has("durationMs") || p.has("start") || p.has("end") {
                 it.duration_ms = if fixed {
@@ -1942,6 +1954,9 @@ fn apply_inner(s: &mut State, kind: &str, a: &Json, now: i64) -> bool {
                 } else {
                     num(p.get("durationMs"), 0, DAY, Some(it.duration_ms)).unwrap_or(it.duration_ms)
                 };
+                if s.agenda.cursor < 0 {
+                    it.plan_ms = it.duration_ms;
+                }
                 let (id, dur, untouched) = (it.id.clone(), it.duration_ms, it.started_at.is_none());
                 if let Some(lt) = s
                     .timers
@@ -2037,9 +2052,11 @@ fn apply_inner(s: &mut State, kind: &str, a: &Json, now: i64) -> bool {
         }
         "agenda.reset" => {
             s.agenda.cursor = -1;
+            // what was played becomes the plan for the next run
             for it in s.agenda.items.iter_mut() {
                 it.started_at = None;
                 it.ended_at = None;
+                it.plan_ms = it.duration_ms;
                 for c in it.cues.iter_mut() {
                     c.done = false;
                 }
@@ -2155,6 +2172,8 @@ impl Item {
             .with("note", &self.note)
             .with("start", &self.start)
             .with("end", &self.end)
+            .with("buffer", self.buffer)
+            .with("planMs", self.plan_ms)
             .with(
                 "cues",
                 Json::Arr(
@@ -2183,6 +2202,9 @@ impl Item {
             note: j.get("note").as_str().unwrap_or("").to_string(),
             start: hhmm(j.get("start")),
             end: hhmm(j.get("end")),
+            buffer: j.get("buffer").truthy(),
+            // saved before there was a plan: the duration is the plan
+            plan_ms: j.get("planMs").as_i64().or(j.get("durationMs").as_i64()).unwrap_or(0).clamp(0, DAY),
             cues: j
                 .get("cues")
                 .as_array()
