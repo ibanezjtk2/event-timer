@@ -111,7 +111,7 @@ input[type="color"].input { padding: 3px; height: 40px; cursor: pointer; }
 /* top bar + alert zone stay pinned while the desk scrolls */
 .top { position: sticky; top: 0; z-index: 20; background: rgba(24, 28, 33, .96); backdrop-filter: blur(8px); border-bottom: 1px solid var(--line); }
 .topbar { display: flex; align-items: center; gap: 12px; padding: 8px 18px; }
-.sound-hint { appearance: none; border: 1px solid #6e4f12; background: #3a2a0c; color: #ffd78a; border-radius: var(--r-s); padding: 8px 10px; min-height: 40px; font-weight: 600; cursor: pointer; white-space: nowrap; animation: blink 1.4s steps(2) infinite; }
+.sound-hint { appearance: none; border: 1px solid #6e4f12; background: #3a2a0c; color: #ffd78a; border-radius: var(--r-s); padding: 8px 10px; min-height: 40px; font-weight: 600; cursor: pointer; white-space: nowrap; animation: blink 1.4s steps(2) 7; }
 .hdr-clock { margin-left: auto; font-size: 30px; font-weight: 700; letter-spacing: .01em; line-height: 1; padding: 0 12px; white-space: nowrap; border-right: 1px solid var(--line); }
 .brand { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 16px; white-space: nowrap; }
 .brand-mark { width: 30px; height: 30px; }
@@ -184,6 +184,9 @@ input[type="color"].input { padding: 3px; height: 40px; cursor: pointer; }
 .readout-state { text-align: right; font-size: 14px; color: var(--muted); padding-bottom: 8px; }
 .readout-state b { display: block; color: var(--text); font-size: 15px; }
 .readout[data-state="running"] .readout-state b { color: var(--go); }
+/* the status word follows the digits, never green next to red */
+.readout[data-phase="warn"] .readout-state b { color: var(--standby); }
+.readout[data-phase="crit"] .readout-state b, .readout[data-phase="over"] .readout-state b { color: var(--stop); }
 .readout-bar { grid-column: 1 / -1; height: 6px; border-radius: 3px; background: #262c34; overflow: hidden; }
 .readout-bar i { display: block; height: 100%; width: 0; background: var(--go); border-radius: 3px; }
 .readout[data-phase="warn"] .readout-bar i { background: var(--standby); }
@@ -398,7 +401,7 @@ body[data-view="moderation"], body[data-view="cues"] { background: var(--bg); }
 .pgm-ros li[data-phase="crit"], .pgm-ros li[data-phase="over"] { box-shadow: inset 0 0 0 2px var(--d-crit, #ff4757); }
 .pgm-ros li[data-phase="crit"] .pgm-ros-dur, .pgm-ros li[data-phase="over"] .pgm-ros-dur { color: var(--d-crit, #ff4757); }
 .pgm-ros li[data-phase="crit"] .pgm-ros-bar, .pgm-ros li[data-phase="over"] .pgm-ros-bar { background: color-mix(in srgb, var(--d-crit, #ff4757) 24%, transparent); }
-.pgm-ros-empty { opacity: .5; }
+.pgm-ros li.pgm-ros-empty { display: block; opacity: .5; }
 
 /* presenter page: phone = one column (talkback pinned on top, programme last); tablet landscape = columns, no page scrolling */
 .pg-host-mod { container: mpg / size; overflow-y: auto; background: var(--bg); }
@@ -455,6 +458,7 @@ body[data-view="moderation"], body[data-view="cues"] { background: var(--bg); }
 .mod-prog-list li { flex: 0 0 auto; position: relative; display: grid; grid-template-columns: 50px minmax(0, 1fr) auto; gap: 10px; align-items: baseline; padding: 8px 10px; border-radius: var(--r-s); background: var(--sunken); border: 1px solid transparent; overflow: hidden; }
 .mod-prog-list li > :not(.mod-prog-bar) { position: relative; }
 .mod-prog-list li[data-status="done"] { opacity: .45; }
+.mod-prog-list li.mod-prog-empty { display: block; }
 .mod-prog-list li[data-status="live"] { border-color: var(--go); background: #12261b; }
 .mod-prog-list li[data-status="next"] { border-color: #6e4f12; }
 .mod-prog-bar { position: absolute; left: 0; top: 0; bottom: 0; width: 0; background: rgba(47, 212, 122, .16); transition: width .5s linear; }
@@ -472,6 +476,8 @@ body[data-view="moderation"], body[data-view="cues"] { background: var(--bg); }
 .mod-prog-what span { color: var(--muted); font-size: 13px; }
 .mod-prog-what em { font-style: normal; color: #9fd3ff; font-size: 13px; }
 .mod-head { display: flex; align-items: center; gap: 10px; }
+.mod-who { display: inline-flex; align-items: center; gap: 6px; }
+.mod-who svg { width: 14px; height: 14px; opacity: .6; }
 .mod-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--go); flex: none; }
 .mod-dot[data-status="offline"], .mod-dot[data-status="connecting"] { background: var(--stop); }
 .mod-event { flex: 1; min-width: 0; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -483,6 +489,8 @@ body[data-view="moderation"], body[data-view="cues"] { background: var(--bg); }
 .mod-sub, .mod-next { color: var(--muted); font-size: 14px; }
 .mod-bar { height: 8px; border-radius: 4px; background: var(--sunken); overflow: hidden; margin: 6px 0 2px; }
 .mod-bar i { display: block; height: 100%; width: 0; background: var(--go); }
+.mod-time[data-phase="warn"] ~ .mod-bar i { background: var(--standby); }
+.mod-time[data-phase="crit"] ~ .mod-bar i, .mod-time[data-phase="over"] ~ .mod-bar i { background: var(--stop); }
 .mod-msg { background: #ffd84d; color: #000; font-weight: 700; padding: 12px 14px; border-radius: var(--r-m); font-size: 18px; }
 .mod-h { margin: 6px 0 -4px; font-size: 14px; color: var(--muted); font-weight: 600; }
 .mod-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
@@ -778,6 +786,8 @@ body.pe-open { overflow: hidden; }
 .mv { align-items: flex-start; }
 .tile { width: auto; aspect-ratio: auto; }
 .tile-stage { position: relative; overflow: hidden; pointer-events: none; }
+/* label as a strip under the picture, like a hardware multiviewer: it never covers notices or the bar */
+.tile .tile-label { position: static; display: block; transform: none; width: 0; min-width: 100%; max-width: none; border-radius: 0; background: #0d0f12; padding: 3px 8px; text-align: left; }
 .mv-group { flex: 0 0 auto; display: flex; flex-direction: column; gap: 6px; padding: 4px 8px 8px; border: 1px dashed var(--line); border-radius: var(--r-m); }
 .mv-group[aria-pressed="true"] { border: 1px solid var(--pvw); background: rgba(58, 176, 255, .06); }
 .mv-group-label { appearance: none; background: transparent; border: 0; color: var(--muted); font: 600 12px/1.2 var(--ui); text-align: left; cursor: pointer; display: flex; gap: 6px; align-items: center; padding: 4px 2px; }

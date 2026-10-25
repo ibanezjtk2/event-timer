@@ -2,6 +2,19 @@
 
 Alle Änderungen an Event Timer, neueste zuerst. Versionen nach [Semantic Versioning](https://semver.org/lang/de/): PATCH = Fehlerbehebung, MINOR = neue Funktionen (Bestehendes läuft weiter), MAJOR = etwas Bestehendes ändert sich.
 
+## Unveröffentlicht
+
+### Geändert
+- **Kurze Timer:** Ist die Vorwarnung oder Kritisch-Schwelle so lang wie der ganze Timer (z. B. 1-Minuten-Timer mit „Kritisch 1“), war bisher alles sofort rot. Solche Schwellen greifen jetzt bei der Hälfte (Vorwarnung) bzw. einem Viertel (Kritisch) der Dauer.
+- Regie: Das Status-Wort neben der Zeit („Läuft“) hat dieselbe Farbe wie die Ziffern, nicht mehr grün neben rot.
+- Moderation: Der Fortschrittsbalken unter der Zeit wird bei Vorwarnung gelb und bei Kritisch/Überzeit rot.
+- Multiviewer: Der Screen-Name steht als Leiste unter dem Bild und verdeckt keine Hinweise oder den Balken mehr.
+- „Ton aus – klicken“ blinkt nur noch kurz und bleibt dann ruhig stehen.
+- Moderation: Der eigene Name oben rechts trägt einen Stift, damit klar ist, dass man ihn antippen und ändern kann.
+
+### Behoben
+- „Noch keine Agenda“ brach auf der Moderation und auf `/plan` nach jedem Wort um.
+
 ## 1.6.0-beta.2 – 2026-10-11
 
 Zweite Testversion von 1.6 mit neuem Grundkonzept: **Screens sind die Ausgänge, Timer die Quellen.**
