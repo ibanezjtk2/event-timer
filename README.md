@@ -63,7 +63,7 @@ event-timer.local/1               # dasselbe, wenn „Ohne Portnummer (Port 80)�
 | `/moderation` | der erste Moderations-Screen (Handy/iPad der Moderation). Gibt es keinen, die Vorlage: Restzeit, Hinweis, Agenda, „Von der Regie“, „An die Regie“. |
 | `/cues` | Cue-Liste groß für weitere Operatoren (Licht, Video, Ton) |
 | `/uhr` (auch `/clock`) | nur die Uhrzeit, sonst nichts (`?sec=0` ohne Sekunden) |
-| `/display?t=2&layout=clock` | Uhrzeit groß, Timer klein (alle Ansichten baut dir *Menü → Verbindung → Display-Link erstellen* mit Vorschau zusammen) |
+| `/display?t=2&layout=clock` | Uhrzeit groß, Timer klein (alle Ansichten baut dir *Menü → Verbindung → Ansichts-Link erstellen* mit Vorschau zusammen) |
 | `/display?t=1&layout=lower&bg=transparent` | Bauchbinde mit transparentem Hintergrund, für vMix/OBS als Browser-Input |
 | `&chrome=0` | blendet Vollbild-Knopf und Verbindungshinweis aus |
 
@@ -71,9 +71,11 @@ Displays brauchen nie eine PIN, halten den Bildschirm wach (Wake Lock) und synch
 
 ## Funktionen
 
-- **Screens und Timer getrennt** – wie Ausgänge und Quellen an einer Kreuzschiene: Die Kacheln oben in der Regie sind die **Screens** (was die Geräte zeigen, live gerendert). Die **Timer** sind Quellen mit Namen (z. B. „Bühne“, „Q&A“) und können auf mehreren Screens gleichzeitig laufen. Screen anklicken → darunter steuerst du seinen Timer; „läuft auf: …“ zeigt, was alles mitläuft.
-- **Bis zu 8 Timer**: Countdown, Count-up (mit optionalem Limit), Zielzeit („Beginn um 14:30“) oder **Uhrzeit** (schaltet die Screens in der Pause per Klick auf die Uhr). *Set* setzt eine Dauer, *Set & Go* (⇧ ↵) startet sie sofort.
-- **Blinken bei Überzeit**: Der Bildschirm pulsiert rot, sobald die Zeit um ist. Abschaltbar pro Design.
+- **Regie als Cockpit** (ab 1600 px Breite): ganz oben die **Zeitleiste** (Plan gegen Ist, mit Abweichung und Show-Ende; Taste **T** klappt sie zu, ohne Agenda ist sie weg), darunter drei Spalten – links die Agenda, in der Mitte der Timer mit *Nächster Punkt* und dem, was danach kommt, rechts die Kontrollseite mit Screens, Talkback, Einblendung und Cues. Auf kleineren Bildschirmen zwei Spalten bzw. eine.
+- **Screens und Timer getrennt** – wie Ausgänge und Quellen an einer Kreuzschiene: Die Kacheln in der Regie sind die **Screens** (was die Geräte zeigen, live gerendert). Die **Timer** sind Quellen mit Namen (z. B. „Bühne“, „Q&A“) und können auf mehreren Screens gleichzeitig laufen. Screen anklicken → darunter steuerst du seinen Timer; „läuft auf: …“ zeigt, was alles mitläuft.
+- **Bis zu 8 Timer**: Countdown, Hochzählen (mit optionalem Limit), Zielzeit („Beginn um 14:30“) oder **Uhrzeit** (schaltet die Screens in der Pause per Klick auf die Uhr). *Setzen* übernimmt eine Dauer, *Setzen & Start* (⇧ ↵) startet sie sofort.
+- **Blinken bei Überzeit** in drei Stufen pro Design: *Aus*, *Sanft* (Standard, der Hintergrund atmet langsam) und *Stark* (harter Wechsel im Sekundentakt). Ist am Gerät „Bewegung reduzieren“ eingestellt, blinkt nichts.
+- **Endzeit**: Neben dem laufenden Countdown steht „Ende 14:32“, in der Regie, auf der Moderation und auf den Screens (abschaltbar pro Design: *Endzeit anzeigen*). Pausiert wandert sie mit („Ende ~14:35“), bei Überzeit steht „Ende war 14:32“.
 - **Agenda**: Programmpunkte mit Titel, Sprecher*in und Dauer; *Nächster Punkt* lädt und startet den nächsten Programmpunkt im verknüpften Timer – und damit auf allen Screens, die diesen Timer zeigen. Zeigt die Abweichung vom Plan in Worten („4:50 vor Plan“), das voraussichtliche Ende und mit *Planbeginn* die Uhrzeit jedes Programmpunkts. Import per Copy & Paste (`Titel; Sprecher*in; Minuten`, auch direkt aus Excel).
 - **Drei klare Wege für Nachrichten**, jeder mit eigener Farbe und eigenem Platz:
   - **Einblendung → Screens** (gelb): öffentlich, an *Alle Screens* oder an den ausgewählten Screen bzw. die ausgewählte Gruppe. „LIVE“ / „Ausgeblendet“ zeigt immer, was gerade wo steht.
@@ -82,12 +84,31 @@ Displays brauchen nie eine PIN, halten den Bildschirm wach (Wake Lock) und synch
 - **Screens aus Modulen**, auch in **Gruppen** (siehe unten).
 - **Alarmzone**: Meldungen von der Bühne stehen fest oben unter der Kopfzeile und scrollen nie weg. Daneben die große Uhrzeit. Cues haben ihr eigenes, ruhiges Panel.
 - **Layout**: eine Spalte auf Handy/iPad, zwei am Laptop, ab 1600 px drei (Timer und Einblendung · Agenda · Cues und Talkback). Seltene Timer-Einstellungen liegen eingeklappt unter *Optionen*.
-- **Designs**: 4 eingebaute (Stage, Daylight, Overlay zum Keying, Nur Ziffern) plus eigene, mit Live-Vorschau, frei pro Timer wählbar
-- **All Blackout** für alle Displays
+- **Designs**: 4 eingebaute (Bühne, Daylight, Overlay zum Keying, Nur Ziffern) plus eigene, mit Live-Vorschau, frei pro Timer wählbar
+- **Blackout alle** schaltet alle Screens schwarz
 - **Multiviewer**: Die Regie zeigt jeden Timer als Live-Kachel mit Tally-Rahmen (grün läuft, gelb Warnung, rot kritisch/überzogen)
 - **Speichern**: Jede Änderung landet sofort in `event-timer-data.json`. Nach einem Absturz oder Neustart läuft ein laufender Timer zeitlich korrekt weiter.
 - **PIN** für die Regie (Menü → Sicherheit oder `--pin`). Am Rechner selbst (localhost) ist keine nötig.
-- Deutsch / Englisch. Tastenkürzel stehen direkt auf den Knöpfen: Leertaste, R, ↑/↓ (±1 min), ←/→ (±10 s), ⇧ ↵ (Set & Go), G (nächster Programmpunkt), C (GO), B (All Blackout), 1–8
+- Deutsch / Englisch. Tastenkürzel stehen direkt auf den Knöpfen: Leertaste, R, ↑/↓ (±1 min), ←/→ (±10 s), ⇧ ↵ (Setzen & Start), G (nächster Programmpunkt), C (GO), B (Blackout alle), 1–8
+
+## Begriffe
+
+Ein Wort pro Sache, in der Oberfläche wie hier:
+
+| Begriff | Bedeutung |
+|---|---|
+| **Agenda** | die Liste aller Programmpunkte (nicht: Ablauf, Programm) |
+| **Programmpunkt** | ein Eintrag der Agenda |
+| **Timer** | eine Zeitquelle mit Namen: Countdown, Hochzählen, Zielzeit oder Uhrzeit |
+| **Screen** | ein Ausgang mit Nummer (`/1` … `/16`), aus Modulen gebaut; Art *Anzeige* (z. B. DSM) oder *Moderation* |
+| **Feste Screens** | die immer vorhandenen Adressen `/moderation`, `/plan`, `/uhr`, `/cues` |
+| **Monitor / Gerät** | die Hardware, auf der ein Screen läuft |
+| **Überzeit** | die Zeit läuft über null hinaus weiter (`+00:42`) |
+| **Einblendung** | öffentlicher Text auf Screens (gelb) |
+| **Talkback** | privat von der Regie an die Moderation (blau), mit „Verstanden“ |
+| **Hinweis** | feste Notiz der Regie zu einem Programmpunkt, nur für die Moderation |
+| **Meldung** | von der Moderation an die Regie (rot) |
+| **Blackout** | Screens schwarz schalten |
 
 ## Uhrzeiten in der Agenda
 
@@ -113,11 +134,11 @@ Unter **Menü → Screens** stellst du die Screens zusammen. Jeder Screen hat ei
 
 | Art | Für | Module |
 |---|---|---|
-| **Anzeige** | DSM (Vorschau-Monitor vor der Bühne), Backstage, Foyer – nur Anzeige, kein Touch | Timer, Uhr, Nächster Punkt, Agenda, Einblendung |
+| **Anzeige** | DSM (Vorschau-Monitor vor der Bühne), Backstage, reine Uhr – nur Anzeige, kein Touch | Timer, Uhr, Nächster Punkt, Agenda, Einblendung |
 | **Moderation** | Handy oder Tablet der Moderation | alle: zusätzlich Hinweis, Von der Regie, An die Regie (die Einblendung erscheint hier als Spiegel) |
 
 - **Neuer Screen:** aus einer Vorlage starten – *DSM (Vorschau-Monitor)*, *Agenda-Monitor*, *Uhr*, *Moderation* oder leer.
-- **Bearbeiten:** Layout wählen (Anzeige: Vollbild, Haupt + Seite, Haupt + Leiste unten; Moderation: zwei Spalten oder eine), mit **+ Modul** Module hinzufügen, ↑ ↓ sortieren, ⚙ Einstellungen (welcher Timer, Darstellung, Sekunden), 🗑 entfernen. Rechts eine Live-Vorschau (Bildschirm, iPad quer/hoch, Handy).
+- **Bearbeiten:** Layout wählen (Anzeige: Vollbild, Haupt + Spalte rechts, Haupt + Leiste unten; Moderation: zwei Spalten oder eine), mit **+ Modul** Module hinzufügen, ↑ ↓ sortieren, ⚙ Einstellungen (welcher Timer, Darstellung, Sekunden), 🗑 entfernen. Rechts eine Live-Vorschau (Monitor 16:9, iPad quer/hoch, Handy).
 - **Übernehmen:** Bis dahin ist alles ein Entwurf. Danach wechseln geöffnete Geräte von selbst, ohne Neuladen.
 - **Gruppen:** Screens, die dasselbe zeigen sollen (z. B. DSM links und rechts), kommen in eine Gruppe. Die Gruppe hat einen gemeinsamen Aufbau – einmal bearbeiten, alle ändern sich. Einzelne Screens können mit **„Eigener Aufbau“** abweichen. In der Regie stehen die Kacheln einer Gruppe in einem Rahmen; ein Klick auf den Gruppennamen wählt alle aus (Einblendung an die ganze Gruppe).
 - Bis zu 16 Screens, 8 Gruppen, 8 Module pro Bereich. `/plan`, `/uhr` und `/cues` sind feste Seiten.

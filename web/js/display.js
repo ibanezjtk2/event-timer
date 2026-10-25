@@ -20,6 +20,17 @@
   const pad = n => String(n).padStart(2, '0');
   const clockText = (ms, secs) => { const d = new Date(ms); return pad(d.getHours()) + ':' + pad(d.getMinutes()) + (secs ? ':' + pad(d.getSeconds()) : ''); };
 
+  /** "Ende 14:32" (running), "Ende ~14:35" (paused, still moving), "Ende war 14:32" (past) – '' without an end */
+  /** "Ende 14:32" – with uhr "Ende 14:32 Uhr" (control room and moderation; the screens keep it short) */
+  function endText(t, now, wall, label, uhr) {
+    const e = E.endInfo(t, now);
+    if (!e) return '';
+    const tr = label || (x => x);
+    let hm = clockText(e.at - now + wall, false);
+    if (uhr) hm = tr('{hm} Uhr').replace('{hm}', hm);
+    return e.state === 'past' ? tr('Ende war') + ' ' + hm : tr('Ende') + ' ' + (e.state === 'paused' ? '~' : '') + hm;
+  }
+
   function el(tag, cls, parent) {
     const e = document.createElement(tag);
     if (cls) e.className = cls;
@@ -145,7 +156,7 @@
           phase = 'normal';
           state = 'idle';
           speakerText = '';
-          if (rv.finished) { titleText = label('Programm beendet'); subText = ''; }
+          if (rv.finished) { titleText = label('Agenda beendet'); subText = ''; }
           else {
             titleText = s.event.title || label('Gleich geht es los');
             const first = rv.next;
@@ -153,10 +164,12 @@
           }
         }
       }
+      // end time under the digits while it counts down; not in overtime, not while paused (it would wander)
+      if (!isTime && !isSched && !subText && p.showEnd !== false && v.state === 'running' && !v.over) subText = endText(t, ctx.now, wall, label);
       const showOver = phase === 'over';
       setAttr(r, 'data-kind', isTime ? 'time' : t.kind);
       setAttr(r, 'data-sched', isSched ? 1 : 0);
-      setAttr(r, 'data-flashover', p.flashOver === false ? 0 : 1);
+      setAttr(r, 'data-overflash', E.flashStyleOf(p));
       // the /plan view uses the backstage layout, filled from the schedule
       setAttr(r, 'data-layout', layout === 'plan' ? 'agenda' : layout);
       setAttr(r, 'data-phase', phase);
@@ -255,11 +268,11 @@
       const drift = av.drift;
       const label = ctx.i18n || (x => x);
       const dtxt = Math.abs(drift) < 30000 ? label('Im Plan') : E.formatMs(Math.abs(drift)) + ' ' + (drift > 0 ? label('hinter Plan') : label('vor Plan'));
-      setText(sub, a.items.length ? dtxt + ' · ' + label('Ende') + ' ' + clockText(av.projectedEnd - ctx.now + (ctx.wallNow || Date.now()), false) : '');
+      setText(sub, a.items.length ? dtxt + ' · ' + label('Show-Ende') + ' ' + clockText(av.projectedEnd - ctx.now + (ctx.wallNow || Date.now()), false) : '');
     }
 
     return { update, root: r };
   }
 
-  root.ETDisplay = { create, FONT_STACKS, clockText, applyPreset };
+  root.ETDisplay = { create, FONT_STACKS, clockText, endText, applyPreset };
 })(globalThis);

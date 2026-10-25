@@ -10,6 +10,8 @@
   const QUICK_MINUTES = [1, 3, 5, 10, 15, 20, 30, 45, 60];
   const pad = n => String(n).padStart(2, '0');
   const hhmm = ms => { const d = new Date(ms); return pad(d.getHours()) + ':' + pad(d.getMinutes()); };
+  /** "14:32 Uhr" – clock times never read like durations */
+  const uhr = hm => t('{hm} Uhr').replace('{hm}', hm);
   const minutesLabel = ms => {
     const m = ms / MIN;
     return Number.isInteger(m) ? String(m) : E.formatMs(ms);
@@ -36,7 +38,7 @@
     const titleInput = h('input', { class: 'event-title', placeholder: t('Name der Veranstaltung'), maxlength: 80, 'aria-label': t('Name der Veranstaltung') });
     titleInput.addEventListener('change', () => act({ type: 'event.update', title: titleInput.value }));
     const hdrClock = h('div', { class: 'hdr-clock num', 'aria-label': t('Uhrzeit') }, '--:--:--');
-    const blackoutBtn = h('button', { class: 'btn btn-stop', 'aria-pressed': 'false', onclick: () => act({ type: 'blackout.toggle' }) }, t('All Blackout'), kbd('B'));
+    const blackoutBtn = h('button', { class: 'btn btn-stop', 'aria-pressed': 'false', onclick: () => act({ type: 'blackout.toggle' }) }, t('Blackout alle'), kbd('B'));
     const soundSlot = h('span', { class: 'sound-slot' });
     const menuBtn = h('button', { class: 'btn btn-icon', 'aria-label': t('Menü'), title: t('Menü'), onclick: () => openDrawer() }, icon('menu'));
     const topbar = h('header', { class: 'topbar' },
@@ -55,7 +57,7 @@
     const nameInput = h('input', { class: 'name-input', maxlength: 40, 'aria-label': t('Name') });
     nameInput.addEventListener('change', () => act({ type: 'timer.update', id: sel, patch: { name: nameInput.value } }));
     const kindSeg = h('div', { class: 'seg', role: 'group' });
-    const kinds = [['countdown', 'Countdown'], ['countup', 'Count-up'], ['clock', 'Zielzeit'], ['time', 'Uhrzeit']];
+    const kinds = [['countdown', 'Countdown'], ['countup', 'Hochzählen'], ['clock', 'Zielzeit'], ['time', 'Uhrzeit']];
     kinds.forEach(([k, label]) => kindSeg.appendChild(h('button', {
       'data-kind': k, 'aria-pressed': 'false',
       onclick: () => {
@@ -70,16 +72,25 @@
       () => { act({ type: 'timer.remove', id: sel }); });
 
     const readTime = h('div', { class: 'readout-time' }, '00:00');
-    const readState = h('div', { class: 'readout-state' }, h('b'), h('span'));
+    const readSub = h('span');
+    const readEnd = h('small');
+    const readState = h('div', { class: 'readout-state' }, h('b'), readSub, readEnd);
     const readBar = h('i');
     const readout = h('div', { class: 'readout' }, readTime, readState, h('div', { class: 'readout-bar' }, readBar));
 
     const playBtn = h('button', { class: 'btn btn-go btn-big', onclick: () => act({ type: 'timer.toggle', id: sel }) });
-    const resetBtn = h('button', { class: 'btn btn-big', onclick: () => act({ type: 'timer.reset', id: sel }) }, icon('reset'), t('Reset'), kbd('R'));
+    const resetBtn = h('button', { class: 'btn btn-big', onclick: () => act({ type: 'timer.reset', id: sel }) }, icon('reset'), t('Zurücksetzen'), kbd('R'));
     const transport = h('div', { class: 'transport' }, playBtn, resetBtn);
+    // While this timer carries the agenda, GO sits in the timer card: "now" and "next" in one place.
+    // Start/Pause and Reset shrink to icons next to it.
+    const nextGo = h('button', { class: 'btn btn-go btn-big go-next', onclick: () => act({ type: 'agenda.next' }) });
+    const iconPlay = h('button', { class: 'btn btn-big btn-square', onclick: () => act({ type: 'timer.toggle', id: sel }) });
+    const iconReset = h('button', { class: 'btn btn-big btn-square', title: t('Zurücksetzen') + ' (R)', 'aria-label': t('Zurücksetzen'), onclick: () => act({ type: 'timer.reset', id: sel }) }, icon('reset'));
+    const goRow = h('div', { class: 'go-row', hidden: true }, nextGo, iconPlay, iconReset);
+    const nextInfo = h('div', { class: 'next-info', hidden: true });
     const nudges = h('div', { class: 'nudges' },
-      [[-MIN, '−1:00', '↓'], [-10000, '−0:10', '←'], [10000, '+0:10', '→'], [MIN, '+1:00', '↑']].map(([ms, label, key]) =>
-        h('button', { class: 'btn', onclick: () => act({ type: 'timer.adjust', id: sel, ms }) }, label, kbd(key))));
+      [[-MIN, '−1:00', '↓'], [-10000, '−0:10', '←'], [10000, '+0:10', '→'], [MIN, '+1:00', '↑'], [5 * MIN, '+5:00', null]].map(([ms, label, key]) =>
+        h('button', { class: 'btn', onclick: () => act({ type: 'timer.adjust', id: sel, ms }) }, label, key ? kbd(key) : null)));
 
     const durInput = h('input', { class: 'input', placeholder: t('Minuten oder mm:ss'), inputmode: 'decimal', 'aria-label': t('Dauer') });
     const setDur = start => {
@@ -97,8 +108,8 @@
       chips,
       h('div', { class: 'row', style: { marginTop: '10px' } },
         h('div', { style: { flex: '1 1 150px' } }, durInput),
-        h('button', { class: 'btn', title: '↵', onclick: () => setDur(false) }, t('Set')),
-        h('button', { class: 'btn', title: '⇧ ↵', onclick: () => setDur(true) }, icon('play'), t('Set & Go'))));
+        h('button', { class: 'btn', title: '↵', onclick: () => setDur(false) }, t('Setzen')),
+        h('button', { class: 'btn', title: '⇧ ↵', onclick: () => setDur(true) }, icon('play'), t('Setzen & Start'))));
 
     const targetInput = h('input', { class: 'input num', type: 'time', 'aria-label': t('Zielzeit') });
     const setTarget = () => {
@@ -144,7 +155,7 @@
       timerChips,
       h('div', { class: 'panel-head' }, nameInput, kindSeg, removeBtn),
       timerWhere,
-      readout, transport, nudges, durSection, targetSection, optSection);
+      readout, nudges, transport, goRow, nextInfo, durSection, targetSection, optSection);
 
     // agenda panel
     const ros = h('ol', { class: 'ros' });
@@ -191,18 +202,24 @@
 
     const modeHelp = h('p', { class: 'help mode-help' }, t('Du schaltest jeden Programmpunkt selbst weiter (Taste G). Der verknüpfte Timer zählt die geplante Dauer herunter.'));
 
-    const prevBtn = h('button', { class: 'btn btn-big', 'aria-label': t('Zurück'), onclick: () => act({ type: 'agenda.prev' }) }, icon('prev'));
+    const prevBtn = h('button', { class: 'btn btn-quiet', title: t('Zurück zum vorigen Programmpunkt'), onclick: () => act({ type: 'agenda.prev' }) }, icon('prev'), t('Zurück'));
     const goBtn = h('button', { class: 'btn btn-go btn-big', onclick: () => act({ type: 'agenda.next' }) });
-    const rosPanel = h('section', { class: 'panel', 'aria-label': t('Agenda') },
-      h('div', { class: 'panel-head' }, h('h2', null, t('Agenda'))),
+    // only needed while another timer is selected – otherwise GO is in the timer card
+    const rosGo = h('div', { class: 'ros-go' }, goBtn);
+    const rosSettings = h('details', { class: 'section ros-settings' },
+      h('summary', null, h('span', { class: 'section-title' }, t('Einstellungen')), h('span', { class: 'opt-summary ros-set-summary' })),
       modeHelp,
-      h('div', { class: 'row', style: { marginBottom: '12px' } },
+      h('div', { class: 'row' },
         h('label', { class: 'field', style: { width: '130px' } }, h('span', null, t('Planbeginn')), plannedInput),
         h('label', { class: 'field', style: { width: '180px' } }, h('span', null, t('Verknüpfter Timer')), rosTimerSelect),
         h('span', { class: 'help ros-where' })),
-      h('div', { class: 'ros-summary' }, statDrift, statEnd, statTotal),
+      h('label', { class: 'switch', style: { marginTop: '12px' } }, autoToggle, t('Timer automatisch starten')));
+    if (store.get('et-ros-set-open') === '1') rosSettings.open = true;
+    rosSettings.addEventListener('toggle', () => store.set('et-ros-set-open', rosSettings.open ? '1' : '0'));
+    const rosPanel = h('section', { class: 'panel', 'aria-label': t('Agenda') },
+      h('div', { class: 'panel-head' }, h('h2', null, t('Agenda')), h('div', { class: 'spacer' }), prevBtn),
       ros,
-      h('div', { class: 'ros-go' }, prevBtn, goBtn),
+      rosGo,
       h('div', { class: 'section' },
         h('h3', { class: 'section-title' }, t('Programmpunkt hinzufügen')),
         h('div', { class: 'ros-add' },
@@ -212,12 +229,88 @@
           h('label', { class: 'field' }, h('span', null, t('Ende')), addTo),
           h('label', { class: 'field ros-add-dur' }, h('span', null, t('oder Dauer (Min.)')), addDur),
           h('button', { class: 'btn ros-add-btn', onclick: addItem }, icon('plus'), t('Hinzufügen')))),
+      rosSettings,
       h('div', { class: 'section row' },
-        h('label', { class: 'switch' }, autoToggle, t('Timer automatisch starten')),
-        h('div', { class: 'spacer', style: { flex: 1 } }),
         importDetails,
         h('button', { class: 'btn btn-quiet', onclick: () => copy(exportText()) }, t('Als Text exportieren')),
         armed(h('button', { class: 'btn btn-quiet' }, t('Agenda zurücksetzen')), () => act({ type: 'agenda.reset' }))));
+
+    // ------------------------------------------- timeline (plan against actual)
+    // Full width above the desk; folds to one line with the time account, hidden without an agenda.
+    let tlOpen = store.get('et-tl-open') !== '0';
+    const tlLanes = h('div', { class: 'tl-lanes' });
+    const tlFold = h('button', { class: 'tl-fold', 'aria-expanded': String(tlOpen), title: t('Zeitleiste auf- oder zuklappen') + ' (T)', onclick: () => setTlOpen(!tlOpen) },
+      h('span', { class: 'tl-chev', 'aria-hidden': 'true' }, '▾'), t('Zeitleiste'), h('span', { class: 'tl-sub' }, t('Plan gegen Ist')), kbd('T'));
+    const tlPanel = h('section', { class: 'panel tl', 'aria-label': t('Zeitleiste') },
+      h('div', { class: 'tl-head' }, tlFold, h('div', { class: 'ros-summary' }, statDrift, statEnd, statTotal)),
+      tlLanes);
+    function setTlOpen(v) {
+      tlOpen = v;
+      store.set('et-tl-open', v ? '1' : '0');
+      tlKey = '';
+      tickTimeline(S(), tr.now());
+    }
+    /** planned and actual/forecast span per programme item (epoch ms) */
+    function timeline(s, now) {
+      const a = s.agenda, rv = E.runView(s, now), n = a.items.length;
+      // without planned times the plan starts where the show started (or now)
+      const anchor = a.items[0] && a.items[0].startedAt != null ? a.items[0].startedAt : now;
+      let pe = anchor;
+      const plan = rv.rows.map(r => {
+        const x = r.start != null ? { s: r.start, e: r.end } : { s: pe, e: pe + r.item.durationMs };
+        pe = x.e;
+        return x;
+      });
+      let c = null;
+      const ist = a.items.map((it, i) => {
+        if (i < a.cursor || rv.finished) {
+          const s0 = it.startedAt != null ? it.startedAt : (c != null ? c : now);
+          const e0 = it.endedAt != null ? it.endedAt : s0 + it.durationMs;
+          c = e0;
+          return { s: s0, e: e0, k: 'done' };
+        }
+        if (i === a.cursor) {
+          const s0 = it.startedAt != null ? it.startedAt : now;
+          const rem = rv.remainingMs == null ? it.durationMs : rv.remainingMs;
+          c = now + Math.max(0, rem);
+          return { s: s0, e: c, k: rem < 0 ? 'over' : 'live' };
+        }
+        const s0 = Math.max(c != null ? c : now, now);
+        c = s0 + it.durationMs;
+        return { s: s0, e: c, k: i === a.cursor + 1 ? 'next' : 'todo' };
+      });
+      return { plan, ist, planEnd: n ? plan[n - 1].e : now, istEnd: n ? ist[n - 1].e : now };
+    }
+    let tlKey = '';
+    let tlAt = 0;
+    function tickTimeline(s, now) {
+      const items = s.agenda.items;
+      tlPanel.hidden = !items.length;
+      tlPanel.dataset.open = tlOpen ? '1' : '0';
+      tlFold.setAttribute('aria-expanded', String(tlOpen));
+      if (!items.length || !tlOpen) { tlKey = ''; return; }
+      if (now - tlAt < 500 && tlKey) return;
+      tlAt = now;
+      const tl = timeline(s, now);
+      const t0 = Math.min(tl.plan[0].s, tl.ist[0].s, now);
+      const t1 = Math.max(tl.planEnd, tl.istEnd, now) + 5 * MIN;
+      const span = t1 - t0;
+      const key = JSON.stringify([Math.round(now / 5000), s.agenda.cursor, items.map(x => [x.title, x.durationMs]), tl.plan, tl.ist.map(x => [Math.round(x.s / 5000), Math.round(x.e / 5000), x.k]), root.ETUI.lang]);
+      if (key === tlKey) return;
+      tlKey = key;
+      const x = v => ((v - t0) / span * 100).toFixed(2) + '%';
+      const w = (a, b) => (Math.max(0, b - a) / span * 100).toFixed(2) + '%';
+      const blk = (it, r, cls) => h('div', { class: 'tl-blk ' + cls, style: { left: x(r.s), width: w(r.s, r.e) }, title: it.title + ' · ' + hhmm(r.s) + '–' + hhmm(r.e) }, it.title || '—');
+      const step = span <= 3 * 60 * MIN ? 15 * MIN : span <= 6 * 60 * MIN ? 30 * MIN : 60 * MIN;
+      const ticks = [];
+      for (let v = Math.ceil(t0 / step) * step; v <= t1; v += step) ticks.push(h('span', { style: { left: x(v) } }, hhmm(v)));
+      tlLanes.replaceChildren(
+        h('div', { class: 'tl-lane' }, h('span', { class: 'tl-tag' }, t('Plan')), ...items.map((it, i) => blk(it, tl.plan[i], 'tl-plan'))),
+        h('div', { class: 'tl-lane' }, h('span', { class: 'tl-tag' }, t('Ist und Prognose')), ...items.map((it, i) => blk(it, tl.ist[i], 'tl-' + tl.ist[i].k))),
+        h('div', { class: 'tl-planend', style: { left: x(tl.planEnd) }, title: t('Geplantes Ende') }),
+        h('div', { class: 'tl-now', style: { left: x(now) } }, h('span', null, t('jetzt') + ' ' + uhr(hhmm(now)))),
+        h('div', { class: 'tl-axis' }, ...ticks));
+    }
 
     // ------------------------------------------------------- cue bar
     const cueList = h('ol', { class: 'cue-list' });
@@ -466,21 +559,29 @@
     }
 
     // columns: 1 (phone/tablet) · 2 (laptop) · 3 (≥ 1600 px)
-    const cols = [h('div', { class: 'col' }), h('div', { class: 'col' }), h('div', { class: 'col' })];
+    // 3 columns = cockpit: agenda left, timer in the middle, the control side right (screens, talkback, overlay, cues)
+    const cols = [h('div', { class: 'col' }), h('div', { class: 'col' }), h('div', { class: 'col col-side' })];
     const desk = h('main', { class: 'desk' }, ...cols);
     const mq3 = window.matchMedia('(min-width: 1600px)');
     const mq2 = window.matchMedia('(min-width: 1100px)');
+    let deskCols = 0;
     function layoutDesk() {
       const n = mq3.matches ? 3 : mq2.matches ? 2 : 1;
       desk.dataset.cols = n;
-      if (n === 3) { cols[0].append(timerPanel, dsmPanel); cols[1].append(rosPanel); cols[2].append(cuePanel, talkPanel); }
-      else if (n === 2) { cols[0].append(timerPanel, dsmPanel, talkPanel); cols[1].append(cuePanel, rosPanel); }
-      else cols[0].append(timerPanel, dsmPanel, talkPanel, cuePanel, rosPanel);
+      if (n === 3) { cols[0].append(rosPanel); cols[1].append(timerPanel); cols[2].append(mv, talkPanel, dsmPanel, cuePanel); }
+      else {
+        desk.before(mv);
+        if (n === 2) { cols[0].append(timerPanel, rosPanel); cols[1].append(talkPanel, dsmPanel, cuePanel); }
+        else cols[0].append(timerPanel, talkPanel, dsmPanel, cuePanel, rosPanel);
+      }
       cols.forEach((c, i) => { c.hidden = i >= n; });
+      mv.dataset.side = n === 3 ? '1' : '0';
+      // the tiles are drawn for one height: small in the side column, large in the row above
+      if (deskCols && deskCols !== n && S()) { tileKey = ''; buildTiles(); }
+      deskCols = n;
     }
     mq3.addEventListener('change', layoutDesk);
     mq2.addEventListener('change', layoutDesk);
-    layoutDesk();
 
     // gate (PIN)
     const pinInput = h('input', { class: 'input', type: 'password', inputmode: 'numeric', autocomplete: 'off', 'aria-label': t('PIN eingeben') });
@@ -503,7 +604,8 @@
       tabs, drawerBody);
     drawer.addEventListener('click', e => { if (e.target === drawer) drawer.close(); });
 
-    app.replaceChildren(topWrap, mv, desk, gate, drawer);
+    app.replaceChildren(topWrap, tlPanel, mv, desk, gate, drawer);
+    layoutDesk();
 
     // ------------------------------------------------------- helpers
     function baseUrl() {
@@ -569,9 +671,10 @@
     let tileKey = '';
     const tileViews = new Map();
     const TILE = { show: [1280, 720], mod: [1180, 820] };
+    const tileH = () => (deskCols === 3 ? 70 : 124);
     function buildTiles() {
       const s = S();
-      const key = JSON.stringify([s.screens.map(x => [x.id, x.num, x.name, x.kind, x.group]), s.groups.map(g => [g.id, g.name]), selScreen, root.ETUI.lang]);
+      const key = JSON.stringify([s.screens.map(x => [x.id, x.num, x.name, x.kind, x.group]), s.groups.map(g => [g.id, g.name]), selScreen, root.ETUI.lang, tileH()]);
       if (key === tileKey) return;
       tileKey = key;
       for (const tv of tileViews.values()) tv.cleanup();
@@ -579,8 +682,9 @@
       mv.replaceChildren();
       const tile = sc => {
         const [w, hgt] = TILE[sc.kind];
-        const scale = 124 / hgt;
-        const stage = h('div', { class: 'tile-stage', style: { width: Math.round(w * scale) + 'px', height: '124px' } });
+        const th = tileH();
+        const scale = th / hgt;
+        const stage = h('div', { class: 'tile-stage', style: { width: Math.round(w * scale) + 'px', height: th + 'px' } });
         const badge = h('span', { class: 'tile-badge', hidden: true });
         const btn = h('button', { class: 'tile', 'data-kind': sc.kind, 'aria-pressed': String(selScreen === sc.id), 'aria-label': P().screenLabel(sc), onclick: () => selectScreen(sc.id) },
           stage, h('span', { class: 'tile-label' }, h('b', null, String(sc.num)), ' ', sc.name), badge);
@@ -654,7 +758,8 @@
           sub = h('small', { 'data-tone': delta > 30000 ? 'behind' : delta < -30000 ? 'ahead' : '' }, (delta >= 0 ? '+' : '−') + E.formatMs(Math.abs(delta)));
         } else if (status === 'live') sub = h('small', { 'data-live': it.id }, t('läuft'));
         else if (status === 'next') sub = h('small', null, t('als Nächstes'));
-        ros.appendChild(h('li', { class: 'ros-row', 'data-status': status, 'data-item': it.id },
+        ros.appendChild(h('li', { class: 'ros-row', 'data-status': status, 'data-item': it.id, title: t('Klicken zum Bearbeiten'),
+          onclick: e => { if (e.target.closest('button')) return; editingItem = it.id; buildAgenda(); } },
           h('span', { class: 'ros-when' }, when),
           h('span', { class: 'ros-what' }, h('b', null, it.title || '—'), it.speaker ? h('span', null, it.speaker) : null,
             it.note ? h('span', { class: 'ros-note', title: it.note }, t('Hinweis') + ': ' + it.note) : null,
@@ -738,7 +843,12 @@
       durSection.hidden = shownKind === 'clock' || E.isStatic(shownKind);
       targetSection.hidden = shownKind !== 'clock';
       nudges.hidden = shownKind === 'clock' || E.isStatic(shownKind);
-      transport.hidden = E.isStatic(shownKind);
+      const carries = carriesAgenda();
+      transport.hidden = E.isStatic(shownKind) || carries;
+      goRow.hidden = E.isStatic(shownKind) || !carries;
+      nextInfo.hidden = goRow.hidden;
+      rosGo.hidden = carries || !s.agenda.items.length;
+      prevBtn.hidden = !s.agenda.items.length;
       durSection.querySelector('[data-dur-title]').textContent = shownKind === 'countup' ? t('Limit (optional)') : t('Dauer');
       chips.querySelectorAll('.chip').forEach(c => c.setAttribute('aria-pressed', String(Number(c.dataset.ms) === tm.durationMs)));
       if (tm.kind === 'clock' && tm.targetLabel && !focused(targetInput)) targetInput.value = tm.targetLabel;
@@ -777,6 +887,9 @@
       timerWhere.dataset.none = on.length ? '0' : '1';
     }
 
+    /** the selected timer is the one the agenda runs on */
+    function carriesAgenda() { const s = S(); return Boolean(s && s.agenda.items.length && s.agenda.timerId === sel); }
+
     function syncAgendaControls() {
       const s = S(), a = s.agenda;
       if (!focused(plannedInput)) plannedInput.value = a.plannedStart;
@@ -795,11 +908,35 @@
       prevBtn.disabled = a.cursor <= 0;
       goBtn.disabled = !a.items.length || av.done;
       const target = a.cursor < 0 ? a.items[0] : a.items[a.cursor + 1];
+      const goText = av.done ? t('Agenda beendet') : a.cursor < 0 ? t('Agenda starten') : target ? t('Nächster Punkt') : t('Agenda beenden');
       goBtn.replaceChildren(icon('next'),
-        h('span', { style: { display: 'grid', textAlign: 'left' } },
-          av.done ? t('Agenda beendet') : a.cursor < 0 ? t('Agenda starten') : target ? t('Nächster Punkt') : t('Agenda beendet'),
-          target && !av.done ? h('small', null, target.title) : null),
+        h('span', { style: { display: 'grid', textAlign: 'left' } }, goText, target && !av.done ? h('small', null, target.title) : null),
         av.done ? null : kbd('G'));
+      nextGo.disabled = goBtn.disabled;
+      nextGo.replaceChildren(icon('next'), goText, av.done ? null : kbd('G'));
+      const set = [a.plannedStart ? t('Planbeginn') + ' ' + uhr(a.plannedStart) : '', (s.timers.find(x => x.id === a.timerId) || {}).name || '', a.autoStart ? t('startet automatisch') : ''].filter(Boolean).join(' · ');
+      const ss = rosPanel.querySelector('.ros-set-summary');
+      if (ss.textContent !== set) ss.textContent = set;
+      syncNextInfo(s, av, target);
+    }
+    /** "Danach": what GO starts – title, length, forecast start, cues and note for the stage */
+    function syncNextInfo(s, av, target) {
+      if (nextInfo.hidden) return;
+      const a = s.agenda;
+      let at = null;
+      if (target && !av.done) { const i = a.items.indexOf(target); at = timeline(s, tr.now()).ist[i].s; }
+      const key = JSON.stringify([target && [target.id, target.title, target.speaker, target.durationMs, (target.cues || []).length, target.note], at && Math.round(at / MIN), av.done, a.cursor < 0, root.ETUI.lang]);
+      if (nextInfo.dataset.key === key) return;
+      nextInfo.dataset.key = key;
+      if (av.done) { nextInfo.replaceChildren(); return; }
+      if (!target) {
+        nextInfo.replaceChildren(h('span', { class: 'next-label' }, t('Danach')), h('b', null, t('Ende der Agenda')), h('span', { class: 'next-meta' }, t('GO beendet den letzten Programmpunkt.')));
+        return;
+      }
+      const meta = [target.speaker, t('Dauer') + ' ' + E.formatMs(target.durationMs), at != null ? t('Beginn ca.') + ' ' + uhr(hhmm(at)) : '',
+        target.cues && target.cues.length ? target.cues.length + ' ' + t(target.cues.length === 1 ? 'Cue' : 'Cues') : ''].filter(Boolean).join(' · ');
+      nextInfo.replaceChildren(...[h('span', { class: 'next-label' }, a.cursor < 0 ? t('Als Erstes') : t('Danach')), h('b', null, target.title || '—'), h('span', { class: 'next-meta' }, meta),
+        target.note ? h('span', { class: 'next-note' }, t('Hinweis') + ': ' + target.note) : null].filter(Boolean));
     }
 
     function sync() {
@@ -810,7 +947,7 @@
       const m = tr.meta || {};
       const ct = tr.mode === 'standalone' ? t('Nur dieses Gerät')
         : !online ? (tr.status === 'connecting' ? t('Verbinde …') : t('Verbindung getrennt – verbinde neu …'))
-        : t('Verbunden') + (m.displays ? ` · ${m.displays} ${m.displays === 1 ? t('Display') : t('Displays')}` : '');
+        : t('Verbunden') + (m.displays ? ` · ${m.displays} ${m.displays === 1 ? t('Screen') : t('Screens')}` : '');
       if (conn.lastChild.textContent !== ct) conn.lastChild.textContent = ct;
       if (!focused(titleInput)) titleInput.value = s.event.title;
       blackoutBtn.setAttribute('aria-pressed', String(s.blackout));
@@ -842,6 +979,7 @@
         const clk = D.clockText(now, true);
         if (hdrClock.textContent !== clk) hdrClock.textContent = clk;
         tickCues(s, now);
+        tickTimeline(s, now);
         tickSound(s);
         for (const sc of s.screens) {
           const tv = tileViews.get(sc.id);
@@ -879,7 +1017,9 @@
           readout.dataset.phase = phase;
           readout.dataset.state = state;
           if (readState.firstChild.textContent !== st) readState.firstChild.textContent = st;
-          if (readState.lastChild.textContent !== sub) readState.lastChild.textContent = sub;
+          if (readSub.textContent !== sub) readSub.textContent = sub;
+          const end = isTime ? '' : D.endText(tm, now, now, t, true);
+          if (readEnd.textContent !== end) readEnd.textContent = end;
           readBar.style.width = (prog * 100).toFixed(2) + '%';
           const running = tm.running;
           const label = running ? 'pause' : 'play';
@@ -888,6 +1028,12 @@
             playBtn.className = 'btn btn-big ' + (running ? 'btn-hold' : 'btn-go');
             playBtn.replaceChildren(icon(running ? 'pause' : 'play'), running ? t('Pause') : (v.state === 'paused' ? t('Fortsetzen') : t('Start')), kbd(t('Leertaste')));
             playBtn.disabled = tm.kind === 'clock' || v.state === 'finished';
+            iconPlay.className = 'btn btn-big btn-square ' + (running ? 'btn-hold' : '');
+            const pl = running ? t('Pause') : (v.state === 'paused' ? t('Fortsetzen') : t('Start'));
+            iconPlay.title = pl + ' (' + t('Leertaste') + ')';
+            iconPlay.setAttribute('aria-label', pl);
+            iconPlay.replaceChildren(icon(running ? 'pause' : 'play'));
+            iconPlay.disabled = playBtn.disabled;
           }
         }
         // run of show stats
@@ -900,7 +1046,8 @@
         const dn = !av.started ? '' : Math.abs(d) < 30000 ? t('im Plan') : d > 0 ? t('hinter Plan') : t('vor Plan');
         setStat(statDrift, t('Abweichung vom Plan'), dt, tone, dn);
         const wallEnd = Date.now() + (av.projectedEnd - now);
-        setStat(statEnd, t('Voraussichtliches Ende'), items.length ? hhmm(wallEnd) : '—', '', '');
+        const planEnd = E.planView(s, now).endAt;
+        setStat(statEnd, t('Show-Ende'), items.length ? uhr(hhmm(wallEnd)) : '—', '', planEnd != null && items.length ? t('Plan') + ' ' + uhr(hhmm(planEnd)) : '');
         setStat(statTotal, t('Gesamtdauer'), items.length ? E.formatMs(av.totalPlanned) : '—', '', '');
         const live = ros.querySelector('[data-live]');
         if (live && av.current && av.current.startedAt != null) {
@@ -1009,7 +1156,7 @@
       const s = S();
       const out = [];
       if (tr.mode === 'standalone') {
-        out.push(h('p', null, t('Standalone-Modus: Alles läuft in diesem Browser. Displays im selben Browser (neues Fenster, z. B. auf dem zweiten Bildschirm) laufen automatisch mit.')));
+        out.push(h('p', null, t('Standalone-Modus: Alles läuft in diesem Browser. Screens im selben Browser (neues Fenster, z. B. auf dem zweiten Bildschirm) laufen automatisch mit.')));
         out.push(h('div', { class: 'row' },
           h('button', { class: 'btn btn-go', onclick: () => openUrl(viewUrl('display', { t: curNum() })) }, icon('open'), t('Screen in neuem Fenster')),
           h('button', { class: 'btn', onclick: () => { drawer.close(); location.hash = 'display?t=' + curNum() + '&here=1'; } }, icon('full'), t('Screen hier öffnen'))));
@@ -1024,7 +1171,7 @@
           qrCard(t('Moderation'), baseUrl() + '/moderation')));
         out.push(linkLine(viewUrl('control')));
         P().byNum(s).forEach(x => out.push(h('div', { class: 'link-label' }, P().screenLabel(x)), linkLine(pageUrl(x))));
-        out.push(h('div', { class: 'link-label' }, t('Feste Seiten')));
+        out.push(h('div', { class: 'link-label' }, t('Feste Screens')));
         out.push(linkLine(baseUrl() + '/moderation'));
         out.push(linkLine(baseUrl() + '/plan'));
         out.push(linkLine(baseUrl() + '/uhr'));
@@ -1036,11 +1183,11 @@
       // display link builder: any screen that should show something other than the plain full-screen timer
       const VIEWS = [
         ['full', 'Vollbild-Timer', 'Standard-DSM, wie /1.'],
-        ['plan', 'Ablaufplan (Moderation)', 'Laufender Programmpunkt mit Restzeit, daneben der ganze Ablauf (wie /plan).'],
-        ['time', 'Nur Uhrzeit', 'Nur die Uhr, z. B. fürs Foyer (wie /uhr).'],
+        ['plan', 'Agenda-Monitor', 'Laufender Programmpunkt mit Restzeit, daneben die ganze Agenda (wie /plan).'],
+        ['time', 'Nur Uhrzeit', 'Nur die Uhrzeit groß, sonst nichts (wie /uhr).'],
         ['clock', 'Uhrzeit groß', 'Uhrzeit groß, der Timer klein darunter.'],
         ['lower', 'Bauchbinde (Keying)', 'Kleiner Timer unten rechts – für vMix/OBS als Browser-Input über dem Bild.'],
-        ['agenda', 'Ablauf (Backstage)', 'Timer plus Programmliste mit Abweichung, für Backstage oder Greenroom.'],
+        ['agenda', 'Agenda (Backstage)', 'Timer plus Agenda mit Abweichung, für Backstage oder Greenroom.'],
       ];
       const layoutSel = h('select', { class: 'input' }, VIEWS.map(([v, l]) => h('option', { value: v }, t(l))));
       const timerSel = h('select', { class: 'input' }, s.timers.map(x => h('option', { value: x.id.slice(1) }, x.name)));
@@ -1068,8 +1215,8 @@
       [layoutSel, timerSel, transp].forEach(x => x.addEventListener('change', upd));
       setTimeout(upd, 0);
       out.push(h('div', { class: 'section' },
-        h('h3', { class: 'section-title' }, t('Display-Link erstellen')),
-        h('p', { class: 'help', style: { marginBottom: '10px' } }, t('Für Bildschirme, die etwas anderes zeigen sollen als den normalen Vollbild-Timer.')),
+        h('h3', { class: 'section-title' }, t('Ansichts-Link erstellen')),
+        h('p', { class: 'help', style: { marginBottom: '10px' } }, t('Für Monitore, die etwas anderes zeigen sollen als den normalen Vollbild-Timer.')),
         h('div', { class: 'grid2' },
           h('label', { class: 'field' }, h('span', null, 'Timer'), timerSel),
           h('label', { class: 'field' }, h('span', null, t('Ansicht')), layoutSel)),
@@ -1086,6 +1233,7 @@
       if (!designId || !s.presets.some(p => p.id === designId)) designId = tm.presetId;
       const p = s.presets.find(x => x.id === designId);
       const draft = JSON.parse(JSON.stringify(p));
+      draft.flashStyle = E.flashStyleOf(draft);
       const pick = h('select', { class: 'input' },
         h('optgroup', { label: t('Eingebaut') }, s.presets.filter(x => x.builtin).map(x => h('option', { value: x.id }, x.name))),
         s.presets.some(x => !x.builtin) ? h('optgroup', { label: t('Eigenes') }, s.presets.filter(x => !x.builtin).map(x => h('option', { value: x.id }, x.name))) : null);
@@ -1161,11 +1309,12 @@
         h('div', { class: 'grid2' },
           selField('font', 'Schrift', [['din', 'DIN / Bahnschrift'], ['grotesk', 'Grotesk'], ['mono', 'Monospace'], ['serif', 'Serif'], ['rounded', 'Rounded']]),
           selField('weight', 'Stärke', [[400, '400'], [500, '500'], [600, '600'], [700, '700'], [800, '800'], [900, '900']]),
-          selField('bgStyle', 'Fläche', [['solid', 'Einfarbig'], ['glow', 'Leuchten'], ['transparent', 'Transparent']])),
+          selField('bgStyle', 'Fläche', [['solid', 'Einfarbig'], ['glow', 'Leuchten'], ['transparent', 'Transparent']]),
+          selField('flashStyle', 'Blinken bei Überzeit', [['off', 'Aus'], ['soft', 'Sanft'], ['hard', 'Stark']])),
         h('div', { class: 'grid2' },
           boolField('showProgress', 'Fortschrittsbalken'), boolField('showClock', 'Uhrzeit'), boolField('showTitle', 'Titel und Sprecher*in'),
-          boolField('showNext', 'Nächsten Programmpunkt anzeigen'), boolField('showNotice', 'Hinweise'), boolField('flashOver', 'Blinken bei Überzeit')),
-        h('div', { class: 'grid2' }, textField('warnText', 'Text bei Warnung'), textField('expiredText', 'Text bei Ablauf'), textField('overText', 'Text bei Überzeit')),
+          boolField('showNext', 'Nächsten Programmpunkt anzeigen'), boolField('showNotice', 'Hinweise'), boolField('showEnd', 'Endzeit anzeigen')),
+        h('div', { class: 'grid2' }, textField('warnText', 'Text bei Warnung'), textField('expiredText', 'Text bei Zeitende'), textField('overText', 'Text bei Überzeit')),
         actions,
       ];
     }
@@ -1192,7 +1341,7 @@
       const pin = h('input', { class: 'input num', type: 'password', inputmode: 'numeric', autocomplete: 'new-password', maxlength: 32 });
       return [
         h('p', null, m.pinRequired ? t('Regie ist mit PIN geschützt.') : t('Keine PIN gesetzt – jedes Gerät im Netzwerk kann steuern.')),
-        h('p', { class: 'help' }, t('Mit PIN dürfen nur Geräte steuern, die sie kennen. Displays brauchen nie eine PIN; am Rechner selbst ist keine nötig.')),
+        h('p', { class: 'help' }, t('Mit PIN dürfen nur Geräte steuern, die sie kennen. Screens brauchen nie eine PIN; am Rechner selbst ist keine nötig.')),
         h('label', { class: 'field' }, h('span', null, t('Regie-PIN')), pin),
         h('div', { class: 'row' },
           h('button', { class: 'btn btn-go', onclick: () => { if (pin.value.trim()) { tr.setPin(pin.value.trim()); pin.value = ''; toast(t('PIN setzen')); } } }, t('PIN setzen')),
@@ -1247,7 +1396,7 @@
           sw('et-req-remind', remindOn(), 'Erinnerung alle 15 s, bis bestätigt'),
           sw('et-ack-sound', ackSoundOn(), 'Kurzer Ton, wenn die Moderation „Verstanden“ tippt', on => { if (on) { testSound('ack'); } }),
           h('p', { class: 'help' }, t('Die Lautstärke ist durch die Systemlautstärke des Rechners begrenzt. Browser spielen erst nach einem Klick auf die Seite Ton ab.'))));
-      const keys = [['Leertaste', 'Start/Pause'], ['R', 'Reset'], ['↑ / ↓', '±1:00'], ['← / →', '±0:10'], ['⇧ ↵', 'Set & Go'], ['G', 'Nächster Programmpunkt'], ['C', 'Nächsten Cue auslösen (GO)'], ['B', 'All Blackout'], ['1 … 8', 'Timer wählen']];
+      const keys = [['Leertaste', 'Start/Pause'], ['R', 'Zurücksetzen'], ['↑ / ↓', '±1:00'], ['← / →', '±0:10'], ['⇧ ↵', 'Setzen & Start'], ['G', 'Nächster Programmpunkt'], ['C', 'Nächsten Cue auslösen (GO)'], ['B', 'Blackout alle'], ['T', 'Zeitleiste auf/zu'], ['1 … 8', 'Timer wählen']];
       const out = [
         h('label', { class: 'field' }, h('span', null, t('Sprache')), langSel),
         soundBox,
@@ -1259,8 +1408,8 @@
       if (tr.mode === 'server' && tr.isLocal()) {
         // only on the computer that runs Event Timer – a phone must never switch the show off
         out.push(h('div', { class: 'section' },
-          h('h3', { class: 'section-title' }, t('Programm')),
-          h('p', { class: 'help', style: { marginBottom: '8px' } }, t('Speichert die Show und beendet Event Timer auf diesem Rechner. Alle Displays verlieren die Verbindung.')),
+          h('h3', { class: 'section-title' }, t('Beenden')),
+          h('p', { class: 'help', style: { marginBottom: '8px' } }, t('Speichert die Show und beendet Event Timer auf diesem Rechner. Alle Screens verlieren die Verbindung.')),
           armed(h('button', { class: 'btn btn-stop' }, t('Event Timer beenden')), shutdown)));
       }
       out.push(h('p', { class: 'help about' }, 'Event Timer ' + (m.version || root.ET_VERSION || '') + ' · © 2026 Felix Spindler · ',
@@ -1302,6 +1451,7 @@
       else if (k === 'ArrowLeft') act({ type: 'timer.adjust', id: sel, ms: -10000 });
       else if (k === 'g' || k === 'G') act({ type: 'agenda.next' });
       else if (k === 'b' || k === 'B') act({ type: 'blackout.toggle' });
+      else if (k === 't' || k === 'T') setTlOpen(!tlOpen);
       else if (k === 'c' || k === 'C') { const c = goCues[0] || cueShown.find(x => x.status === 'go' || x.status === 'standby' || x.status === 'ready'); if (c) goCue(c); }
       else if (/^[1-8]$/.test(k)) { const sc = S().screens.find(x => x.num === Number(k)); if (sc) selectScreen(sc.id); }
     };
