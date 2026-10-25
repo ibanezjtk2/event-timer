@@ -373,7 +373,12 @@ impl Group {
     }
 }
 
-fn sanitize_module(seq: &mut i64, raw: &Json, kind: &str, used: &mut Vec<String>) -> Option<Module> {
+fn sanitize_module(
+    seq: &mut i64,
+    raw: &Json,
+    kind: &str,
+    used: &mut Vec<String>,
+) -> Option<Module> {
     let typ = raw.get("type").as_str()?;
     if !module_allowed(typ, kind) {
         return None;
@@ -388,14 +393,19 @@ fn sanitize_module(seq: &mut i64, raw: &Json, kind: &str, used: &mut Vec<String>
     };
     used.push(id.clone());
     let timer = match o.get("timer").as_str() {
-        Some(t) if t.len() == 2 && t.starts_with('t') && (b'1'..=b'8').contains(&t.as_bytes()[1]) => t.to_string(),
+        Some(t)
+            if t.len() == 2 && t.starts_with('t') && (b'1'..=b'8').contains(&t.as_bytes()[1]) =>
+        {
+            t.to_string()
+        }
         _ => "t1".to_string(),
     };
     let page = match o.get("page").as_str() {
         Some(p)
             if !p.is_empty()
                 && p.len() <= 20
-                && p.bytes().all(|c| c.is_ascii_lowercase() || c.is_ascii_digit()) =>
+                && p.bytes()
+                    .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit()) =>
         {
             p.to_string()
         }
@@ -406,7 +416,11 @@ fn sanitize_module(seq: &mut i64, raw: &Json, kind: &str, used: &mut Vec<String>
         typ: typ.to_string(),
         timer,
         variant: pick(o.get("variant"), &["full", "clock", "lower"], "full"),
-        seconds: if o.has("seconds") { o.get("seconds").truthy() } else { true },
+        seconds: if o.has("seconds") {
+            o.get("seconds").truthy()
+        } else {
+            true
+        },
         page,
     })
 }
@@ -469,7 +483,12 @@ fn sanitize_screen(s: &mut State, raw: &Json, old: Option<(String, String, i64)>
     };
     let mut name = text(raw.get("name"), 40);
     if name.is_empty() {
-        name = if kind == "show" { "Screen" } else { "Moderation" }.to_string();
+        name = if kind == "show" {
+            "Screen"
+        } else {
+            "Moderation"
+        }
+        .to_string();
     }
     let taken = |n: i64| s.screens.iter().any(|x| x.id != id && x.num == n);
     let want_num = raw
@@ -501,7 +520,17 @@ fn sanitize_screen(s: &mut State, raw: &Json, old: Option<(String, String, i64)>
         .to_string();
     let own = !group.is_empty() && raw.get("own").truthy();
     let (layout, slots) = sanitize_aufbau(&mut s.seq, raw, &kind);
-    Screen { id, num, kind, name, slug, group, own, layout, slots }
+    Screen {
+        id,
+        num,
+        kind,
+        name,
+        slug,
+        group,
+        own,
+        layout,
+        slots,
+    }
 }
 
 fn is_dsm_target(s: &State, id: &str) -> bool {
@@ -579,7 +608,13 @@ fn migrate_screens(s: &mut State, j: &Json) {
     let pages: Vec<Json> = j.get("pages").as_array().cloned().unwrap_or_default();
     let routes = j.get("routes");
     let msg = |m: &Json| Message {
-        text: m.get("text").as_str().unwrap_or("").chars().take(280).collect(),
+        text: m
+            .get("text")
+            .as_str()
+            .unwrap_or("")
+            .chars()
+            .take(280)
+            .collect(),
         flash: m.get("flash").truthy(),
         visible: m.get("visible").truthy(),
     };
@@ -592,18 +627,32 @@ fn migrate_screens(s: &mut State, j: &Json) {
     } else if let Some(list) = j.get("timers").as_array() {
         for tj in list {
             if let Some(id) = tj.get("id").as_str() {
-                old.push((format!("d{}", &id[1.min(id.len())..]), msg(tj.get("message"))));
+                old.push((
+                    format!("d{}", &id[1.min(id.len())..]),
+                    msg(tj.get("message")),
+                ));
             }
         }
     }
-    let find_old = |k: &str| old.iter().find(|(x, m)| x == k && !m.text.is_empty()).map(|(_, m)| m.clone());
+    let find_old = |k: &str| {
+        old.iter()
+            .find(|(x, m)| x == k && !m.text.is_empty())
+            .map(|(_, m)| m.clone())
+    };
     s.screens.clear();
     s.groups.clear();
     s.dsm_msg.clear();
     let add = |s: &mut State, raw: &Json, num: i64, keep: Option<&str>| -> String {
         let mut r = raw.clone();
         r.set("num", num);
-        r.set("kind", if raw.get("kind").as_str() == Some("mod") { "mod" } else { "show" });
+        r.set(
+            "kind",
+            if raw.get("kind").as_str() == Some("mod") {
+                "mod"
+            } else {
+                "show"
+            },
+        );
         r.set("group", "");
         let mut sc = sanitize_screen(s, &r, None);
         if let Some(k) = keep {
@@ -784,7 +833,14 @@ impl Default for State {
             talkback: Vec::new(),
             screens: vec![
                 default_screen("p1", 1, "DSM", "dsm", template("dsm", "t1"), 1),
-                default_screen("p2", 2, "Moderation", "moderation", template("mod", "t1"), 2),
+                default_screen(
+                    "p2",
+                    2,
+                    "Moderation",
+                    "moderation",
+                    template("mod", "t1"),
+                    2,
+                ),
             ],
             groups: Vec::new(),
             dsm_msg: Vec::new(),
@@ -993,13 +1049,7 @@ pub fn timer_view(t: &Timer, now: i64) -> TimerView {
             (1.0 - remaining.unwrap_or(0) as f64 / t.duration_ms as f64).clamp(0.0, 1.0)
         }
         Kind::Countup if t.duration_ms > 0 => (ms as f64 / t.duration_ms as f64).clamp(0.0, 1.0),
-        Kind::Clock => {
-            if over {
-                1.0
-            } else {
-                0.0
-            }
-        }
+        Kind::Clock if over => 1.0,
         _ => 0.0,
     };
     TimerView {
@@ -1507,7 +1557,13 @@ fn apply_inner(s: &mut State, kind: &str, a: &Json, now: i64) -> bool {
             if pos.is_none() && s.screens.len() >= MAX_SCREENS {
                 return false;
             }
-            let old = pos.map(|i| (s.screens[i].id.clone(), s.screens[i].kind.clone(), s.screens[i].num));
+            let old = pos.map(|i| {
+                (
+                    s.screens[i].id.clone(),
+                    s.screens[i].kind.clone(),
+                    s.screens[i].num,
+                )
+            });
             let mut sc = sanitize_screen(s, raw, old);
             // "+ neue Gruppe": the group starts with this screen's layout, the screen follows it
             let ng = a.get("newGroup");
@@ -1746,7 +1802,7 @@ fn apply_inner(s: &mut State, kind: &str, a: &Json, now: i64) -> bool {
             let tid = a.get("talkbackId").as_str();
             let mut changed = false;
             for k in s.talkback.iter_mut() {
-                if k.ack_at.is_none() && tid.map_or(true, |id| id == k.id) {
+                if k.ack_at.is_none() && tid.is_none_or(|id| id == k.id) {
                     k.ack_at = Some(now);
                     changed = true;
                 }
@@ -2271,16 +2327,18 @@ impl State {
     /// Tolerant loader for persisted state: anything missing or broken
     /// falls back to defaults instead of refusing to start.
     pub fn from_json(j: &Json) -> State {
-        let mut s = State::default();
-        s.rev = j.get("rev").as_i64().unwrap_or(0).max(0);
-        s.seq = j.get("seq").as_i64().unwrap_or(0).max(0);
-        s.event_title = j
-            .get("event")
-            .get("title")
-            .as_str()
-            .unwrap_or("")
-            .to_string();
-        s.blackout = j.get("blackout").truthy();
+        let mut s = State {
+            rev: j.get("rev").as_i64().unwrap_or(0).max(0),
+            seq: j.get("seq").as_i64().unwrap_or(0).max(0),
+            event_title: j
+                .get("event")
+                .get("title")
+                .as_str()
+                .unwrap_or("")
+                .to_string(),
+            blackout: j.get("blackout").truthy(),
+            ..Default::default()
+        };
         if let Some(list) = j.get("timers").as_array() {
             let mut timers: Vec<Timer> = Vec::new();
             for (i, tj) in list.iter().enumerate().take(MAX_TIMERS) {
@@ -2348,7 +2406,11 @@ impl State {
                 .filter_map(|x| x.as_str().map(String::from))
                 .take(12)
                 .collect();
-            if s.talk_quick.iter().map(String::as_str).eq(OLD_TALK.iter().copied()) {
+            if s.talk_quick
+                .iter()
+                .map(String::as_str)
+                .eq(OLD_TALK.iter().copied())
+            {
                 s.talk_quick = DEFAULT_TALK.iter().map(|s| s.to_string()).collect();
             }
         }
@@ -2409,7 +2471,13 @@ impl State {
                     name = "Gruppe".into();
                 }
                 let (layout, slots) = sanitize_aufbau(&mut s.seq, &gj, &kind);
-                s.groups.push(Group { id: id.to_string(), name, kind, layout, slots });
+                s.groups.push(Group {
+                    id: id.to_string(),
+                    name,
+                    kind,
+                    layout,
+                    slots,
+                });
             }
             for sj in list {
                 if s.screens.len() >= MAX_SCREENS {
@@ -2431,7 +2499,13 @@ impl State {
                         s.dsm_msg.push((
                             k.clone(),
                             Message {
-                                text: m.get("text").as_str().unwrap_or("").chars().take(280).collect(),
+                                text: m
+                                    .get("text")
+                                    .as_str()
+                                    .unwrap_or("")
+                                    .chars()
+                                    .take(280)
+                                    .collect(),
                                 flash: m.get("flash").truthy(),
                                 visible: m.get("visible").truthy(),
                             },
@@ -2502,7 +2576,7 @@ mod tests {
                             "{} #{} {}: changed={} expected {}",
                             name,
                             i,
-                            step.get("do").get("type").to_string(),
+                            step.get("do").get("type"),
                             changed,
                             want
                         ));
@@ -2515,11 +2589,7 @@ mod tests {
                         if got != *want {
                             failures.push(format!(
                                 "{} #{} {}: got {} expected {}",
-                                name,
-                                i,
-                                path,
-                                got.to_string(),
-                                want.to_string()
+                                name, i, path, got, want
                             ));
                         }
                     }
@@ -2563,7 +2633,10 @@ mod tests {
         );
         apply(
             &mut s,
-            &json::parse(r#"{"type":"dsm.message","pages":["p1","p3"],"text":"Hallo","flash":true}"#).unwrap(),
+            &json::parse(
+                r#"{"type":"dsm.message","pages":["p1","p3"],"text":"Hallo","flash":true}"#,
+            )
+            .unwrap(),
             0,
         );
         assert_eq!(s.screens.len(), 3);
@@ -2580,7 +2653,13 @@ mod tests {
         let old = r#"{"talkQuick":["Noch 5 Minuten","Bitte zum Ende kommen","Letzte Frage","Mikrofon ist aus","Fragen aus dem Saal nehmen","Pause wird verlängert"],
             "agenda":{"mode":"clock","shiftMs":60000,"holdAt":5,"items":[{"id":"a1","title":"A","durationMs":60000,"extraMs":1000,"rippleMs":2000}]}}"#;
         let s = State::from_json(&json::parse(old).unwrap());
-        assert_eq!(s.talk_quick, DEFAULT_TALK.iter().map(|x| x.to_string()).collect::<Vec<_>>());
+        assert_eq!(
+            s.talk_quick,
+            DEFAULT_TALK
+                .iter()
+                .map(|x| x.to_string())
+                .collect::<Vec<_>>()
+        );
         let out = s.to_json().to_string();
         for gone in ["\"mode\"", "shiftMs", "holdAt", "extraMs", "rippleMs"] {
             assert!(!out.contains(gone), "{gone} still saved");
@@ -2588,8 +2667,19 @@ mod tests {
         // 1.5.x: the overlay sat on the timer → now on DSM page dN
         let old15 = r#"{"timers":[{"id":"t1","message":{"text":"Bitte zum Ende","flash":true,"visible":true}},{"id":"t2","message":{"text":"","visible":false}}]}"#;
         let s15 = State::from_json(&json::parse(old15).unwrap());
-        let nums: Vec<(i64, &str, &str)> = s15.screens.iter().map(|x| (x.num, x.kind.as_str(), x.name.as_str())).collect();
-        assert_eq!(nums, vec![(1, "show", "DSM 1"), (2, "show", "DSM 2"), (3, "mod", "Moderation")]);
+        let nums: Vec<(i64, &str, &str)> = s15
+            .screens
+            .iter()
+            .map(|x| (x.num, x.kind.as_str(), x.name.as_str()))
+            .collect();
+        assert_eq!(
+            nums,
+            vec![
+                (1, "show", "DSM 1"),
+                (2, "show", "DSM 2"),
+                (3, "mod", "Moderation")
+            ]
+        );
         assert_eq!(s15.screens[1].slots[0][0].timer, "t2");
         assert_eq!(s15.dsm_msg.len(), 1);
         let m = s15.dsm_message(&s15.screens[0].id).unwrap();
@@ -2602,8 +2692,19 @@ mod tests {
             "routes":{"1":"p5","moderation":"p8"},
             "dsmMsg":{"d2":{"text":"Hallo","visible":true},"p5":{"text":"Eins","visible":true}}}"#;
         let sb = State::from_json(&json::parse(b1).unwrap());
-        let got: Vec<(i64, &str, &str)> = sb.screens.iter().map(|x| (x.num, x.kind.as_str(), x.slug.as_str())).collect();
-        assert_eq!(got, vec![(1, "show", "dsm-ablauf"), (2, "show", "dsm-2"), (3, "mod", "moderation-lea")]);
+        let got: Vec<(i64, &str, &str)> = sb
+            .screens
+            .iter()
+            .map(|x| (x.num, x.kind.as_str(), x.slug.as_str()))
+            .collect();
+        assert_eq!(
+            got,
+            vec![
+                (1, "show", "dsm-ablauf"),
+                (2, "show", "dsm-2"),
+                (3, "mod", "moderation-lea")
+            ]
+        );
         assert_eq!(sb.screens[0].id, "p5");
         assert_eq!(sb.dsm_message("p5").unwrap().text, "Eins");
         assert_eq!(sb.dsm_message(&sb.screens[1].id).unwrap().text, "Hallo");

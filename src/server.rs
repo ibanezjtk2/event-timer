@@ -713,7 +713,12 @@ fn companion(app: &App, req: &Request) -> Response {
             )
             .with(
                 "timers",
-                Json::Arr(st.timers.iter().map(|t| timer_snapshot(&st, t, now)).collect()),
+                Json::Arr(
+                    st.timers
+                        .iter()
+                        .map(|t| timer_snapshot(&st, t, now))
+                        .collect(),
+                ),
             )
             .with(
                 "agenda",
