@@ -14,7 +14,7 @@
   const clone = v => JSON.parse(JSON.stringify(v));
 
   const DEVICES = {
-    show: [['tv', 'Bildschirm 16:9', 1280, 720]],
+    show: [['tv', 'Monitor 16:9', 1280, 720]],
     mod: [['ipad-l', 'iPad quer', 1180, 820], ['ipad-p', 'iPad hoch', 820, 1180], ['phone', 'Handy', 390, 844]],
   };
   const VARIANTS = [['full', 'Standard'], ['clock', 'Uhrzeit groß, Timer klein'], ['lower', 'Bauchbinde (Keying)']];
@@ -56,7 +56,7 @@
               armed(h('button', { class: 'btn btn-quiet', title: t('Gruppe auflösen – die Screens behalten ihren Aufbau') }, t('Auflösen')), () => ctx.act({ type: 'group.remove', groupId: g.id }))));
         })));
     }
-    out.push(h('div', { class: 'section' }, h('h3', { class: 'section-title' }, t('Feste Seiten')),
+    out.push(h('div', { class: 'section' }, h('h3', { class: 'section-title' }, t('Feste Screens')),
       ...[['moderation', '/moderation', 'Erster Moderations-Screen (oder die Vorlage, wenn es keinen gibt)'], ['plan', '/plan', 'Agenda-Monitor'], ['uhr', '/uhr', 'Uhr'], ['cues', '/cues', 'Cue-Liste für Licht, Ton, Video']].map(([k, path, label]) =>
         h('div', { class: 'pe-row' }, h('div', { class: 'pe-row-main' }, h('b', null, path), h('small', null, t(label))),
           h('div', { class: 'pe-row-btns' }, h('button', { class: 'btn btn-quiet', 'aria-label': t('Öffnen'), onclick: () => ctx.openUrl(ctx.baseUrl() + (ctx.standalone ? '#' + k : path)) }, icon('open')))))));

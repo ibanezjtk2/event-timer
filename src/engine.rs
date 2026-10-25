@@ -715,7 +715,7 @@ pub fn builtin_presets() -> Vec<Preset> {
     vec![
         builtin(
             "stage",
-            "Stage",
+            "Bühne",
             [
                 "#000000", "#f4f6f8", "#2fd47a", "#ffb020", "#ff4757", "#4a0710", "#ffffff",
                 "#000000", "#ffd84d",

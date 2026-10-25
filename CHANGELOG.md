@@ -2,6 +2,15 @@
 
 Alle Änderungen an Event Timer, neueste zuerst. Versionen nach [Semantic Versioning](https://semver.org/lang/de/): PATCH = Fehlerbehebung, MINOR = neue Funktionen (Bestehendes läuft weiter), MAJOR = etwas Bestehendes ändert sich.
 
+## Unveröffentlicht
+
+### Geändert
+- **Begriffe vereinheitlicht** (siehe README → Begriffe): Die Moderation zeigt die Agenda jetzt als „Agenda“ statt „Programm“, `/plan` heißt überall **Agenda-Monitor**, die Backstage-Ansicht **Agenda (Backstage)**, „Programm beendet“ wird zu **Agenda beendet**. „Feste Seiten“ heißen **Feste Screens**, „Display-Link erstellen“ heißt **Ansichts-Link erstellen**, Hilfetexte sprechen von Screens statt Displays.
+- Knöpfe auf Deutsch: **Setzen**, **Setzen & Start**, **Zurücksetzen**, **Hochzählen**, **Blackout alle**; das eingebaute Design „Stage“ heißt **Bühne**.
+- Design-Option „Text bei Ablauf“ heißt **Text bei Zeitende** (nicht zu verwechseln mit dem Text bei Überzeit). Layout „Haupt + Seite“ heißt **Haupt + Spalte rechts**.
+- Auf dem Agenda-Display heißt die Prognose fürs Ende der ganzen Show **Show-Ende**, damit „Ende“ frei für die Endzeit eines Timers ist.
+- Menü → System: Der Abschnitt zum Beenden heißt „Beenden“ statt „Programm“.
+
 ## 1.6.0-beta.2 – 2026-10-11
 
 Zweite Testversion von 1.6 mit neuem Grundkonzept: **Screens sind die Ausgänge, Timer die Quellen.**

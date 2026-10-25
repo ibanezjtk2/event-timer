@@ -25,7 +25,7 @@
 
   const BUILTIN_PRESETS = [
     {
-      id: 'stage', name: 'Stage', builtin: true,
+      id: 'stage', name: 'Bühne', builtin: true,
       bg: '#000000', bgStyle: 'solid', fg: '#f4f6f8', accent: '#2fd47a', warn: '#ffb020', crit: '#ff4757',
       overBg: '#4a0710', overFg: '#ffffff', msgFg: '#000000', msgBg: '#ffd84d',
       font: 'din', weight: 700,

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 Felix Spindler <f-spindler@pm.me>
 
-//! Event Timer – Countdown, Redezeit und Ablaufplan für Bühne und Regie.
+//! Event Timer – Countdown, Redezeit und Agenda für Bühne und Regie.
 //! Ein einzelnes Programm ohne Abhängigkeiten; Bedienung im Browser.
 
 // Windows: no console window – start-up info goes to event-timer.log
