@@ -21,11 +21,13 @@
   const clockText = (ms, secs) => { const d = new Date(ms); return pad(d.getHours()) + ':' + pad(d.getMinutes()) + (secs ? ':' + pad(d.getSeconds()) : ''); };
 
   /** "Ende 14:32" (running), "Ende ~14:35" (paused, still moving), "Ende war 14:32" (past) – '' without an end */
-  function endText(t, now, wall, label) {
+  /** "Ende 14:32" – with uhr "Ende 14:32 Uhr" (control room and moderation; the screens keep it short) */
+  function endText(t, now, wall, label, uhr) {
     const e = E.endInfo(t, now);
     if (!e) return '';
-    const hm = clockText(e.at - now + wall, false);
     const tr = label || (x => x);
+    let hm = clockText(e.at - now + wall, false);
+    if (uhr) hm = tr('{hm} Uhr').replace('{hm}', hm);
     return e.state === 'past' ? tr('Ende war') + ' ' + hm : tr('Ende') + ' ' + (e.state === 'paused' ? '~' : '') + hm;
   }
 

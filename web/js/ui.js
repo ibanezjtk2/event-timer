@@ -7,6 +7,20 @@
   // ---------------------------------------------------------------- i18n
   // German is the source language; English translations below.
   const EN = {
+    "{hm} Uhr": "{hm}",
+    "Zurück zum vorigen Programmpunkt": "Back to the previous item",
+    "Zeitleiste auf- oder zuklappen": "Show or hide the timeline",
+    "Zeitleiste": "Timeline",
+    "Plan gegen Ist": "plan against actual",
+    "Ist und Prognose": "Actual and forecast",
+    "Geplantes Ende": "Planned end",
+    "Klicken zum Bearbeiten": "Click to edit",
+    "Agenda beenden": "End agenda",
+    "startet automatisch": "starts automatically",
+    "Ende der Agenda": "End of the agenda",
+    "GO beendet den letzten Programmpunkt.": "GO ends the last item.",
+    "Beginn ca.": "Starts approx.",
+    "Zeitleiste auf/zu": "Timeline on/off",
     "Show-Ende": "Show end",
     "Beenden": "Quit",
     "Spalte rechts": "Right column",
