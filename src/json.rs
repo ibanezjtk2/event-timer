@@ -100,16 +100,19 @@ impl Json {
         }
     }
 
-    pub fn to_string(&self) -> String {
-        let mut out = String::with_capacity(256);
-        write_value(self, &mut out);
-        out
-    }
-
     pub fn to_pretty(&self) -> String {
         let mut out = String::with_capacity(256);
         write_pretty(self, &mut out, 0);
         out
+    }
+}
+
+/// Compact serialization; `to_string()` comes from this.
+impl std::fmt::Display for Json {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let mut out = String::with_capacity(256);
+        write_value(self, &mut out);
+        f.write_str(&out)
     }
 }
 
