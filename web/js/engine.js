@@ -153,10 +153,14 @@
       ms = over && !t.overtime ? 0 : raw;
     }
     const finished = t.kind !== 'countup' && !t.overtime && raw <= 0 && !(t.kind === 'clock' && t.targetAt == null);
+    // a threshold as long as the whole timer would colour it from the start: halve it (warn) or quarter it (crit)
+    const dur = t.kind === 'countdown' || t.kind === 'countup' ? t.durationMs : 0;
+    const warnMs = dur > 0 && t.warnMs >= dur ? Math.floor(dur / 2) : t.warnMs;
+    const critMs = dur > 0 && t.critMs >= dur ? Math.floor(dur / 4) : t.critMs;
     let phase = 'normal';
     if (over || finished) phase = 'over';
-    else if (remaining <= t.critMs && remaining !== Infinity) phase = 'crit';
-    else if (remaining <= t.warnMs && remaining !== Infinity) phase = 'warn';
+    else if (remaining <= critMs && remaining !== Infinity) phase = 'crit';
+    else if (remaining <= warnMs && remaining !== Infinity) phase = 'warn';
     let state;
     if (t.kind === 'clock') state = t.targetAt == null ? 'idle' : finished ? 'finished' : 'running';
     else if (finished) state = 'finished';
