@@ -145,7 +145,7 @@
           phase = 'normal';
           state = 'idle';
           speakerText = '';
-          if (rv.finished) { titleText = label('Programm beendet'); subText = ''; }
+          if (rv.finished) { titleText = label('Agenda beendet'); subText = ''; }
           else {
             titleText = s.event.title || label('Gleich geht es los');
             const first = rv.next;
@@ -255,7 +255,7 @@
       const drift = av.drift;
       const label = ctx.i18n || (x => x);
       const dtxt = Math.abs(drift) < 30000 ? label('Im Plan') : E.formatMs(Math.abs(drift)) + ' ' + (drift > 0 ? label('hinter Plan') : label('vor Plan'));
-      setText(sub, a.items.length ? dtxt + ' · ' + label('Ende') + ' ' + clockText(av.projectedEnd - ctx.now + (ctx.wallNow || Date.now()), false) : '');
+      setText(sub, a.items.length ? dtxt + ' · ' + label('Show-Ende') + ' ' + clockText(av.projectedEnd - ctx.now + (ctx.wallNow || Date.now()), false) : '');
     }
 
     return { update, root: r };

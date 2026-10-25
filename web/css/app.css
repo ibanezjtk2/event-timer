@@ -717,6 +717,9 @@ body[data-view="moderation"], body[data-view="cues"] { background: var(--bg); }
   .ros-edit .input:first-child { grid-column: 1 / -1; }
   /* thumb zone: transport sticks to the bottom on phones */
   .transport { position: fixed; left: 0; right: 0; bottom: 0; z-index: 15; margin: 0; padding: 10px 12px calc(10px + env(safe-area-inset-bottom)); background: rgba(24, 28, 33, .96); border-top: 1px solid var(--line); backdrop-filter: blur(8px); }
+  /* „Zurücksetzen“ is long: equal halves, a bit smaller, so both fit on a 360 px phone */
+  .transport { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+  .transport .btn-big { font-size: 16px; padding: 10px 12px; }
 }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { transition: none !important; }
