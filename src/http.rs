@@ -97,7 +97,6 @@ impl Response {
     }
     pub fn json(status: u16, body: String) -> Self {
         Response::new(status, "application/json; charset=utf-8", body)
-            .header("Access-Control-Allow-Origin", "*")
     }
     pub fn text(status: u16, body: &str) -> Self {
         Response::new(
@@ -224,7 +223,7 @@ pub fn ws_read(reader: &mut impl Read) -> io::Result<WsEvent> {
             0x8 => return Ok(WsEvent::Close),
             0x9 => return Ok(WsEvent::Ping(payload)),
             0xA => continue,
-            0x0 | 0x1 | 0x2 => {
+            0x0..=0x2 => {
                 if opcode != 0 {
                     message_opcode = opcode;
                     message.clear();

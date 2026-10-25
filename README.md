@@ -88,7 +88,7 @@ Displays brauchen nie eine PIN, halten den Bildschirm wach (Wake Lock) und synch
 - **Blackout alle** schaltet alle Screens schwarz
 - **Multiviewer**: Die Regie zeigt jeden Timer als Live-Kachel mit Tally-Rahmen (grün läuft, gelb Warnung, rot kritisch/überzogen)
 - **Speichern**: Jede Änderung landet sofort in `event-timer-data.json`. Nach einem Absturz oder Neustart läuft ein laufender Timer zeitlich korrekt weiter.
-- **PIN** für die Regie (Menü → Sicherheit oder `--pin`). Am Rechner selbst (localhost) ist keine nötig.
+- **PIN** für die Regie (Menü → Sicherheit oder `--pin`). Am Rechner selbst (localhost) ist keine nötig. Nach 5 falschen Versuchen ist ein Gerät 1 Minute gesperrt. Fremde Webseiten im Browser können Event Timer nicht steuern.
 - Deutsch / Englisch. Tastenkürzel stehen direkt auf den Knöpfen: Leertaste, R, ↑/↓ (±1 min), ←/→ (±10 s), ⇧ ↵ (Setzen & Start), G (nächster Programmpunkt), C (GO), B (Blackout alle), 1–8
 
 ## Begriffe
@@ -197,7 +197,7 @@ cargo test && node tools/test-engine.js
 
 Es gibt keine Abhängigkeiten, deshalb klappt der Build auch offline. Ins eigene GitHub-Repo gepusht, baut `.github/workflows/build.yml` automatisch alle Plattformen (Windows-Icon und Versionsinfos erzeugt `build.rs` selbst, die Mac-App und die Linux-Pakete der Workflow).
 
-**Versionen:** Semantic Versioning (MAJOR.MINOR.PATCH), die Nummer steht nur in `Cargo.toml`. Änderungen pro Version stehen in [`CHANGELOG.md`](CHANGELOG.md). Ein Tag `vX.Y.Z` erzeugt ein GitHub-Release mit allen Dateien; der Text kommt aus dem CHANGELOG. Tags mit Bindestrich (`v1.6.0-beta.1`) werden als Vorabversion markiert.
+**Versionen:** Semantic Versioning (MAJOR.MINOR.PATCH), die Nummer steht nur in `Cargo.toml`. Änderungen pro Version stehen in [`CHANGELOG.md`](CHANGELOG.md). Ein Tag `vX.Y.Z` erzeugt ein GitHub-Release mit allen Dateien; der Text kommt aus dem CHANGELOG. Tags mit Bindestrich (`v0.7.0-beta.1`) werden als Vorabversion markiert.
 
 ## Aufbau
 
