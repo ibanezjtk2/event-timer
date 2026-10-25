@@ -492,7 +492,7 @@
         pinError,
         h('button', { class: 'btn btn-go', type: 'submit' }, t('Entsperren')),
         h('button', { class: 'btn btn-quiet', type: 'button', onclick: () => { viewOnly = true; sync(); } }, t('Nur ansehen'))));
-    tr.onAuth(ok => { if (!ok) { pinError.textContent = t('Falsche PIN'); pinInput.select(); } else { viewOnly = false; pinInput.value = ''; } });
+    tr.onAuth((ok, locked) => { if (!ok) { pinError.textContent = t(locked ? 'Zu viele Versuche – bitte 1 Minute warten' : 'Falsche PIN'); pinInput.select(); } else { viewOnly = false; pinInput.value = ''; } });
 
     // drawer
     const drawerBody = h('div', { class: 'drawer-body' });

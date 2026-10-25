@@ -97,7 +97,6 @@ impl Response {
     }
     pub fn json(status: u16, body: String) -> Self {
         Response::new(status, "application/json; charset=utf-8", body)
-            .header("Access-Control-Allow-Origin", "*")
     }
     pub fn text(status: u16, body: &str) -> Self {
         Response::new(

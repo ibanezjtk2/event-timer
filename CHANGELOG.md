@@ -2,6 +2,22 @@
 
 Alle Änderungen an Event Timer, neueste zuerst. Versionen nach [Semantic Versioning](https://semver.org/lang/de/): PATCH = Fehlerbehebung, MINOR = neue Funktionen (Bestehendes läuft weiter), MAJOR = etwas Bestehendes ändert sich.
 
+## Unveröffentlicht
+
+### Sicherheit
+- **Fremde Webseiten können die Show nicht mehr steuern.** Bisher konnte jede Webseite, die im Browser des Regie-Rechners offen war, über `localhost` Timer bedienen, Einblendungen setzen und das Programm beenden. Jetzt lehnt Event Timer Anfragen ab, die ein Browser im Auftrag einer anderen Website schickt (`Sec-Fetch-Site`, `Origin`), auch beim WebSocket.
+- Die PIN-Freiheit am Rechner selbst gilt nur noch unter einem lokalen Namen (`localhost`, IP-Adresse, `*.local`, Rechnername). Das schützt vor DNS-Rebinding.
+- **PIN-Sperre:** Nach 5 falschen PINs ist das Gerät 1 Minute gesperrt, über WebSocket und HTTP.
+- Höchstens 32 gleichzeitige Verbindungen pro Gerät und 256 insgesamt.
+- CORS (`Access-Control-Allow-Origin: *`) nur noch für lesende Endpunkte: `/api/status`, `/api/state`, `/api/companion`, `/api/companion/status`.
+
+### Für Companion
+- Keine Änderung: Companion, curl und andere Programme ohne Browser senden die geprüften Header nicht und funktionieren wie bisher, auch mit `?pin=`.
+
+### Intern
+- CI prüft `cargo fmt`, Clippy und die JavaScript-Syntax; Dependabot hält die GitHub Actions aktuell.
+- Neue Tests für die Zugriffsregeln, darunter Ende-zu-Ende-Tests gegen das laufende Programm.
+
 ## 1.6.0-beta.2 – 2026-10-11
 
 Zweite Testversion von 1.6 mit neuem Grundkonzept: **Screens sind die Ausgänge, Timer die Quellen.**
