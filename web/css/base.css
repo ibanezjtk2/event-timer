@@ -18,7 +18,7 @@ body[data-view="display"], body[data-view="clock"], body[data-view="agenda"] { b
 button, input, select, textarea { font: inherit; color: inherit; }
 h1, h2, h3 { color: var(--text-strong); }
 a { color: var(--complement); }
-:focus-visible { outline: none; box-shadow: var(--focus); }
+:focus-visible { outline: 2px solid var(--complement); outline-offset: 2px; }
 ::selection { background: color-mix(in srgb, var(--complement) 35%, transparent); }
 
 /* digits: D-DIN for times and big values; small numbers in running text use Plex tabular figures */
@@ -44,3 +44,8 @@ svg { flex: none; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { transition: none !important; }
 }
+/* wordmark: both variants are in the page, the theme picks one */
+.logo { display: inline-block; line-height: 0; }
+.logo img { height: 100%; width: auto; }
+.logo .logo-hell, [data-theme="light"] .logo .logo-dunkel { display: none; }
+[data-theme="light"] .logo .logo-hell { display: inline; }

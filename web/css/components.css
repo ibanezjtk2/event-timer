@@ -178,7 +178,7 @@ dialog.drawer::backdrop { background: var(--backdrop); }
 .qr-card svg { width: 100%; height: auto; border-radius: var(--r-control); }
 .preview-box { width: 100%; aspect-ratio: 16 / 9; border-radius: var(--r-control); overflow: hidden; background: repeating-conic-gradient(var(--raised) 0 25%, var(--panel) 0 50%) 0 0 / 16px 16px; }
 .code { font: var(--fw-text) var(--fs-m)/1.7 var(--font-mono); background: var(--sunken); border: 1px solid var(--line); border-radius: var(--r-control); padding: var(--s-2) 10px; overflow-x: auto; white-space: pre; color: var(--text); }
-.about-mark { display: block; height: 32px; width: auto; margin: var(--s-2) 0 var(--s-1); }
+.about-mark { display: block; height: 32px; width: max-content; margin: var(--s-2) 0 var(--s-1); }
 .about a { color: inherit; }
 
 /* ---------------------------------------------------------- messages */

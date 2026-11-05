@@ -186,13 +186,16 @@
     return { size, modules: mod };
   }
 
+  // attribute values come from screen names and design colours: always escaped
+  const esc = v => String(v).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
+
   function svg(text, opts) {
     const o = opts || {};
     const { size, modules } = encode(text);
     const q = 4, n = size + q * 2;
     let path = '';
     for (let y = 0; y < size; y++) for (let x = 0; x < size; x++) if (modules[y][x]) path += `M${x + q},${y + q}h1v1h-1z`;
-    return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${n} ${n}" shape-rendering="crispEdges" role="img" aria-label="${o.label || 'QR-Code'}"><rect width="${n}" height="${n}" fill="${o.bg || '#fff'}"/><path d="${path}" fill="${o.fg || '#000'}"/></svg>`;
+    return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${n} ${n}" shape-rendering="crispEdges" role="img" aria-label="${esc(o.label || 'QR-Code')}"><rect width="${n}" height="${n}" fill="${esc(o.bg || '#fff')}"/><path d="${path}" fill="${esc(o.fg || '#000')}"/></svg>`;
   }
 
   const api = { encode, svg };
