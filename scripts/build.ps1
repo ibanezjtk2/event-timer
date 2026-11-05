@@ -1,4 +1,4 @@
-# One command for everything on Windows: format check, lint, tests, release build.
+﻿# One command for everything on Windows: format check, lint, tests, release build.
 #   scripts\build.ps1           check + build → dist\
 #   scripts\build.ps1 -Check    only checks and tests
 #   scripts\build.ps1 -Clean    cargo clean first

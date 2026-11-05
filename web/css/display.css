@@ -24,8 +24,8 @@
   font-weight: var(--d-weight); font-variant-numeric: tabular-nums; line-height: .9;
   font-size: min(31cqw, 66cqh); white-space: nowrap; transition: color var(--t-slow) var(--ease);
 }
-/* D-DIN and Plex have proportional digits: fixed cells, so nothing jumps when a digit changes */
-.dsp[data-font="mono"] .cells > span, .dsp[data-font="serif"] .cells > span, .dsp[data-font="rounded"] .cells > span { width: auto; }
+/* fixed cells are for D-DIN (proportional digits); Plex Sans and Mono have tabular digits of their own */
+.dsp[data-font="grotesk"] .cells > span, .dsp[data-font="mono"] .cells > span, .dsp[data-font="serif"] .cells > span, .dsp[data-font="rounded"] .cells > span { width: auto; }
 .dsp[data-len="6"] .dsp-time { font-size: min(26cqw, 62cqh); }
 .dsp[data-len="7"] .dsp-time { font-size: min(22cqw, 58cqh); }
 .dsp[data-len="8"] .dsp-time, .dsp[data-len="9"] .dsp-time { font-size: min(19.5cqw, 54cqh); }
@@ -66,7 +66,7 @@
 .dsp[data-phase="warn"] .dsp-progress i { background: var(--d-warn); }
 .dsp[data-phase="crit"] .dsp-progress i, .dsp[data-phase="over"] .dsp-progress i { background: var(--d-crit); }
 
-.dsp-blackout { position: absolute; inset: 0; background: var(--d-bg); display: none; z-index: 5; }
+.dsp-blackout { position: absolute; inset: 0; background: var(--d-blackout); display: none; z-index: 5; }
 .dsp[data-blackout="1"] .dsp-blackout { display: block; }
 .dsp-list { display: none; }
 .dsp[data-empty] > * { visibility: hidden; }

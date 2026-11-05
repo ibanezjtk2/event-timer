@@ -63,6 +63,7 @@
 
   /* stage display – the same in both themes, per design overridable */
   --d-bg: #000000;
+  --d-blackout: #000000;      /* blackout is always black, whatever the design or ?bg=transparent */
   --d-fg: #ffffff;
   --d-muted: #9aa4af;
   --d-overbg: #4a0710;

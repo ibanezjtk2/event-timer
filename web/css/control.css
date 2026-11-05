@@ -348,7 +348,7 @@ body.pe-open { overflow: hidden; }
 .home { min-height: 100%; display: grid; place-items: center; padding: var(--s-6) var(--s-4); }
 .home-card { width: min(640px, 100%); display: grid; gap: 18px; }
 .home h1 { margin: 0; }
-.home-logo { height: 48px; width: auto; display: block; }
+.home-logo { height: 48px; width: max-content; display: block; }
 .home-actions { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: var(--s-3); }
 .home-actions a { text-decoration: none; color: inherit; background: var(--panel); border-left: var(--tally-edge) solid transparent; border-radius: var(--r-container); padding: var(--s-4); display: grid; gap: 4px; transition: background-color var(--t-fast) var(--ease), border-color var(--t-fast) var(--ease); }
 .home-actions a:hover { background: var(--hover-bg); border-left-color: var(--complement); }

@@ -23,9 +23,10 @@ inline(/<link rel="stylesheet" href="([^"]+)">/g, (_, href) => `<style>\n${inlin
 inline(/<script src="([^"]+)"><\/script>/g, (_, src) => `<script>\n${safeScript(fs.readFileSync(path.join(web, src.replace(/^\//, '')), 'utf8'))}\n</script>`);
 const svgIcon = 'data:image/svg+xml;base64,' + fs.readFileSync(path.join(web, 'icon.svg')).toString('base64');
 const pngIcon = 'data:image/png;base64,' + fs.readFileSync(path.join(web, 'icon-180.png')).toString('base64');
-// Brand SVGs, looked up by ETUI.logo() instead of /brand/*.
+// Logos and licence texts, looked up by ETUI.asset() instead of /brand/* and /licenses/*.
 const assets = {};
-for (const f of fs.readdirSync(path.join(web, 'brand'))) assets[f] = dataUrl('brand/' + f, 'image/svg+xml');
+for (const f of fs.readdirSync(path.join(web, 'brand'))) assets['brand/' + f] = dataUrl('brand/' + f, 'image/svg+xml');
+for (const f of fs.readdirSync(path.join(web, 'licenses'))) assets['licenses/' + f] = dataUrl('licenses/' + f, 'text/plain;charset=utf-8');
 html = html
   .replace('href="/icon.svg"', `href="${svgIcon}"`)
   .replace('href="/icon-180.png"', `href="${pngIcon}"`)

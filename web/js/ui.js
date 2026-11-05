@@ -578,9 +578,29 @@
 
   /** Wordmark "fs Event Timer" (Show-UI logo, never redrawn) in the variant for the current theme. */
   // the standalone file carries the logo inline (root.ET_ASSETS), the server serves /brand/
+  // both variants are in the page, CSS shows the one for the current theme (switches live)
   const logo = cls => {
-    const file = 'fs-event-timer-' + (document.documentElement.dataset.theme === 'light' ? 'hell' : 'dunkel') + '.svg';
-    return h('img', { class: cls || '', alt: 'fs Event Timer', width: 175, height: 40, src: (root.ET_ASSETS && root.ET_ASSETS[file]) || '/brand/' + file });
+    const img = (variant, extra) => {
+      const file = 'fs-event-timer-' + variant + '.svg';
+      return h('img', { class: 'logo-' + variant + extra, alt: extra ? '' : 'fs Event Timer', 'aria-hidden': extra ? 'true' : null, width: 175, height: 40, src: asset('brand/' + file) });
+    };
+    return h('span', { class: 'logo ' + (cls || '') }, img('dunkel', ''), img('hell', ' logo-alt'));
+  };
+  /** URL of a bundled file: inline in the standalone file (root.ET_ASSETS), otherwise from the server. */
+  // browsers refuse to open data: URLs as a page, so inlined texts become blob: URLs (licence links)
+  const blobs = {};
+  const asset = path => {
+    const v = root.ET_ASSETS && root.ET_ASSETS[path];
+    if (!v) return '/' + path;
+    if (!v.startsWith('data:text/')) return v;
+    if (!blobs[path]) {
+      const [head, b64] = v.split(',');
+      const bin = atob(b64);
+      const bytes = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+      blobs[path] = URL.createObjectURL(new Blob([bytes], { type: head.slice(5).replace(';base64', '') }));
+    }
+    return blobs[path];
   };
 
   let toastTimer = null;
@@ -617,5 +637,5 @@
     toast(t('Kopiert'));
   }
 
-  root.ETUI = { h, icon, setCells, toast, armed, copy, t, setLang, get lang() { return lang; }, setTheme, get theme() { return themePref; }, logo, EN };
+  root.ETUI = { h, icon, setCells, toast, armed, copy, t, setLang, get lang() { return lang; }, setTheme, get theme() { return themePref; }, logo, asset, EN };
 })(globalThis);

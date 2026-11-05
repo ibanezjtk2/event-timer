@@ -41,5 +41,6 @@ out="dist/event-timer-$V-$os-$arch${exe##*event-timer}"
 cp "$exe" "$out"
 log "Standalone";    node scripts/build-standalone.js
 mv dist/event-timer-standalone.html "dist/event-timer-$V-standalone.html"
-(cd dist && sha256sum "$(basename "$out")" "event-timer-$V-standalone.html" > SHA256SUMS.txt)
+sha() { if command -v sha256sum >/dev/null; then sha256sum "$@"; else shasum -a 256 "$@"; fi; }
+(cd dist && sha "$(basename "$out")" "event-timer-$V-standalone.html" > SHA256SUMS.txt)
 log "fertig: $out"

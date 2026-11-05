@@ -1478,9 +1478,9 @@
         h('p', { class: 'help' }, t('Version') + ' ' + (m.version || root.ET_VERSION || '') + (m.commit ? '+' + m.commit : '') + ' · © 2026 Felix Spindler · ',
           h('a', { href: 'mailto:f-spindler@pm.me' }, 'f-spindler@pm.me'), ' · ' + t('Lizenz') + ': GPL-3.0-or-later'),
         h('p', { class: 'help' }, t('Schriften: IBM Plex und D-DIN (SIL Open Font License 1.1). Icons: Phosphor (MIT).') + ' ',
-          h('a', { href: '/licenses/IBM-Plex-OFL.txt', target: '_blank', rel: 'noopener' }, 'Plex'), ' · ',
-          h('a', { href: '/licenses/D-DIN-OFL.txt', target: '_blank', rel: 'noopener' }, 'D-DIN'), ' · ',
-          h('a', { href: '/licenses/Phosphor-MIT.txt', target: '_blank', rel: 'noopener' }, 'Phosphor'))));
+          h('a', { href: root.ETUI.asset('licenses/IBM-Plex-OFL.txt'), target: '_blank', rel: 'noopener' }, 'Plex'), ' · ',
+          h('a', { href: root.ETUI.asset('licenses/D-DIN-OFL.txt'), target: '_blank', rel: 'noopener' }, 'D-DIN'), ' · ',
+          h('a', { href: root.ETUI.asset('licenses/Phosphor-MIT.txt'), target: '_blank', rel: 'noopener' }, 'Phosphor'))));
       if (tr.mode === 'standalone') {
         out.push(h('div', { class: 'section' },
           h('p', { class: 'help', style: { marginBottom: '8px' } }, t('Löscht alle Timer, Screens, die Agenda und eigene Designs in diesem Browser.')),
