@@ -1,6 +1,6 @@
-# Event Timer
+<picture><source media="(prefers-color-scheme: dark)" srcset="web/brand/fs-event-timer-dunkel.svg"><img src="web/brand/fs-event-timer-hell.svg" alt="fs Event Timer" height="40"></picture>
 
-Countdown, Redezeit und Agenda für Bühne und Regie. Ein einzelnes Programm (unter 1 MB, keine Installation, keine Abhängigkeiten), bedient wird alles im Browser: am Rechner, auf dem Handy oder auf dem iPad.
+Countdown, Redezeit und Agenda für Bühne und Regie. Ein einzelnes Programm (rund 1,5 MB inklusive Schriften, keine Installation, keine Abhängigkeiten), bedient wird alles im Browser: am Rechner, auf dem Handy oder auf dem iPad.
 
 ## Zwei Betriebsarten
 
@@ -11,7 +11,7 @@ Countdown, Redezeit und Agenda für Bühne und Regie. Ein einzelnes Programm (un
 | Speichert | Datei neben dem Programm | im Browser |
 | Companion / PIN | ja | nein |
 
-Standalone ist für „Ich hab nur ein iPad dabei“: Datei öffnen, fertig. Unter *Menü (☰) → Verbindung → Screen hier öffnen* wird das Gerät selbst zum Screen (z. B. zum DSM, dem Vorschau-Monitor vor der Bühne), oder *Screen in neuem Fenster* für einen zweiten Bildschirm.
+Standalone ist für „Ich hab nur ein iPad dabei“: Datei öffnen, fertig. Unter *Menü (Zahnrad) → Verbindung → Screen hier öffnen* wird das Gerät selbst zum Screen (z. B. zum DSM, dem Vorschau-Monitor vor der Bühne), oder *Screen in neuem Fenster* für einen zweiten Bildschirm.
 
 ## Start (Server)
 
@@ -21,9 +21,9 @@ Standalone ist für „Ich hab nur ein iPad dabei“: Datei öffnen, fertig. Unt
 | macOS | `event-timer-<version>-macos.zip` → **Event Timer.app** | Doppelklick (erster Start: siehe unten) |
 | Linux / Raspberry Pi | `event-timer-<version>-linux-x64.tar.gz` (bzw. `-arm64`, `-armv7`) | `./event-timer`; `./install-desktop.sh` legt einen Menüeintrag mit Icon an |
 
-Die Regie öffnet sich im Browser. Adressen fürs Netzwerk und QR-Codes stehen unter *Menü (☰) → Verbindung*; dieselben Startinfos und eventuelle Fehler schreibt das Programm in **`event-timer.log`** neben der Daten-Datei. Aus einem Terminal gestartet, erscheinen sie auch dort.
+Die Regie öffnet sich im Browser. Adressen fürs Netzwerk und QR-Codes stehen unter *Menü (Zahnrad) → Verbindung*; dieselben Startinfos und eventuelle Fehler schreibt das Programm in **`event-timer.log`** neben der Daten-Datei. Aus einem Terminal gestartet, erscheinen sie auch dort.
 
-**Beenden:** *Menü (☰) → System → „Event Timer beenden“* (nur am Rechner selbst sichtbar) oder Strg+C im Terminal. Die Show wird dabei immer gespeichert; im laufenden Betrieb schreibt das Programm, sobald 2 s lang nichts passiert, spätestens alle 10 s.
+**Beenden:** *Menü (Zahnrad) → System → „Event Timer beenden“* (nur am Rechner selbst sichtbar) oder Strg+C im Terminal. Die Show wird dabei immer gespeichert; im laufenden Betrieb schreibt das Programm, sobald 2 s lang nichts passiert, spätestens alle 10 s.
 
 ```
 event-timer [--port 2468] [--host 0.0.0.0] [--data datei.json] [--pin 1234]
@@ -36,7 +36,7 @@ event-timer [--port 2468] [--host 0.0.0.0] [--data datei.json] [--pin 1234]
 - **Daten:** `event-timer-data.json` liegt neben dem Programm (bzw. neben der *Event Timer.app*) – also auch auf einem USB-Stick. Ist der Ort nicht beschreibbar, nimmt das Programm den Benutzerordner; der Pfad steht unter *System*.
 - **macOS:** Die App ist nicht von Apple beglaubigt. Erster Start: Rechtsklick → *Öffnen*; bei neueren macOS-Versionen *Systemeinstellungen → Datenschutz & Sicherheit → „Trotzdem öffnen“*. Die App läuft im Hintergrund ohne Dock-Symbol. Läuft sie schon, öffnet ein weiterer Doppelklick **nicht** erneut die Regie – dann einfach `localhost:2468/control` aufrufen (Lesezeichen).
 - **Windows-SmartScreen:** Die .exe ist nicht signiert. Vor dem Start Rechtsklick → *Eigenschaften* → *Zulassen*, oder einmal *Weitere Informationen → Trotzdem ausführen*.
-- **Raspberry Pi:** `linux-arm64` (64-Bit-OS) bzw. `linux-armv7` (32-Bit). Autostart per systemd: siehe `tools/event-timer.service`.
+- **Raspberry Pi:** `linux-arm64` (64-Bit-OS) bzw. `linux-armv7` (32-Bit). Autostart per systemd: siehe `deploy/systemd/event-timer.service`.
 
 ## Kurze Adressen statt IP
 
@@ -47,7 +47,7 @@ event-timer.local:2468/1          # Display Timer 1
 event-timer.local/1               # dasselbe, wenn „Ohne Portnummer (Port 80)“ an ist
 ```
 
-- **Name ändern** unter *Menü (☰) → Verbindung* oder mit `--name saal1` → `saal1.local`. Laufen zwei Event Timer im selben Netz, braucht jeder einen eigenen Namen.
+- **Name ändern** unter *Menü (Zahnrad) → Verbindung* oder mit `--name saal1` → `saal1.local`. Laufen zwei Event Timer im selben Netz, braucht jeder einen eigenen Namen.
 - **Port 80** ist aus, damit nichts anderem in die Quere kommt. Unter Linux braucht Port 80 erweiterte Rechte: `sudo setcap cap_net_bind_service=+ep event-timer`.
 - Das klappt auf iPhone, iPad, Mac, Windows 10/11 und Linux (mit Avahi). Manche Android-Geräte lösen `.local` nicht auf, dort hilft der QR-Code oder die IP.
 
@@ -106,8 +106,8 @@ Ein Wort pro Sache, in der Oberfläche wie hier:
 | **Überzeit** | die Zeit läuft über null hinaus weiter (`+00:42`) |
 | **Zeitkonto** | wie viel die Show vor oder hinter dem Plan liegt (geplantes gegen vorausgesagtes Show-Ende) |
 | **Puffer** | ein Programmpunkt, der zum Ausgleich des Zeitkontos gekürzt werden darf |
-| **Einblendung** | öffentlicher Text auf Screens (gelb) |
-| **Talkback** | privat von der Regie an die Moderation (blau), mit „Verstanden“ |
+| **Einblendung** | öffentlicher Text auf Screens (in der Regie rot markiert, solange sie *live* ist) |
+| **Talkback** | privat von der Regie an die Moderation (Cyan), mit „Verstanden“ |
 | **Hinweis** | feste Notiz der Regie zu einem Programmpunkt, nur für die Moderation |
 | **Meldung** | von der Moderation an die Regie (rot) |
 | **Blackout** | Screens schwarz schalten |
@@ -190,30 +190,44 @@ Zum Skripten gibt es außerdem `GET /api/state` und `POST /api/action` mit JSON,
 Rust installieren (rustup.rs), dann:
 
 ```
-cargo build --release          # → target/release/event-timer(.exe)
-node tools/build-standalone.js # → dist/event-timer-standalone.html
-cargo test && node tools/test-engine.js
+scripts/build.sh               # Windows: scripts\build.ps1 – Format, Clippy, Tests, Release-Build, Standalone → dist/
+scripts/build.sh --check       # nur prüfen (Format, Clippy, JS-Syntax, alle Tests)
 ```
 
-Es gibt keine Abhängigkeiten, deshalb klappt der Build auch offline. Ins eigene GitHub-Repo gepusht, baut `.github/workflows/build.yml` automatisch alle Plattformen (Windows-Icon und Versionsinfos erzeugt `build.rs` selbst, die Mac-App und die Linux-Pakete der Workflow).
+Einzeln geht es auch:
+
+```
+cargo build --release              # → target/release/event-timer(.exe)
+node scripts/build-standalone.js   # → dist/event-timer-standalone.html
+cargo test && node tests/engine.test.js
+```
+
+`--version` zeigt Version und Commit (`0.7.0+a1b2c3d`), ebenso Menü → System → Über Event Timer. Es gibt keine Abhängigkeiten, deshalb klappt der Build auch offline. Ins eigene GitHub-Repo gepusht, baut `.github/workflows/build.yml` automatisch alle Plattformen (Windows-Icon und Versionsinfos erzeugt `build.rs` selbst, die Mac-App und die Linux-Pakete der Workflow).
 
 **Versionen:** Semantic Versioning (MAJOR.MINOR.PATCH), die Nummer steht nur in `Cargo.toml`. Änderungen pro Version stehen in [`CHANGELOG.md`](CHANGELOG.md). Ein Tag `vX.Y.Z` erzeugt ein GitHub-Release mit allen Dateien; der Text kommt aus dem CHANGELOG. Tags mit Bindestrich (`v0.7.0-beta.1`) werden als Vorabversion markiert.
 
 ## Aufbau
 
 ```
-src/engine.rs   Timer-Logik (Rust)          web/js/engine.js   dieselbe Logik (JS, für Standalone)
-src/server.rs   HTTP, WebSocket, PIN, API   tests/scenarios.json  gemeinsame Tests für beide Engines
-src/json.rs     JSON ohne Crates            web/js/control.js  Regie
-src/http.rs     HTTP/WebSocket-Protokoll    web/js/display.js  Display-Renderer (auch für die Kacheln)
-src/store.rs    Speichern                   web/js/qr.js       QR-Code-Encoder
-                                            web/js/pages.js    Screens aus Modulen (Anzeige, Moderation)
-                                            web/js/pageeditor.js  Menü → Screens, Screen-Editor
+src/            Server (Rust): engine.rs Timer-Logik, server.rs HTTP/WebSocket/PIN/API,
+                http.rs Protokoll, json.rs JSON ohne Crates, store.rs Speichern, access.rs Zugriff
+web/js/         Oberfläche: engine.js (dieselbe Logik in JS, für Standalone), control.js Regie,
+                display.js Screen-Renderer, pages.js Screens aus Modulen, pageeditor.js Screen-Editor,
+                ui.js Bausteine/Theme/Übersetzung, icons.js (erzeugt), qr.js QR-Encoder
+web/css/        tokens.css (Show-UI, beide Themes), fonts, base, components, control, display, pages
+web/fonts/      eingebettete Schriften, web/licenses/ ihre Lizenzen, web/brand/ das fs-Logo
+tests/          scenarios.json (gemeinsam für beide Engines), engine.test.js
+scripts/        build.sh/.ps1, build-standalone.js, sync-icons.js, make-icons.js
+deploy/         systemd-Unit für Raspberry Pi und Linux-Server
+packaging/      App-Icons, Mac-App, Linux-Menüeintrag
+docs/           ARCHITECTURE.md, TESTING.md, decisions/ (ADRs)
 ```
 
-Die Web-Oberfläche wird beim Kompilieren ins Programm eingebettet.
+Die Web-Oberfläche wird beim Kompilieren ins Programm eingebettet. Mehr in [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md), die Testcheckliste vor einem Release in [`docs/TESTING.md`](docs/TESTING.md).
 
-Icons: `packaging/icon/` (Vorlage `event-timer.svg`, daraus `.ico`, `.icns`, PNG). Mac-App: `packaging/macos/`, Linux-Menüeintrag: `packaging/linux/`.
+**Design:** Show-UI, ein gemeinsames Design-System für Show-Software (Regeln in [`docs/decisions/0003-show-ui-design.md`](docs/decisions/0003-show-ui-design.md)). Dunkel ist Standard, Hell und „Wie System“ gibt es unter Menü → System → Darstellung. Screens bleiben immer dunkel.
+
+**Icons:** `scripts/sync-icons.js` erzeugt `web/js/icons.js` aus Phosphor, `scripts/make-icons.js` die App-Icons (`.ico`, `.icns`, PNG) aus dem fs-Zeichen. Beides nur nötig, wenn sich Icons oder Logo ändern.
 
 ## Lizenz
 
@@ -222,3 +236,13 @@ Copyright © 2026 Felix Spindler &lt;f-spindler@pm.me&gt;
 Event Timer ist freie Software: Du darfst sie unter den Bedingungen der **GNU General Public License, Version 3 oder (nach deiner Wahl) jeder späteren Version**, nutzen, weitergeben und verändern. Wer sie weitergibt – verändert oder nicht –, muss den Quellcode unter derselben Lizenz mitliefern und diesen Hinweis erhalten.
 
 Event Timer wird ohne jede Gewährleistung bereitgestellt. Der vollständige Lizenztext steht in [`LICENSE`](LICENSE).
+
+### Drittanbieter-Lizenzen
+
+Mitgeliefert und lokal ausgeliefert (nie aus dem Internet), die Lizenztexte liegen in `web/licenses/` und unter `/licenses/`:
+
+| Was | Lizenz |
+|---|---|
+| IBM Plex Sans, Sans Condensed, Mono | SIL Open Font License 1.1 (reservierter Name „Plex“) |
+| D-DIN | SIL Open Font License 1.1 (reservierter Name „D-DIN“) |
+| Phosphor Icons 2.1.1 | MIT |
