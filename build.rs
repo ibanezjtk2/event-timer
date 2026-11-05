@@ -27,6 +27,7 @@ fn walk(dir: &Path, base: &Path, out: &mut Vec<String>) {
                 "ico" => "image/x-icon",
                 "json" | "webmanifest" => "application/manifest+json",
                 "woff2" => "font/woff2",
+                "txt" => "text/plain; charset=utf-8",
                 _ => "application/octet-stream",
             };
             let abs = fs::canonicalize(&p).unwrap();
