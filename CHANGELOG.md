@@ -18,6 +18,14 @@ Neues Aussehen, gleiche Funktionen. Gespeicherte Shows, Designs, PIN und Compani
 - **Neues App-Icon** für Windows, macOS, Linux und Home-Bildschirm: die rote fs-Kachel mit einem weißen Restzeit-Ring. So bleibt Event Timer als fs-App erkennbar und ist in der Taskleiste trotzdem von anderen fs-Apps zu unterscheiden.
 - `--version`, Startbanner und *Über* zeigen den Commit mit an (`0.7.0+a1b2c3d`).
 
+### Behoben
+- Eine einzelne Anfrage mit Umlaut im Pfad brachte einen Verbindungs-Thread zum Absturz, und dessen Platz blieb belegt. Viele solcher Anfragen sperrten Geräte bis zum Neustart aus.
+- Sehr lange Kopfzeilen ohne Zeilenumbruch konnten den Speicher füllen. Sie sind jetzt auf 16 KB begrenzt.
+- Lässt sich die Speicherdatei nicht lesen (gesperrt, keine Rechte), startet Event Timer mit einer Meldung nicht, statt sie mit einer leeren Show zu überschreiben.
+- Ein fehlgeschlagenes Speichern wird wiederholt, und es schreibt immer nur einer gleichzeitig.
+- Ein Screen-Name mit HTML konnte im Menü (QR-Codes) Code in der Regie ausführen.
+- Blackout ist immer schwarz, auch bei hellen Designs und bei `?bg=transparent`.
+
 ### Intern
 - Repo nach Projektstandard: `scripts/` (Build, Standalone, Icons), `tests/`, `deploy/systemd/`, Issue- und PR-Vorlagen, `.gitattributes`, `.editorconfig`, `docs/` mit Architektur, Testcheckliste und Entscheidungen (ADRs), `CLAUDE.md`.
 - Ein Befehl für alles: `scripts/build.sh` bzw. `scripts\build.ps1` (Format, Clippy, Tests, Release-Build, Standalone, Prüfsummen).
