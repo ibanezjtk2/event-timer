@@ -2,7 +2,7 @@
    Copyright (C) 2026 Felix Spindler <f-spindler@pm.me> */
 // Builds dist/event-timer-standalone.html – one self-contained file that runs
 // without the server (engine in the browser, state in localStorage).
-//   node tools/build-standalone.js
+//   node scripts/build-standalone.js
 'use strict';
 const fs = require('fs');
 const path = require('path');

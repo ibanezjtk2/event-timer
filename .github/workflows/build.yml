@@ -24,7 +24,7 @@ jobs:
       - run: cargo fmt --check
       - run: cargo clippy --all-targets --locked -- -D warnings
       - name: JavaScript syntax
-        run: for f in web/js/*.js tools/*.js; do node --check "$f"; done
+        run: for f in web/js/*.js scripts/*.js tests/*.js; do node --check "$f"; done
 
   test:
     runs-on: ubuntu-latest
@@ -34,7 +34,7 @@ jobs:
       - uses: actions/setup-node@v4
         with: { node-version: 22 }
       - run: cargo test --locked
-      - run: node tools/test-engine.js
+      - run: node tests/engine.test.js
 
   build:
     needs: [lint, test]
@@ -125,7 +125,7 @@ jobs:
       - run: |
           V=$(grep -m1 '^version' Cargo.toml | cut -d'"' -f2)
           echo "V=$V" >> "$GITHUB_ENV"
-          node tools/build-standalone.js
+          node scripts/build-standalone.js
           mkdir -p out && cp dist/event-timer-standalone.html "out/event-timer-$V-standalone.html"
       - uses: actions/upload-artifact@v4
         with:

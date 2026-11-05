@@ -31,6 +31,8 @@ use std::time::Duration;
 
 pub const APP_ID: &str = "event-timer";
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
+/// Commit the binary was built from (set by build.rs).
+pub const COMMIT: &str = env!("ET_COMMIT");
 const DEFAULT_PORT: u16 = 2468;
 
 struct Options {
@@ -96,7 +98,7 @@ fn parse_args() -> Options {
             "--port80" => o.port80 = Some(true),
             "--no-port80" => o.port80 = Some(false),
             "--version" | "-V" => {
-                println!("{VERSION}");
+                println!("{VERSION}+{COMMIT}");
                 std::process::exit(0)
             }
             _ => usage(),
@@ -261,7 +263,7 @@ fn print_banner(app: &App, port: u16, wanted: u16) {
     let mut out = vec![
         String::new(),
         line.clone(),
-        format!("  Event Timer {VERSION}"),
+        format!("  Event Timer {VERSION}+{COMMIT}"),
         line,
     ];
     if port != wanted {
