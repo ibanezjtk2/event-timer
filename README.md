@@ -215,7 +215,7 @@ web/js/         Oberfläche: engine.js (dieselbe Logik in JS, für Standalone), 
                 display.js Screen-Renderer, pages.js Screens aus Modulen, pageeditor.js Screen-Editor,
                 ui.js Bausteine/Theme/Übersetzung, icons.js (erzeugt), qr.js QR-Encoder
 web/css/        tokens.css (Show-UI, beide Themes), fonts, base, components, control, display, pages
-web/fonts/      eingebettete Schriften, web/licenses/ ihre Lizenzen, web/brand/ das fs-Logo
+web/fonts/      eingebettete Schriften, web/licenses/ ihre Lizenzen, web/brand/ das fs-Logo und das Event-Timer-Zeichen
 tests/          scenarios.json (gemeinsam für beide Engines), engine.test.js
 scripts/        build.sh/.ps1, build-standalone.js, sync-icons.js, make-icons.js
 deploy/         systemd-Unit für Raspberry Pi und Linux-Server
@@ -227,7 +227,7 @@ Die Web-Oberfläche wird beim Kompilieren ins Programm eingebettet. Mehr in [`do
 
 **Design:** Show-UI, ein gemeinsames Design-System für Show-Software (Regeln in [`docs/decisions/0003-show-ui-design.md`](docs/decisions/0003-show-ui-design.md)). Dunkel ist Standard, Hell und „Wie System“ gibt es unter Menü → System → Darstellung. Screens bleiben immer dunkel.
 
-**Icons:** `scripts/sync-icons.js` erzeugt `web/js/icons.js` aus Phosphor, `scripts/make-icons.js` die App-Icons (`.ico`, `.icns`, PNG) aus dem fs-Zeichen. Beides nur nötig, wenn sich Icons oder Logo ändern.
+**Icons:** `scripts/sync-icons.js` erzeugt `web/js/icons.js` aus Phosphor, `scripts/make-icons.js` die App-Icons (`.ico`, `.icns`, PNG) aus dem Event-Timer-Zeichen `web/brand/event-timer-icon.svg` (die fs-Kachel mit einem Restzeit-Ring). Beides nur nötig, wenn sich Icons oder Logo ändern.
 
 ## Lizenz
 

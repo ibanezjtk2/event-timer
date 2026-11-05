@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-3.0-or-later
    Copyright (C) 2026 Felix Spindler <f-spindler@pm.me> */
-// Regenerates every app icon from the fs mark (web/brand/fs-icon-transparent.svg).
+// Regenerates every app icon from the Event Timer mark (web/brand/event-timer-icon.svg):
+// the fs tile with the remaining-time ring instead of the letters.
 // Developer tool, only needed when the mark changes; the results are committed.
 //   node scripts/make-icons.js        (needs Playwright with Chromium)
 // Writes: web/icon.svg, web/icon-180.png, web/icon-512.png,
@@ -10,8 +11,8 @@ const fs = require('fs');
 const path = require('path');
 
 const root = path.join(__dirname, '..');
-const mark = fs.readFileSync(path.join(root, 'web/brand/fs-icon-transparent.svg'), 'utf8');
-// The mark's drawing (everything inside <svg>, without its <title>) – reused unchanged, never redrawn.
+const mark = fs.readFileSync(path.join(root, 'web/brand/event-timer-icon.svg'), 'utf8');
+// The mark's drawing (everything inside <svg>, without its <title>) – reused unchanged.
 const inner = mark.replace(/^[\s\S]*?<svg[^>]*>/, '').replace(/<\/svg>\s*$/, '').replace(/<title>[^<]*<\/title>/, '');
 const DARK = '#181c21'; // --bg (dark theme)
 

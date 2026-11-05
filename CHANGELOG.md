@@ -14,7 +14,8 @@ Neues Aussehen, gleiche Funktionen. Gespeicherte Shows, Designs, PIN und Compani
 - **Farben mit fester Bedeutung:** Grün = läuft, Gelb = Vorwarnung, Rot = Kritisch, Überzeit, Fehler und *live*. Eine **Einblendung**, die gerade auf Screens steht, ist in der Regie jetzt rot markiert (on air) statt gelb; **Talkback** ist Cyan. Auswahl und Fokus sind immer Cyan.
 - **Start, Senden und GO** sind hell auf dunkel (invertiert) statt grün, damit Grün nur „läuft“ heißt.
 - Die eingebauten Designs (Bühne, Daylight, Overlay, Nur Ziffern) nutzen die gedämpften Show-UI-Farben. Eigene Designs behalten ihre Farben. Schriftwahl im Design: *D-DIN (Standard)*, *IBM Plex Sans*, *IBM Plex Mono*, *Serif (System)*, *Rounded (System)*.
-- **fs-Logo:** auf der Startseite, im neuen Abschnitt *Über Event Timer* (Menü → System, mit Version, Commit und Lizenzen) und als App-Icon für Windows, macOS, Linux und Home-Bildschirm.
+- **fs-Logo:** Schriftzug „fs Event Timer“ auf der Startseite und im neuen Abschnitt *Über Event Timer* (Menü → System, mit Version, Commit und Lizenzen).
+- **Neues App-Icon** für Windows, macOS, Linux und Home-Bildschirm: die rote fs-Kachel mit einem weißen Restzeit-Ring. So bleibt Event Timer als fs-App erkennbar und ist in der Taskleiste trotzdem von anderen fs-Apps zu unterscheiden.
 - `--version`, Startbanner und *Über* zeigen den Commit mit an (`0.7.0+a1b2c3d`).
 
 ### Intern

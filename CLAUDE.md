@@ -20,6 +20,7 @@ Event Timer: Countdown, Redezeit und Agenda für Bühne und Regie. Ein Rust-Prog
 - Ziffern in D-DIN und festen Zellen: `ETUI.setCells(node, text)`. Text in IBM Plex Sans, Medium als Standard.
 - Icons: `icon('name')`, gefüllt für aktiv: `icon('name', true)`. Namen siehe `scripts/sync-icons.js`.
 - Signalfarben: Grün läuft, Gelb Vorwarnung, Rot Kritisch/Überzeit/live, Cyan Auswahl/Fokus/Talkback.
+- App-Icon = `web/brand/event-timer-icon.svg` (fs-Kachel mit Restzeit-Ring), daraus `node scripts/make-icons.js`. Schriftzug bleibt „fs Event Timer“.
 - Screens (`.dsp`) sind immer dunkel. Theme nur über `data-theme` am `<html>`.
 
 ## Sprache und Begriffe

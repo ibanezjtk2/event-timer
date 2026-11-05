@@ -14,7 +14,8 @@ Ab 0.7.0 folgt die Oberfläche Show-UI:
 - Signalfarben mit genau einer Bedeutung: Grün läuft, Gelb Vorwarnung, Rot Kritisch, Überzeit, Fehler und *live*. Cyan für Auswahl, Fokus, Info und Talkback.
 - Aktiv = 14 % Tönung plus 3-px-Kante links, ausgewählt = 2-px-Cyan-Kontur. Primär-Buttons invertiert.
 - Screens sind immer dunkel und nutzen eigene Display-Tokens, die ein Design überschreiben kann.
-- Logo „fs“: Dateien aus Show-UI, kopiert und nie nachgezeichnet.
+- Logo „fs“: Dateien aus Show-UI, kopiert und nie nachgezeichnet. Der Schriftzug ist „fs Event Timer“.
+- App-Icon: eigenes Zeichen `web/brand/event-timer-icon.svg`. Kachel, Rot und Schräge sind 1:1 aus dem fs-Zeichen, darin statt „fs“ ein Restzeit-Ring (Ring mit fehlendem Viertel). Von Felix am 2026-11-05 gewählt, damit mehrere fs-Apps in Taskleiste und Dock unterscheidbar sind.
 
 ## Folgen
 - Eine Einblendung, die *live* ist, wird in der Regie rot statt gelb markiert (Gelb bleibt der Vorwarnung).
