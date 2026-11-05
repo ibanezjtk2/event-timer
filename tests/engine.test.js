@@ -1,12 +1,12 @@
 /* SPDX-License-Identifier: GPL-3.0-or-later
    Copyright (C) 2026 Felix Spindler <f-spindler@pm.me> */
-// Runs tests/scenarios.json against the JS engine:  node tools/test-engine.js
+// Runs tests/scenarios.json against the JS engine:  node tests/engine.test.js
 'use strict';
 const path = require('path');
 const fs = require('fs');
 const E = require(path.join(__dirname, '..', 'web', 'js', 'engine.js'));
 
-const scenarios = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'tests', 'scenarios.json'), 'utf8'));
+const scenarios = JSON.parse(fs.readFileSync(path.join(__dirname, 'scenarios.json'), 'utf8'));
 
 function resolve(state, p, now) {
   const parts = p.split('.');

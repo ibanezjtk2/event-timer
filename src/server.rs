@@ -10,7 +10,7 @@ use crate::json::{self, Json};
 use crate::logx::{error, info};
 use crate::store::{self, ServerCfg};
 use crate::util::{hex, now_ms, query_param, salt, sha1};
-use crate::{assets, mdns, net, APP_ID, VERSION};
+use crate::{assets, mdns, net, APP_ID, COMMIT, VERSION};
 use std::io::{BufReader, Write};
 use std::net::{IpAddr, Ipv4Addr, Shutdown, TcpListener, TcpStream};
 use std::path::PathBuf;
@@ -199,6 +199,7 @@ impl App {
         Json::obj()
             .with("app", APP_ID)
             .with("version", VERSION)
+            .with("commit", COMMIT)
             .with("pinRequired", self.pin_required())
             .with("controls", controls)
             .with("displays", displays)

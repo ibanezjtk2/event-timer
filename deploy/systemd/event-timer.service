@@ -1,6 +1,6 @@
 # Autostart auf Raspberry Pi / Linux-Server
 #   sudo cp event-timer /usr/local/bin/ && sudo chmod +x /usr/local/bin/event-timer
-#   sudo cp tools/event-timer.service /etc/systemd/system/
+#   sudo cp deploy/systemd/event-timer.service /etc/systemd/system/
 #   sudo systemctl enable --now event-timer
 [Unit]
 Description=Event Timer

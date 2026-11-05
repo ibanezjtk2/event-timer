@@ -40,7 +40,26 @@ fn walk(dir: &Path, base: &Path, out: &mut Vec<String>) {
     }
 }
 
+/// Short commit hash for the visible version ("0.7.0+a1b2c3d"); "dev" without git.
+fn commit_hash() -> String {
+    println!("cargo:rerun-if-changed=.git/HEAD");
+    println!("cargo:rerun-if-env-changed=ET_COMMIT");
+    if let Ok(c) = env::var("ET_COMMIT") {
+        return c;
+    }
+    std::process::Command::new("git")
+        .args(["rev-parse", "--short=7", "HEAD"])
+        .output()
+        .ok()
+        .filter(|o| o.status.success())
+        .and_then(|o| String::from_utf8(o.stdout).ok())
+        .map(|s| s.trim().to_string())
+        .filter(|s| !s.is_empty())
+        .unwrap_or_else(|| "dev".into())
+}
+
 fn main() {
+    println!("cargo:rustc-env=ET_COMMIT={}", commit_hash());
     windows_resources();
     let web = Path::new("web");
     println!("cargo:rerun-if-changed=web");
