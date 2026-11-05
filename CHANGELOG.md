@@ -25,6 +25,15 @@ Neues Aussehen, gleiche Funktionen. Gespeicherte Shows, Designs, PIN und Compani
 - Ein fehlgeschlagenes Speichern wird wiederholt, und es schreibt immer nur einer gleichzeitig.
 - Ein Screen-Name mit HTML konnte im Menü (QR-Codes) Code in der Regie ausführen.
 - Blackout ist immer schwarz, auch bei hellen Designs und bei `?bg=transparent`.
+- „Event Timer beenden“ und Strg+C beenden das Programm nicht mehr, wenn das Speichern fehlschlägt. Die Regie meldet den Fehler, und das Programm läuft weiter. Ein dauerhafter Speicherfehler steht nur einmal im Log statt alle 2 Sekunden.
+- Der Mauszeiger verschwindet jetzt auch auf den Screens `/1` bis `/16`, `/uhr` und `/plan` nach 2,5 Sekunden.
+- Laufende Ziffern in den Schriften Rund und Serif zappeln nicht mehr (Tabellenziffern waren versehentlich abgeschaltet).
+- Helle Designs (z. B. Tageslicht): Endzeit und „Danach“ sind wieder gut lesbar, Text auf dunklem Gelb und Rot ist weiß.
+- Screens bleiben auch im hellen Theme samt Browserleiste dunkel.
+- Ein gelöschter Timer lässt auf der Moderation keine grüne „läuft“-Markierung zurück.
+- Das Logo hat im hellen Theme einen Namen für Screenreader. Englisch: „Appearance“ statt „Style“.
+- Ein abgestürzter WebSocket-Thread hinterlässt kein Geister-Gerät mehr.
+- `cargo build` baut nicht mehr bei jedem Aufruf alles neu, wenn `.git/packed-refs` fehlt.
 
 ### Intern
 - Repo nach Projektstandard: `scripts/` (Build, Standalone, Icons), `tests/`, `deploy/systemd/`, Issue- und PR-Vorlagen, `.gitattributes`, `.editorconfig`, `docs/` mit Architektur, Testcheckliste und Entscheidungen (ADRs), `CLAUDE.md`.

@@ -1498,6 +1498,7 @@
           h('p', null, t('Die Show ist gespeichert. Zum Weitermachen das Programm erneut öffnen.'))));
       try {
         const r = await fetch('/api/shutdown', { method: 'POST' });
+        if (r.status === 500) { toast(t('Speichern fehlgeschlagen, Event Timer läuft weiter')); return; }
         if (!r.ok) throw new Error(r.status);
         document.body.appendChild(done);
         alive = false;

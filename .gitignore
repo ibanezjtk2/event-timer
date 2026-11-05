@@ -4,6 +4,7 @@
 
 # runtime data next to the binary (never commit a real show)
 event-timer-data.json
+*.broken.json
 *.json.tmp
 event-timer.log
 event-timer.log.old
