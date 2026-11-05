@@ -635,7 +635,8 @@ fn migrate_screens(s: &mut State, j: &Json) {
         for tj in list {
             if let Some(id) = tj.get("id").as_str() {
                 old.push((
-                    format!("d{}", id.get(1..).unwrap_or("")),
+                    // drop the first character, like the JS engine ('d' + id.slice(1))
+                    format!("d{}", id.chars().skip(1).collect::<String>()),
                     msg(tj.get("message")),
                 ));
             }

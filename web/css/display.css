@@ -41,10 +41,10 @@
 /* notice under the digits: a label, not a pill */
 .dsp-notice { justify-self: center; font: 700 clamp(8px, 5.4cqh, 90px)/1.2 var(--font-ui); padding: .12em .6em; border-radius: .08em; margin-bottom: 1.6cqh; white-space: nowrap; max-width: 92cqw; overflow: hidden; text-overflow: ellipsis; }
 .dsp-notice[data-on="0"] { display: none; }
-.dsp[data-phase="warn"] .dsp-notice { background: var(--d-warn); color: var(--d-on-signal); }
-.dsp[data-phase="crit"] .dsp-notice { background: var(--d-crit); color: var(--d-on-signal); }
+.dsp[data-phase="warn"] .dsp-notice { background: var(--d-warn); color: var(--d-on-warn); }
+.dsp[data-phase="crit"] .dsp-notice { background: var(--d-crit); color: var(--d-on-crit); }
 .dsp[data-phase="over"] .dsp-notice { background: var(--d-overfg); color: var(--d-overbg); }
-.dsp[data-phase="over"][data-bgstyle="transparent"] .dsp-notice { background: var(--d-crit); color: var(--d-on-signal); }
+.dsp[data-phase="over"][data-bgstyle="transparent"] .dsp-notice { background: var(--d-crit); color: var(--d-on-crit); }
 
 .dsp-msg { display: none; margin: 0 3cqw 2.4cqh; border-radius: .6cqh; background: var(--d-msgbg); color: var(--d-msgfg); padding: 2.6cqh 3cqw; text-align: center; font: 700 1em/1.12 var(--font-ui); min-height: 0; }
 .dsp[data-msg="1"] .dsp-msg { display: grid; place-items: center; }
@@ -143,7 +143,7 @@
 .stage-ui { position: fixed; right: 14px; top: 14px; display: flex; gap: var(--s-2); z-index: 10; transition: opacity var(--t-slow) var(--ease); }
 .stage-ui[data-idle="1"] { opacity: 0; pointer-events: none; }
 .stage-ui .btn { background: var(--d-chrome-bg); border-color: var(--d-chrome-line); color: var(--d-fg); }
-body[data-view="display"][data-idle="1"], body[data-view="page"][data-idle="1"] { cursor: none; }
+body[data-view="display"][data-idle="1"], body[data-view="agenda"][data-idle="1"] { cursor: none; }
 .stage-offline { position: fixed; left: 14px; bottom: 14px; z-index: 10; display: inline-flex; align-items: center; gap: 6px; background: var(--d-crit); color: var(--d-on-signal); font: 600 14px/1 var(--font-ui); padding: 8px 12px; border-radius: var(--r-control); }
 
 @media (prefers-reduced-motion: reduce) {

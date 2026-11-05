@@ -54,6 +54,7 @@
   function mount() {
     if (cleanup) { cleanup(); cleanup = null; }
     const r = parseRoute();
+    root.ETUI.setScreenMode(r.view === 'display');
     document.body.dataset.view = r.view === 'display' ? (r.layout === 'agenda' ? 'agenda' : 'display') : r.view;
     document.documentElement.lang = root.ETUI.lang;
     if (r.view === 'control') { document.title = 'Event Timer – ' + t('Regie'); cleanup = root.ETControl.mount(app, tr); }
@@ -118,7 +119,7 @@
       raf = requestAnimationFrame(loop);
     };
     raf = requestAnimationFrame(loop);
-    return () => { alive = false; cancelAnimationFrame(raf); clearTimeout(idleTimer); ['pointermove', 'pointerdown', 'keydown'].forEach(ev => document.removeEventListener(ev, wake)); };
+    return () => { alive = false; cancelAnimationFrame(raf); clearTimeout(idleTimer); delete document.body.dataset.idle; ['pointermove', 'pointerdown', 'keydown'].forEach(ev => document.removeEventListener(ev, wake)); };
   }
 
   // keep tablets and laptops from dimming the stage display

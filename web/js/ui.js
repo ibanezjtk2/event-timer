@@ -159,7 +159,6 @@
     "Ungespeichert – nochmal tippen": "Not applied – tap again",
     "Nicht übernommen – nochmal tippen": "Not applied – tap again",
     "Timer": "Timer",
-    "Darstellung": "Style",
     "Sekunden anzeigen": "Show seconds",
     "Automatisch (DSM des Ablauf-Timers)": "Automatic (DSM of the run-of-show timer)",
     "Welcher DSM": "Which DSM",
@@ -485,6 +484,7 @@
     "Event Timer wurde beendet": "Event Timer has been closed",
     "Die Show ist gespeichert. Zum Weitermachen das Programm erneut öffnen.": "The show is saved. Open the program again to continue.",
     "Beenden nicht möglich": "Could not quit",
+    "Speichern fehlgeschlagen, Event Timer läuft weiter": "Saving failed, Event Timer keeps running",
   };
 
   let lang = 'de';
@@ -559,14 +559,23 @@
   const themeMq = root.matchMedia ? root.matchMedia('(prefers-color-scheme: light)') : null;
   let themePref = 'dark';
   try { themePref = THEMES.includes(localStorage.getItem('et-theme')) ? localStorage.getItem('et-theme') : 'dark'; } catch { /* ignore */ }
+  let screenMode = false;  // stage screens are always dark, browser chrome included
   function applyTheme() {
-    const eff = themePref === 'system' ? (themeMq && themeMq.matches ? 'light' : 'dark') : themePref;
+    const eff = screenMode ? 'dark' : themePref === 'system' ? (themeMq && themeMq.matches ? 'light' : 'dark') : themePref;
     if (typeof document !== 'undefined') {
       document.documentElement.dataset.theme = eff;
       const meta = document.querySelector('meta[name="theme-color"]');
-      if (meta) meta.setAttribute('content', eff === 'light' ? '#eceef1' : '#181c21');
+      // browser bar in the page colour, read from the tokens (no colour values in JS)
+      const bg = getComputedStyle(document.documentElement).getPropertyValue(screenMode ? '--d-bg' : '--bg').trim();
+      if (meta && bg) meta.setAttribute('content', bg);
     }
     return eff;
+  }
+  /** Stage screens call this with true: dark page and browser chrome, whatever the theme setting. */
+  function setScreenMode(on) {
+    if (screenMode === Boolean(on)) return;
+    screenMode = Boolean(on);
+    applyTheme();
   }
   function setTheme(v) {
     themePref = THEMES.includes(v) ? v : 'dark';
@@ -580,11 +589,9 @@
   // the standalone file carries the logo inline (root.ET_ASSETS), the server serves /brand/
   // both variants are in the page, CSS shows the one for the current theme (switches live)
   const logo = cls => {
-    const img = (variant, extra) => {
-      const file = 'fs-event-timer-' + variant + '.svg';
-      return h('img', { class: 'logo-' + variant + extra, alt: extra ? '' : 'fs Event Timer', 'aria-hidden': extra ? 'true' : null, width: 175, height: 40, src: asset('brand/' + file) });
-    };
-    return h('span', { class: 'logo ' + (cls || '') }, img('dunkel', ''), img('hell', ' logo-alt'));
+    // the wrapper carries the name, so it is announced in both themes
+    const img = (variant, extra) => h('img', { class: 'logo-' + variant + extra, alt: '', 'aria-hidden': 'true', width: 175, height: 40, src: asset('brand/fs-event-timer-' + variant + '.svg') });
+    return h('span', { class: 'logo ' + (cls || ''), role: 'img', 'aria-label': 'fs Event Timer' }, img('dunkel', ''), img('hell', ' logo-alt'));
   };
   /** URL of a bundled file: inline in the standalone file (root.ET_ASSETS), otherwise from the server. */
   // browsers refuse to open data: URLs as a page, so inlined texts become blob: URLs (licence links)
@@ -637,5 +644,5 @@
     toast(t('Kopiert'));
   }
 
-  root.ETUI = { h, icon, setCells, toast, armed, copy, t, setLang, get lang() { return lang; }, setTheme, get theme() { return themePref; }, logo, asset, EN };
+  root.ETUI = { h, icon, setCells, toast, armed, copy, t, setLang, get lang() { return lang; }, setTheme, setScreenMode, get theme() { return themePref; }, logo, asset, EN };
 })(globalThis);

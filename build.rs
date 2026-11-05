@@ -43,12 +43,18 @@ fn walk(dir: &Path, base: &Path, out: &mut Vec<String>) {
 
 /// Short commit hash for the visible version ("0.7.0+a1b2c3d"); "dev" without git.
 fn commit_hash() -> String {
-    // HEAD only names the branch; the branch file (or packed-refs) moves with each commit
-    println!("cargo:rerun-if-changed=.git/HEAD");
-    println!("cargo:rerun-if-changed=.git/packed-refs");
+    // HEAD only names the branch; the branch file (or packed-refs) moves with each commit.
+    // Only files that exist: cargo treats a missing one as always changed (full rebuild every time).
+    let watch = |p: String| {
+        if Path::new(&p).is_file() {
+            println!("cargo:rerun-if-changed={p}");
+        }
+    };
+    watch(".git/HEAD".into());
+    watch(".git/packed-refs".into());
     if let Ok(head) = fs::read_to_string(".git/HEAD") {
         if let Some(r) = head.trim().strip_prefix("ref: ") {
-            println!("cargo:rerun-if-changed=.git/{r}");
+            watch(format!(".git/{r}"));
         }
     }
     println!("cargo:rerun-if-env-changed=ET_COMMIT");

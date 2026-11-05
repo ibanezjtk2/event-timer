@@ -73,7 +73,10 @@
   --d-overfg: #ffffff;
   --d-msgbg: #e3ab45;
   --d-msgfg: #000000;
-  --d-on-signal: #000000;
+  --d-on-signal: #000000;     /* text on light signal colours */
+  --d-on-dark: #ffffff;       /* text on dark signal colours (light designs) */
+  --d-on-warn: var(--d-on-signal);
+  --d-on-crit: var(--d-on-signal);
   --d-chrome-bg: rgba(20, 23, 27, .8);
   --d-chrome-line: rgba(255, 255, 255, .2);
 

@@ -253,7 +253,7 @@
         tick(s, now) {
           const a = s.agenda;
           const tm = s.timers.find(x => x.id === m.opts.timer);
-          if (!tm) { setText(title, t('Timer gibt es nicht')); setCells(time, '--:--'); return; }
+          if (!tm) { setText(title, t('Timer gibt es nicht')); setCells(time, '--:--'); setData(time, 'state', ''); setText(sub, ''); setText(next, ''); drift.hidden = true; bar.style.width = '0%'; return; }
           const v = E.timerView(tm, now);
           const seg = tm.segmentId ? a.items.find(x => x.id === tm.segmentId) : null;
           const nx = seg ? a.items[a.items.indexOf(seg) + 1] : null;
@@ -515,6 +515,7 @@
       host.classList.toggle('pg-host-mod', kind === 'mod');
       if (!o.preview) {
         document.body.dataset.view = pg && pg.kind === 'mod' ? 'moderation' : 'display';
+        root.ETUI.setScreenMode(!(pg && pg.kind === 'mod'));
         document.title = (pg ? pg.name : t('Screen nicht gefunden')) + ' – Event Timer';
         if (pg && pg.kind === 'show' && params.get('bg') === 'transparent') {
           document.body.style.background = 'transparent'; document.documentElement.style.background = 'transparent'; document.documentElement.style.colorScheme = 'normal';
@@ -536,10 +537,12 @@
       }
       inst = pg.kind === 'show' ? buildDsm(host, tr, pg, params, o) : buildMod(host, tr, pg, params, o);
     }
+    // chrome and mouse pointer disappear after a moment (CSS hides the pointer on screens only)
+    const setIdle = v => { ui.dataset.idle = v; if (!o.preview) document.body.dataset.idle = v; };
     const wake = () => {
-      ui.dataset.idle = '0';
+      setIdle('0');
       clearTimeout(idle);
-      idle = setTimeout(() => { ui.dataset.idle = '1'; }, 2500);
+      idle = setTimeout(() => setIdle('1'), 2500);
       if (kind === 'show') keepAwake();
     };
     if (!o.preview) ['pointermove', 'pointerdown', 'keydown'].forEach(ev => document.addEventListener(ev, wake));
@@ -564,7 +567,10 @@
       cancelAnimationFrame(raf);
       clearTimeout(idle);
       if (inst) inst.destroy();
-      if (!o.preview) ['pointermove', 'pointerdown', 'keydown'].forEach(ev => document.removeEventListener(ev, wake));
+      if (!o.preview) {
+        ['pointermove', 'pointerdown', 'keydown'].forEach(ev => document.removeEventListener(ev, wake));
+        delete document.body.dataset.idle;
+      }
     };
   }
 
