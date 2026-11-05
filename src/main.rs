@@ -151,7 +151,17 @@ fn main() {
     }
     platform::install_stop_handlers();
 
-    let (state, cfg, load_error) = store::load(&data_path);
+    let (state, cfg, load_error) = match store::load(&data_path) {
+        Ok(loaded) => loaded,
+        Err(e) => {
+            let msg = format!(
+                "Event Timer kann die Speicherdatei nicht lesen und startet nicht, damit die Show nicht überschrieben wird.\n{e}\nIst die Datei in einem anderen Programm geöffnet?"
+            );
+            error!("{msg}");
+            platform::alert(&msg, true);
+            std::process::exit(1);
+        }
+    };
     let app = Arc::new(App::new(state, cfg, data_path, opts.host.clone()));
     if let Some(e) = load_error {
         let msg = format!("Die Speicherdatei war beschädigt und wurde zurückgesetzt.\n{e}");

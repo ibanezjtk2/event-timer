@@ -41,6 +41,7 @@ pub struct App {
     clients: Mutex<Vec<Arc<Client>>>,
     /// unsaved changes: time of the first and of the latest one (0 = all saved)
     first_dirty: AtomicI64,
+    save_lock: Mutex<()>,
     last_change: AtomicI64,
     pub port: AtomicU16,
     pub data_path: PathBuf,
@@ -75,6 +76,7 @@ impl App {
             cfg: Mutex::new(cfg),
             clients: Mutex::new(Vec::new()),
             first_dirty: AtomicI64::new(0),
+            save_lock: Mutex::new(()),
             last_change: AtomicI64::new(0),
             port: AtomicU16::new(0),
             data_path,
@@ -167,6 +169,8 @@ impl App {
     }
 
     pub fn save_now(&self) {
+        // one writer at a time: save thread, stop handler and /api/shutdown share the .tmp file
+        let _writing = lock(&self.save_lock);
         // cleared first: a change during the write marks the show dirty again
         self.first_dirty.store(0, Ordering::SeqCst);
         let st = lock(&self.state).clone();
@@ -177,6 +181,8 @@ impl App {
                 self.data_path.display(),
                 e
             );
+            // still unsaved: try again on the next round instead of waiting for a change
+            self.touch();
         }
     }
 
@@ -279,9 +285,26 @@ pub fn spawn_connection(app: &Arc<App>, stream: TcpStream) {
     }
     let app = app.clone();
     std::thread::spawn(move || {
+        // released on every exit, panics included – otherwise a crashing
+        // connection would keep its slot until restart
+        let _slot = ConnSlot {
+            app: app.clone(),
+            ip,
+        };
         handle_connection(&app, stream, ip);
-        app.conns.release(ip);
     });
+}
+
+/// Frees a connection slot when the connection thread ends, even by panic.
+struct ConnSlot {
+    app: Arc<App>,
+    ip: IpAddr,
+}
+
+impl Drop for ConnSlot {
+    fn drop(&mut self) {
+        self.app.conns.release(self.ip);
+    }
 }
 
 /// Optional second listener on port 80, so addresses work without ":2468".
@@ -580,11 +603,11 @@ fn is_app_route(path: &str) -> bool {
             | "/clock"
             | "/uhr"
             | "/index.html"
-    ) || path[1..]
-        .parse::<u8>()
+    ) || path
+        .strip_prefix('/')
         // screens /1 … /16 (no leading zeros)
-        .map(|n| (1..=16).contains(&n) && !path[1..].starts_with('0'))
-        .unwrap_or(false)
+        .and_then(|n| n.parse::<u8>().ok().filter(|_| !n.starts_with('0')))
+        .is_some_and(|n| (1..=16).contains(&n))
         // screens by name: /p/<slug>
         || (path.len() > 3
             && path.starts_with("/p/")
@@ -893,5 +916,21 @@ fn companion(app: &App, req: &Request) -> Response {
             ok(cmd)
         }
         _ => err(404, "Unknown Companion action"),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::is_app_route;
+
+    #[test]
+    fn app_routes() {
+        for p in ["/", "/control", "/1", "/16", "/uhr", "/p/saal-a"] {
+            assert!(is_app_route(p), "{p}");
+        }
+        // must not panic on multi-byte characters right after the slash
+        for p in ["/0", "/17", "/01", "/é", "é", "", "/p/"] {
+            assert!(!is_app_route(p), "{p}");
+        }
     }
 }

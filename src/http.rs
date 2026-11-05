@@ -27,10 +27,27 @@ impl Request {
 const MAX_HEAD: usize = 16 * 1024;
 const MAX_BODY: usize = 1024 * 1024;
 
+/// Reads one line, but never more than `limit` bytes, so a peer that sends
+/// no newline cannot make the line grow without bound.
+fn read_line_limited<R: BufRead>(
+    reader: &mut R,
+    buf: &mut String,
+    limit: usize,
+) -> io::Result<usize> {
+    let n = reader.by_ref().take(limit as u64).read_line(buf)?;
+    if n >= limit && !buf.ends_with('\n') {
+        return Err(io::Error::new(
+            io::ErrorKind::InvalidData,
+            "header too large",
+        ));
+    }
+    Ok(n)
+}
+
 pub fn read_request(reader: &mut BufReader<TcpStream>) -> io::Result<Option<Request>> {
     let mut line = String::new();
     let mut total = 0;
-    if reader.read_line(&mut line)? == 0 {
+    if read_line_limited(reader, &mut line, MAX_HEAD)? == 0 {
         return Ok(None);
     }
     total += line.len();
@@ -40,7 +57,7 @@ pub fn read_request(reader: &mut BufReader<TcpStream>) -> io::Result<Option<Requ
     let mut headers = Vec::new();
     loop {
         let mut h = String::new();
-        let n = reader.read_line(&mut h)?;
+        let n = read_line_limited(reader, &mut h, MAX_HEAD.saturating_sub(total).max(1))?;
         total += n;
         if n == 0 || total > MAX_HEAD {
             return Err(io::Error::new(
@@ -245,6 +262,20 @@ pub fn ws_read(reader: &mut impl Read) -> io::Result<WsEvent> {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn header_line_is_capped() {
+        let mut long = std::io::Cursor::new(vec![b'a'; 100_000]);
+        let mut buf = String::new();
+        assert!(super::read_line_limited(&mut long, &mut buf, 1024).is_err());
+        assert!(buf.len() <= 1024);
+        let mut ok = std::io::Cursor::new(b"Host: x\r\nrest".to_vec());
+        let mut buf = String::new();
+        assert_eq!(
+            super::read_line_limited(&mut ok, &mut buf, 1024).unwrap(),
+            9
+        );
+    }
+
     use super::*;
 
     #[test]
