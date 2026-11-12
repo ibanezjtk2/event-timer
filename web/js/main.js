@@ -54,6 +54,7 @@
   function mount() {
     if (cleanup) { cleanup(); cleanup = null; }
     const r = parseRoute();
+    root.ETUI.setScreenMode(r.view === 'display');
     document.body.dataset.view = r.view === 'display' ? (r.layout === 'agenda' ? 'agenda' : 'display') : r.view;
     document.documentElement.lang = root.ETUI.lang;
     if (r.view === 'control') { document.title = 'Event Timer – ' + t('Regie'); cleanup = root.ETControl.mount(app, tr); }
@@ -90,8 +91,10 @@
     let idleTimer = null;
     const wake = () => {
       ui.dataset.idle = '0';
+      document.body.dataset.idle = '0';
       clearTimeout(idleTimer);
-      idleTimer = setTimeout(() => { ui.dataset.idle = '1'; }, 2500);
+      // chrome and mouse pointer disappear after a moment: nothing but the time on stage
+      idleTimer = setTimeout(() => { ui.dataset.idle = '1'; document.body.dataset.idle = '1'; }, 2500);
       requestWakeLock();
     };
     ['pointermove', 'pointerdown', 'keydown'].forEach(ev => document.addEventListener(ev, wake));
@@ -116,7 +119,7 @@
       raf = requestAnimationFrame(loop);
     };
     raf = requestAnimationFrame(loop);
-    return () => { alive = false; cancelAnimationFrame(raf); clearTimeout(idleTimer); ['pointermove', 'pointerdown', 'keydown'].forEach(ev => document.removeEventListener(ev, wake)); };
+    return () => { alive = false; cancelAnimationFrame(raf); clearTimeout(idleTimer); delete document.body.dataset.idle; ['pointermove', 'pointerdown', 'keydown'].forEach(ev => document.removeEventListener(ev, wake)); };
   }
 
   // keep tablets and laptops from dimming the stage display
@@ -147,7 +150,7 @@
     render();
     cleanup = off;
     app.replaceChildren(h('div', { class: 'home' }, h('div', { class: 'home-card' },
-      h('h1', { html: root.ETUI.brandSvg.replace('class="brand-mark"', 'class="brand-mark" style="width:40px;height:40px"') + '<span>Event Timer</span>' }),
+      h('h1', null, root.ETUI.logo('home-logo')),
       list)));
   }
 

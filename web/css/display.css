@@ -1,0 +1,152 @@
+/* SPDX-License-Identifier: GPL-3.0-or-later
+   Copyright (C) 2026 Felix Spindler <f-spindler@pm.me> */
+/* Stage display (.dsp): the same renderer draws the full screen and the live tiles in the
+   control room. Colours come from the design (preset) as --d-* variables; the defaults are
+   the Show-UI display tokens. Always dark, independent of the control room theme. */
+
+.dsp {
+  --d-font: var(--font-num); --d-weight: 700;
+  container-type: size; position: relative; width: 100%; height: 100%; overflow: hidden;
+  background: var(--d-bg); color: var(--d-fg); font-family: var(--d-font);
+  display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr) auto auto auto;
+  transition: background-color var(--t-slow) var(--ease);
+}
+.dsp[data-bgstyle="glow"] { background: radial-gradient(ellipse at 50% 45%, color-mix(in srgb, var(--d-accent) 18%, var(--d-bg)) 0%, var(--d-bg) 70%); }
+.dsp[data-bgstyle="transparent"] { background: transparent; }
+.dsp[data-phase="over"] { background: var(--d-overbg); }
+.dsp[data-phase="over"][data-bgstyle="transparent"] { background: transparent; }
+
+.dsp-top { display: flex; justify-content: space-between; align-items: baseline; gap: 3cqw; padding: 2.6cqh 3.2cqw 0; font-size: clamp(8px, 4.6cqh, 80px); min-height: 1em; line-height: 1.15; }
+.dsp-title { font-family: var(--font-ui); font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; opacity: .92; }
+.dsp-clock { font-variant-numeric: tabular-nums; opacity: .7; flex: none; }
+.dsp-main { display: grid; place-content: center; text-align: center; min-height: 0; }
+.dsp-time {
+  font-weight: var(--d-weight); font-variant-numeric: tabular-nums; line-height: .9;
+  font-size: min(31cqw, 66cqh); white-space: nowrap; transition: color var(--t-slow) var(--ease);
+}
+/* fixed cells are for D-DIN (proportional digits); Plex Sans and Mono have tabular digits of their own */
+.dsp[data-font="grotesk"] .cells > span, .dsp[data-font="mono"] .cells > span, .dsp[data-font="serif"] .cells > span, .dsp[data-font="rounded"] .cells > span { width: auto; }
+.dsp[data-len="6"] .dsp-time { font-size: min(26cqw, 62cqh); }
+.dsp[data-len="7"] .dsp-time { font-size: min(22cqw, 58cqh); }
+.dsp[data-len="8"] .dsp-time, .dsp[data-len="9"] .dsp-time { font-size: min(19.5cqw, 54cqh); }
+.dsp[data-msg="1"] .dsp-time { font-size: min(20cqw, 34cqh); }
+.dsp[data-msg="1"][data-len="7"] .dsp-time, .dsp[data-msg="1"][data-len="8"] .dsp-time { font-size: min(15cqw, 30cqh); }
+.dsp-sub { font-family: var(--font-ui); font-weight: 500; font-size: clamp(8px, 5cqh, 70px); color: var(--d-muted); min-height: 0; }
+.dsp-sub:empty { display: none; }
+.dsp[data-phase="warn"] .dsp-time { color: var(--d-warn); }
+.dsp[data-phase="crit"] .dsp-time { color: var(--d-crit); }
+.dsp[data-phase="over"] .dsp-time { color: var(--d-overfg); }
+.dsp[data-state="paused"] .dsp-time { opacity: .55; }
+
+/* notice under the digits: a label, not a pill */
+.dsp-notice { justify-self: center; font: 700 clamp(8px, 5.4cqh, 90px)/1.2 var(--font-ui); padding: .12em .6em; border-radius: .08em; margin-bottom: 1.6cqh; white-space: nowrap; max-width: 92cqw; overflow: hidden; text-overflow: ellipsis; }
+.dsp-notice[data-on="0"] { display: none; }
+.dsp[data-phase="warn"] .dsp-notice { background: var(--d-warn); color: var(--d-on-warn); }
+.dsp[data-phase="crit"] .dsp-notice { background: var(--d-crit); color: var(--d-on-crit); }
+.dsp[data-phase="over"] .dsp-notice { background: var(--d-overfg); color: var(--d-overbg); }
+.dsp[data-phase="over"][data-bgstyle="transparent"] .dsp-notice { background: var(--d-crit); color: var(--d-on-crit); }
+
+.dsp-msg { display: none; margin: 0 3cqw 2.4cqh; border-radius: .6cqh; background: var(--d-msgbg); color: var(--d-msgfg); padding: 2.6cqh 3cqw; text-align: center; font: 700 1em/1.12 var(--font-ui); min-height: 0; }
+.dsp[data-msg="1"] .dsp-msg { display: grid; place-items: center; }
+.dsp-msg-text { font-size: clamp(9px, 11cqh, 220px); overflow-wrap: anywhere; }
+.dsp-msg[data-long="1"] .dsp-msg-text { font-size: clamp(8px, 8cqh, 160px); }
+.dsp-msg[data-long="2"] .dsp-msg-text { font-size: clamp(8px, 5.6cqh, 110px); }
+.dsp-msg[data-flash="1"] { animation: dsp-flash var(--pulse-hard); }
+@keyframes dsp-flash { 50% { background: var(--d-fg); color: var(--d-bg); } }
+
+.dsp-bottom { display: flex; justify-content: space-between; gap: 3cqw; padding: 0 3.2cqw 3.4cqh; font: 500 clamp(8px, 4.2cqh, 70px)/1.2 var(--font-ui); }
+.dsp-bottom div { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dsp-next { color: var(--d-muted); text-align: right; }
+.dsp-speaker { opacity: .85; }
+.dsp-bottom:has(div:empty + div:empty) { padding-bottom: 1cqh; }
+
+.dsp-progress { position: absolute; left: 0; right: 0; bottom: 0; height: max(3px, 1.5cqh); background: color-mix(in srgb, var(--d-fg) 12%, transparent); }
+.dsp-progress[data-on="0"] { display: none; }
+.dsp-progress i { display: block; height: 100%; width: 0; background: var(--d-accent); transition: width .25s linear, background-color var(--t-slow) var(--ease); }
+.dsp[data-phase="warn"] .dsp-progress i { background: var(--d-warn); }
+.dsp[data-phase="crit"] .dsp-progress i, .dsp[data-phase="over"] .dsp-progress i { background: var(--d-crit); }
+
+.dsp-blackout { position: absolute; inset: 0; background: var(--d-blackout); display: none; z-index: 5; }
+.dsp[data-blackout="1"] .dsp-blackout { display: block; }
+.dsp-list { display: none; }
+.dsp[data-empty] > * { visibility: hidden; }
+
+/* layout: clock – wall clock first, timer second */
+.dsp[data-layout="clock"] { grid-template-rows: minmax(0, 1fr) auto auto auto auto; }
+.dsp[data-layout="clock"] .dsp-top { display: grid; place-content: center; padding: 0; }
+.dsp[data-layout="clock"] .dsp-title, .dsp[data-layout="clock"] .dsp-notice { display: none; }
+.dsp[data-layout="clock"] .dsp-clock { font-size: min(22cqw, 48cqh); line-height: .9; opacity: 1; font-weight: var(--d-weight); }
+.dsp[data-layout="clock"] .dsp-main { margin-bottom: 5cqh; }
+.dsp[data-layout="clock"] .dsp-time { font-size: min(9cqw, 18cqh); opacity: .8; }
+.dsp[data-layout="clock"][data-state="idle"] .dsp-main { visibility: hidden; }
+
+/* layout: time – nothing but the wall clock */
+.dsp[data-layout="time"] .dsp-top, .dsp[data-layout="time"] .dsp-bottom, .dsp[data-layout="time"] .dsp-notice,
+.dsp[data-layout="time"] .dsp-msg, .dsp[data-layout="time"] .dsp-progress, .dsp[data-layout="time"] .dsp-sub { display: none; }
+.dsp[data-kind="time"] .dsp-time { color: var(--d-fg); opacity: 1; }
+.dsp[data-layout="time"] { grid-template-rows: minmax(0, 1fr); }
+
+/* overtime: the screen pulses (text only when keyed over video) – soft breathes, hard flips */
+@keyframes dsp-over-bg { 50% { background-color: var(--d-crit); } }
+@keyframes dsp-over-txt { 50% { opacity: .2; } }
+@keyframes dsp-over-bg-soft { 50% { background-color: color-mix(in oklch, var(--d-overbg) 72%, var(--d-crit)); } }
+@keyframes dsp-over-txt-soft { 50% { opacity: .55; } }
+.dsp[data-phase="over"][data-overflash="hard"]:not([data-bgstyle="transparent"]):not([data-layout="lower"]) { animation: dsp-over-bg var(--pulse-hard); }
+.dsp[data-phase="over"][data-overflash="hard"][data-bgstyle="transparent"] .dsp-time,
+.dsp[data-phase="over"][data-overflash="hard"][data-layout="lower"] .dsp-time { animation: dsp-over-txt var(--pulse-hard); }
+.dsp[data-phase="over"][data-overflash="soft"]:not([data-bgstyle="transparent"]):not([data-layout="lower"]) { animation: dsp-over-bg-soft var(--pulse-soft); }
+.dsp[data-phase="over"][data-overflash="soft"][data-bgstyle="transparent"] .dsp-time,
+.dsp[data-phase="over"][data-overflash="soft"][data-layout="lower"] .dsp-time { animation: dsp-over-txt-soft var(--pulse-soft); }
+
+/* layout: lower third strip for keying over video (no 1 px lines: they break when scaled) */
+.dsp[data-layout="lower"] { grid-template-rows: 1fr auto; background: transparent; }
+.dsp[data-layout="lower"] .dsp-top, .dsp[data-layout="lower"] .dsp-bottom, .dsp[data-layout="lower"] .dsp-notice { display: none; }
+.dsp[data-layout="lower"] .dsp-main { grid-row: 2; justify-self: end; margin: 0 5cqw 5cqh 0; padding: 1cqh 2.4cqw; border-radius: .6cqh; background: color-mix(in srgb, var(--d-bg) 82%, transparent); }
+.dsp[data-layout="lower"][data-bgstyle="transparent"] .dsp-main { background: color-mix(in srgb, var(--d-bg) 62%, transparent); }
+.dsp[data-layout="lower"] .dsp-time { font-size: 13cqh; }
+.dsp[data-layout="lower"][data-phase="over"] .dsp-main { background: var(--d-crit); }
+.dsp[data-layout="lower"] .dsp-msg { grid-row: 1; align-self: end; justify-self: center; }
+.dsp[data-layout="lower"] .dsp-progress { display: none; }
+
+/* layout: agenda – backstage run of show */
+.dsp[data-layout="agenda"] { grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr); grid-template-rows: auto minmax(0, 1fr) auto; }
+.dsp[data-layout="agenda"] .dsp-top { grid-column: 1 / -1; }
+.dsp[data-layout="agenda"] .dsp-main { grid-column: 1; grid-row: 2; }
+.dsp[data-layout="agenda"] .dsp-time { font-size: min(13cqw, 30cqh); }
+.dsp[data-layout="agenda"][data-len="6"] .dsp-time { font-size: min(11cqw, 27cqh); }
+.dsp[data-layout="agenda"][data-len="7"] .dsp-time { font-size: min(9.6cqw, 24cqh); }
+.dsp[data-layout="agenda"][data-len="8"] .dsp-time, .dsp[data-layout="agenda"][data-len="9"] .dsp-time { font-size: min(8.4cqw, 22cqh); }
+.dsp[data-layout="agenda"] .dsp-sub { font-size: clamp(8px, 3.6cqh, 50px); margin-top: 2cqh; }
+.dsp[data-layout="agenda"] .dsp-list { display: grid; align-content: start; gap: .9cqh; grid-column: 2; grid-row: 2 / 4; margin: 2cqh 3cqw 3cqh 0; padding: 0; list-style: none; overflow: hidden; font: 500 clamp(8px, 3.4cqh, 46px)/1.3 var(--font-ui); }
+.dsp[data-layout="agenda"] .dsp-msg { grid-column: 1; grid-row: 3; }
+.dsp[data-layout="agenda"] .dsp-notice, .dsp[data-layout="agenda"] .dsp-bottom { display: none; }
+.dsp-row { position: relative; overflow: hidden; display: grid; grid-template-columns: 4.2em minmax(0, 1fr) auto; gap: 1em; align-items: baseline; padding: .45em .7em; border-radius: .1em; background: color-mix(in srgb, var(--d-fg) 6%, transparent); border-left: .18em solid transparent; }
+.dsp-row[data-status="done"] { opacity: .4; }
+.dsp-row > * { position: relative; z-index: 1; }
+.dsp-row-bar { position: absolute !important; z-index: 0 !important; left: 0; top: 0; bottom: 0; width: 0; background: color-mix(in srgb, var(--d-accent) 34%, transparent); transition: width .5s linear; }
+.dsp[data-sched="1"] .dsp-progress { height: max(6px, 2.6cqh); }
+.dsp[data-sched="1"] .dsp-list { overflow-y: auto; scrollbar-width: none; }
+.dsp-row[data-status="live"] { background: color-mix(in srgb, var(--d-accent) 22%, transparent); border-left-color: var(--d-accent); }
+.dsp-row-time, .dsp-row-dur { font-family: var(--d-font); font-weight: 700; font-variant-numeric: tabular-nums; opacity: .8; }
+.dsp-row-text { min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.dsp-row-text span { opacity: .65; margin-left: .7em; }
+
+/* tile = small live copy inside the control room */
+.dsp-tile { pointer-events: none; }
+.dsp-tile .dsp-clock, .dsp-tile .dsp-bottom { display: none; }
+.dsp-tile .dsp-top { font-size: clamp(9px, 8cqh, 14px); padding: 6px var(--s-2) 0; }
+.dsp-tile .dsp-notice { display: none; }
+.dsp-tile .dsp-blackout { display: none; }
+
+/* --------------------------------------------- display page chrome: hidden until the mouse moves */
+.stage { position: fixed; inset: 0; }
+.stage-ui { position: fixed; right: 14px; top: 14px; display: flex; gap: var(--s-2); z-index: 10; transition: opacity var(--t-slow) var(--ease); }
+.stage-ui[data-idle="1"] { opacity: 0; pointer-events: none; }
+.stage-ui .btn { background: var(--d-chrome-bg); border-color: var(--d-chrome-line); color: var(--d-fg); }
+body[data-view="display"][data-idle="1"], body[data-view="agenda"][data-idle="1"] { cursor: none; }
+.stage-offline { position: fixed; left: 14px; bottom: 14px; z-index: 10; display: inline-flex; align-items: center; gap: 6px; background: var(--d-crit); color: var(--d-on-signal); font: 600 14px/1 var(--font-ui); padding: 8px 12px; border-radius: var(--r-control); }
+
+@media (prefers-reduced-motion: reduce) {
+  /* overtime stays dark red with "+" and the notice, nothing flashes */
+  .dsp, .dsp-time, .dsp-msg { animation: none !important; }
+}

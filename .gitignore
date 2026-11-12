@@ -1,6 +1,24 @@
+# build output
 /target
 /dist
+
+# runtime data next to the binary (never commit a real show)
 event-timer-data.json
+*.broken.json
 *.json.tmp
 event-timer.log
 event-timer.log.old
+logs/
+
+# secrets and local config
+.env
+
+# editors and OS
+.vscode/
+.idea/
+*.swp
+.DS_Store
+Thumbs.db
+
+# tooling
+node_modules/

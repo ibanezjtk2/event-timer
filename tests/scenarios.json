@@ -916,7 +916,7 @@
         "expect": {
           "presets.4.id": "p1",
           "presets.4.fg": "#abcdef",
-          "presets.4.bg": "#eef1f4",
+          "presets.4.bg": "#eceef1",
           "presets.4.font": "grotesk",
           "presets.4.showClock": false,
           "presets.4.builtin": false,
