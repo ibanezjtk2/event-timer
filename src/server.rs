@@ -10,7 +10,7 @@ use crate::json::{self, Json};
 use crate::logx::{error, info};
 use crate::store::{self, ServerCfg};
 use crate::util::{hex, now_ms, query_param, salt, sha1};
-use crate::{assets, mdns, net, APP_ID, VERSION};
+use crate::{assets, mdns, net, APP_ID, COMMIT, VERSION};
 use std::io::{BufReader, Write};
 use std::net::{IpAddr, Ipv4Addr, Shutdown, TcpListener, TcpStream};
 use std::path::PathBuf;
@@ -41,6 +41,8 @@ pub struct App {
     clients: Mutex<Vec<Arc<Client>>>,
     /// unsaved changes: time of the first and of the latest one (0 = all saved)
     first_dirty: AtomicI64,
+    save_lock: Mutex<()>,
+    save_failing: AtomicBool,
     last_change: AtomicI64,
     pub port: AtomicU16,
     pub data_path: PathBuf,
@@ -75,6 +77,8 @@ impl App {
             cfg: Mutex::new(cfg),
             clients: Mutex::new(Vec::new()),
             first_dirty: AtomicI64::new(0),
+            save_lock: Mutex::new(()),
+            save_failing: AtomicBool::new(false),
             last_change: AtomicI64::new(0),
             port: AtomicU16::new(0),
             data_path,
@@ -166,17 +170,34 @@ impl App {
         }
     }
 
-    pub fn save_now(&self) {
+    /// Writes the show now. Returns false if the write failed (the show stays dirty).
+    pub fn save_now(&self) -> bool {
+        // one writer at a time: save thread, stop handler and /api/shutdown share the .tmp file
+        let _writing = lock(&self.save_lock);
         // cleared first: a change during the write marks the show dirty again
         self.first_dirty.store(0, Ordering::SeqCst);
         let st = lock(&self.state).clone();
         let cfg = lock(&self.cfg).clone();
-        if let Err(e) = store::save(&self.data_path, &st, &cfg, VERSION) {
-            error!(
-                "Speichern fehlgeschlagen ({}): {}",
-                self.data_path.display(),
-                e
-            );
+        match store::save(&self.data_path, &st, &cfg, VERSION) {
+            Ok(()) => {
+                if self.save_failing.swap(false, Ordering::SeqCst) {
+                    info!("Speichern klappt wieder ({}).", self.data_path.display());
+                }
+                true
+            }
+            Err(e) => {
+                // logged once per failure streak, not on every retry
+                if !self.save_failing.swap(true, Ordering::SeqCst) {
+                    error!(
+                        "Speichern fehlgeschlagen ({}): {}. Neuer Versuch alle paar Sekunden.",
+                        self.data_path.display(),
+                        e
+                    );
+                }
+                // still unsaved: try again on the next round instead of waiting for a change
+                self.touch();
+                false
+            }
         }
     }
 
@@ -199,6 +220,7 @@ impl App {
         Json::obj()
             .with("app", APP_ID)
             .with("version", VERSION)
+            .with("commit", COMMIT)
             .with("pinRequired", self.pin_required())
             .with("controls", controls)
             .with("displays", displays)
@@ -278,9 +300,44 @@ pub fn spawn_connection(app: &Arc<App>, stream: TcpStream) {
     }
     let app = app.clone();
     std::thread::spawn(move || {
+        // released on every exit, panics included – otherwise a crashing
+        // connection would keep its slot until restart
+        let _slot = ConnSlot {
+            app: app.clone(),
+            ip,
+        };
         handle_connection(&app, stream, ip);
-        app.conns.release(ip);
     });
+}
+
+/// Frees a connection slot when the connection thread ends, even by panic.
+struct ConnSlot {
+    app: Arc<App>,
+    ip: IpAddr,
+}
+
+impl Drop for ConnSlot {
+    fn drop(&mut self) {
+        self.app.conns.release(self.ip);
+    }
+}
+
+/// Takes a WebSocket client off the list when its session ends, even by panic,
+/// so no ghost device stays counted and broadcast to.
+struct ClientGuard {
+    app: Arc<App>,
+    client: Arc<Client>,
+}
+
+impl Drop for ClientGuard {
+    fn drop(&mut self) {
+        {
+            let w = lock(&self.client.writer);
+            let _ = w.shutdown(Shutdown::Both);
+        }
+        lock(&self.app.clients).retain(|c| c.id != self.client.id);
+        self.app.broadcast();
+    }
 }
 
 /// Optional second listener on port 80, so addresses work without ":2468".
@@ -406,6 +463,10 @@ fn ws_session(
         last_request: AtomicU64::new(0),
     });
     lock(&app.clients).push(client.clone());
+    let _guard = ClientGuard {
+        app: app.clone(),
+        client: client.clone(),
+    };
     app.send_state_to(&client);
 
     loop {
@@ -418,12 +479,6 @@ fn ws_session(
             Ok(WsEvent::Close) | Err(_) => break,
         }
     }
-    {
-        let w = lock(&client.writer);
-        let _ = w.shutdown(Shutdown::Both);
-    }
-    lock(&app.clients).retain(|c| c.id != client.id);
-    app.broadcast();
 }
 
 fn handle_ws_message(app: &Arc<App>, c: &Client, text: &str) {
@@ -579,11 +634,11 @@ fn is_app_route(path: &str) -> bool {
             | "/clock"
             | "/uhr"
             | "/index.html"
-    ) || path[1..]
-        .parse::<u8>()
+    ) || path
+        .strip_prefix('/')
         // screens /1 … /16 (no leading zeros)
-        .map(|n| (1..=16).contains(&n) && !path[1..].starts_with('0'))
-        .unwrap_or(false)
+        .and_then(|n| n.parse::<u8>().ok().filter(|_| !n.starts_with('0')))
+        .is_some_and(|n| (1..=16).contains(&n))
         // screens by name: /p/<slug>
         || (path.len() > 3
             && path.starts_with("/p/")
@@ -687,7 +742,10 @@ fn route_api(app: &App, req: &Request, peer: &Peer) -> Response {
             if !peer.local {
                 return Response::text(403, "Local access only");
             }
-            app.save_now();
+            if !app.save_now() {
+                // keep running: quitting now would lose everything since the last save
+                return Response::json(500, r#"{"ok":false,"error":"save failed"}"#.into());
+            }
             info!("Event Timer wurde über die Regie beendet.");
             std::thread::spawn(|| {
                 std::thread::sleep(Duration::from_millis(200));
@@ -892,5 +950,52 @@ fn companion(app: &App, req: &Request) -> Response {
             ok(cmd)
         }
         _ => err(404, "Unknown Companion action"),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{is_app_route, App};
+    use crate::engine::State;
+    use crate::store::ServerCfg;
+    use std::sync::atomic::Ordering;
+
+    #[test]
+    fn failed_save_is_reported_and_retried() {
+        let dir = std::env::temp_dir().join(format!("et-save-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        // the data path is a directory: every write fails
+        let app = App::new(
+            State::default(),
+            ServerCfg::default(),
+            dir.clone(),
+            "127.0.0.1".into(),
+        );
+        assert!(!app.save_now(), "failure must be reported");
+        assert!(
+            app.first_dirty.load(Ordering::SeqCst) != 0,
+            "still unsaved, so the save thread tries again"
+        );
+        let file = dir.join("show.json");
+        let ok = App::new(
+            State::default(),
+            ServerCfg::default(),
+            file.clone(),
+            "127.0.0.1".into(),
+        );
+        assert!(ok.save_now());
+        assert_eq!(ok.first_dirty.load(Ordering::SeqCst), 0);
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn app_routes() {
+        for p in ["/", "/control", "/1", "/16", "/uhr", "/p/saal-a"] {
+            assert!(is_app_route(p), "{p}");
+        }
+        // must not panic on multi-byte characters right after the slash
+        for p in ["/0", "/17", "/01", "/é", "é", "", "/p/"] {
+            assert!(!is_app_route(p), "{p}");
+        }
     }
 }

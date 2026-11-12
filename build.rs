@@ -27,6 +27,7 @@ fn walk(dir: &Path, base: &Path, out: &mut Vec<String>) {
                 "ico" => "image/x-icon",
                 "json" | "webmanifest" => "application/manifest+json",
                 "woff2" => "font/woff2",
+                "txt" => "text/plain; charset=utf-8",
                 _ => "application/octet-stream",
             };
             let abs = fs::canonicalize(&p).unwrap();
@@ -40,7 +41,39 @@ fn walk(dir: &Path, base: &Path, out: &mut Vec<String>) {
     }
 }
 
+/// Short commit hash for the visible version ("0.7.0+a1b2c3d"); "dev" without git.
+fn commit_hash() -> String {
+    // HEAD only names the branch; the branch file (or packed-refs) moves with each commit.
+    // Only files that exist: cargo treats a missing one as always changed (full rebuild every time).
+    let watch = |p: String| {
+        if Path::new(&p).is_file() {
+            println!("cargo:rerun-if-changed={p}");
+        }
+    };
+    watch(".git/HEAD".into());
+    watch(".git/packed-refs".into());
+    if let Ok(head) = fs::read_to_string(".git/HEAD") {
+        if let Some(r) = head.trim().strip_prefix("ref: ") {
+            watch(format!(".git/{r}"));
+        }
+    }
+    println!("cargo:rerun-if-env-changed=ET_COMMIT");
+    if let Ok(c) = env::var("ET_COMMIT") {
+        return c;
+    }
+    std::process::Command::new("git")
+        .args(["rev-parse", "--short=7", "HEAD"])
+        .output()
+        .ok()
+        .filter(|o| o.status.success())
+        .and_then(|o| String::from_utf8(o.stdout).ok())
+        .map(|s| s.trim().to_string())
+        .filter(|s| !s.is_empty())
+        .unwrap_or_else(|| "dev".into())
+}
+
 fn main() {
+    println!("cargo:rustc-env=ET_COMMIT={}", commit_hash());
     windows_resources();
     let web = Path::new("web");
     println!("cargo:rerun-if-changed=web");

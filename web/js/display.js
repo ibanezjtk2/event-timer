@@ -9,12 +9,13 @@
   'use strict';
   const E = root.ETEngine;
 
+  // din, grotesk and mono are embedded (D-DIN, IBM Plex); serif and rounded use what the device has
   const FONT_STACKS = {
-    din: '"Bahnschrift", "DIN Alternate", "DIN Next", "D-DIN", "Barlow", "Roboto Condensed", "Arial Narrow", system-ui, sans-serif',
-    grotesk: '"Helvetica Neue", "Inter", "Segoe UI", Roboto, Arial, sans-serif',
-    mono: 'ui-monospace, "SF Mono", "Cascadia Mono", "JetBrains Mono", Consolas, "Roboto Mono", monospace',
+    din: '"D-DIN", "IBM Plex Sans", system-ui, sans-serif',
+    grotesk: '"IBM Plex Sans", system-ui, sans-serif',
+    mono: '"IBM Plex Mono", ui-monospace, Consolas, monospace',
     serif: '"Iowan Old Style", "Palatino Linotype", Georgia, "Times New Roman", serif',
-    rounded: 'ui-rounded, "SF Pro Rounded", "Nunito", "Varela Round", "Arial Rounded MT Bold", system-ui, sans-serif',
+    rounded: 'ui-rounded, "SF Pro Rounded", "Arial Rounded MT Bold", system-ui, sans-serif',
   };
 
   const pad = n => String(n).padStart(2, '0');
@@ -38,6 +39,12 @@
     return e;
   }
 
+  /** digits in fixed cells (ETUI.setCells); plain text where the UI helpers are not loaded */
+  function cells(node, value) {
+    if (root.ETUI && root.ETUI.setCells) root.ETUI.setCells(node, value);
+    else setText(node, value);
+  }
+
   function setText(node, value) {
     if (node.textContent !== value) node.textContent = value;
   }
@@ -45,6 +52,20 @@
     const s = String(v);
     if (node.getAttribute(k) !== s) node.setAttribute(k, s);
   }
+
+  // relative luminance (WCAG) of #rgb / #rrggbb, null for anything else
+  function luminance(hex) {
+    const m = /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.exec(String(hex || '').trim());
+    if (!m) return null;
+    const x = m[1].length === 3 ? m[1].replace(/./g, c => c + c) : m[1];
+    const lin = i => { const c = parseInt(x.slice(i, i + 2), 16) / 255; return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4); };
+    return 0.2126 * lin(0) + 0.7152 * lin(2) + 0.0722 * lin(4);
+  }
+  // dark text on a signal colour unless light text has more contrast (dark warn/crit in light designs)
+  const onSignal = hex => {
+    const l = luminance(hex);
+    return l !== null && 1.05 / (l + 0.05) > (l + 0.05) / 0.05 ? 'var(--d-on-dark)' : 'var(--d-on-signal)';
+  };
 
   function applyPreset(node, p, transparent) {
     const key = JSON.stringify(p) + transparent;
@@ -56,6 +77,10 @@
     st.setProperty('--d-accent', p.accent);
     st.setProperty('--d-warn', p.warn);
     st.setProperty('--d-crit', p.crit);
+    st.setProperty('--d-on-warn', onSignal(p.warn));
+    st.setProperty('--d-on-crit', onSignal(p.crit));
+    // secondary text follows the design's own foreground (readable on light designs too)
+    st.setProperty('--d-muted', 'color-mix(in srgb, ' + p.fg + ' 68%, transparent)');
     st.setProperty('--d-overbg', transparent ? 'transparent' : p.overBg);
     st.setProperty('--d-overfg', p.overFg);
     st.setProperty('--d-msgfg', p.msgFg);
@@ -63,6 +88,7 @@
     st.setProperty('--d-font', FONT_STACKS[p.font] || FONT_STACKS.din);
     st.setProperty('--d-weight', p.weight);
     setAttr(node, 'data-bgstyle', transparent ? 'transparent' : p.bgStyle);
+    setAttr(node, 'data-font', FONT_STACKS[p.font] ? p.font : 'din');
   }
 
   /**
@@ -177,7 +203,7 @@
       setAttr(r, 'data-len', Math.min(9, txt.length));
       setAttr(r, 'data-blackout', s.blackout && !o.tile ? 1 : 0);
       setAttr(r, 'data-weight', p.weight);
-      setText(time, txt);
+      cells(time, txt);
       fitTime();
       setText(sub, subText);
 
@@ -185,7 +211,7 @@
       setText(title, showTitle ? titleText : '');
       setText(speaker, showTitle ? speakerText : '');
       const showClock = ctx.show ? ctx.show.clock : p.showClock;
-      setText(clock, (showClock || layout === 'plan') && !isTime ? clockText(wall, false) : '');
+      if (layout !== 'clock') setText(clock, (showClock || layout === 'plan') && !isTime ? clockText(wall, false) : '');
 
       const showNext = layout !== 'time' && (isSched || (ctx.show ? ctx.show.next : p.showNext));
       setText(next, showNext ? nextText : '');
@@ -212,7 +238,7 @@
       const w = (progress * 100).toFixed(2) + '%';
       if (bar.style.width !== w) bar.style.width = w;
 
-      if (layout === 'clock') setText(clock, clockText(wall, true));
+      if (layout === 'clock') cells(clock, clockText(wall, true));
       if (layout === 'agenda') renderList(s, ctx);
       if (layout === 'plan') renderPlan(rv, ctx);
     }

@@ -95,11 +95,21 @@ pub fn default_path() -> PathBuf {
     PathBuf::from(FILE_NAME)
 }
 
-pub fn load(path: &Path) -> (State, ServerCfg, Option<String>) {
-    let Ok(text) = fs::read_to_string(path) else {
-        return (State::default(), ServerCfg::default(), None);
+/// Loads the show. `Err` means the file exists but cannot be read (locked,
+/// no permission): the caller must not start, or the next save would
+/// overwrite a show that is still there.
+pub fn load(path: &Path) -> Result<(State, ServerCfg, Option<String>), String> {
+    let parsed = match fs::read(path) {
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
+            return Ok((State::default(), ServerCfg::default(), None));
+        }
+        Err(e) => return Err(format!("{} ({})", e, path.display())),
+        // not UTF-8 counts as damaged, like broken JSON
+        Ok(bytes) => String::from_utf8(bytes)
+            .map_err(|_| "keine gültige UTF-8-Datei".to_string())
+            .and_then(|text| json::parse(&text).map_err(|e| e.to_string())),
     };
-    match json::parse(&text) {
+    Ok(match parsed {
         Ok(j) => {
             let srv = j.get("server");
             let cfg = ServerCfg {
@@ -118,7 +128,15 @@ pub fn load(path: &Path) -> (State, ServerCfg, Option<String>) {
         Err(e) => {
             // keep the broken file for inspection instead of overwriting it silently
             let backup = path.with_extension("broken.json");
-            let _ = fs::copy(path, &backup);
+            if let Err(ce) = fs::copy(path, &backup) {
+                return Err(format!(
+                    "{} ({}); Sicherung nach {} fehlgeschlagen: {}",
+                    e,
+                    path.display(),
+                    backup.display(),
+                    ce
+                ));
+            }
             (
                 State::default(),
                 ServerCfg::default(),
@@ -130,7 +148,7 @@ pub fn load(path: &Path) -> (State, ServerCfg, Option<String>) {
                 )),
             )
         }
-    }
+    })
 }
 
 pub fn save(path: &Path, state: &State, cfg: &ServerCfg, version: &str) -> std::io::Result<()> {
@@ -158,8 +176,32 @@ pub fn save(path: &Path, state: &State, cfg: &ServerCfg, version: &str) -> std::
 
 #[cfg(test)]
 mod tests {
-    use super::app_bundle_dir;
+    use super::{app_bundle_dir, load};
     use std::path::Path;
+
+    #[test]
+    fn load_missing_damaged_and_valid() {
+        let dir = std::env::temp_dir().join(format!("et-store-test-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let f = dir.join("event-timer-data.json");
+        let _ = std::fs::remove_file(&f);
+        // missing: a new, empty show
+        assert!(matches!(load(&f), Ok((_, _, None))));
+        // not UTF-8: reset, but only after a backup exists
+        std::fs::write(&f, [0xff, 0xfe, b'{']).unwrap();
+        assert!(matches!(load(&f), Ok((_, _, Some(_)))));
+        assert!(f.with_extension("broken.json").exists());
+        // valid
+        std::fs::write(
+            &f,
+            r#"{"app":"event-timer","state":{},"server":{"name":"saal-a"}}"#,
+        )
+        .unwrap();
+        let (_, cfg, err) = load(&f).unwrap();
+        assert!(err.is_none());
+        assert_eq!(cfg.name, "saal-a");
+        let _ = std::fs::remove_dir_all(&dir);
+    }
 
     #[test]
     fn data_next_to_mac_app() {

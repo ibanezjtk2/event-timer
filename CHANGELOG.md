@@ -2,6 +2,44 @@
 
 Alle Änderungen an Event Timer, neueste zuerst. Versionen nach [Semantic Versioning](https://semver.org/lang/de/): PATCH = Fehlerbehebung, MINOR = neue Funktionen (Bestehendes läuft weiter), MAJOR = etwas Bestehendes ändert sich.
 
+## 0.7.0 – 2026-11-05
+
+Neues Aussehen, gleiche Funktionen. Gespeicherte Shows, Designs, PIN und Companion-Befehle aus 0.6 laufen unverändert weiter.
+
+### Geändert
+- **Design nach Show-UI:** ruhiger, flacher, klarere Zustände. Rote Linie unter der Kopfzeile, kleines rotes Quadrat vor dem Namen, Beschriftungen über Gruppen in schmalen Großbuchstaben wie auf einem Pult, kaum gerundete Ecken.
+- **Schriften eingebettet:** IBM Plex Sans für Text, D-DIN für alle Zeiten. Ziffern stehen in festen Zellen, damit nichts zappelt, wenn eine 1 zur 8 wird. Kein Download aus dem Internet, auch nicht in der Einzeldatei.
+- **Helles Theme:** Menü → System → Darstellung: *Dunkel* (Standard), *Hell* oder *Wie System*, merkt sich der Browser. Screens bleiben immer dunkel.
+- **Icons:** einheitlich Phosphor, keine Emojis mehr. Das Menü öffnet sich über das Zahnrad oben rechts.
+- **Farben mit fester Bedeutung:** Grün = läuft, Gelb = Vorwarnung, Rot = Kritisch, Überzeit, Fehler und *live*. Eine **Einblendung**, die gerade auf Screens steht, ist in der Regie jetzt rot markiert (on air) statt gelb; **Talkback** ist Cyan. Auswahl und Fokus sind immer Cyan.
+- **Start, Senden und GO** sind hell auf dunkel (invertiert) statt grün, damit Grün nur „läuft“ heißt.
+- Die eingebauten Designs (Bühne, Daylight, Overlay, Nur Ziffern) nutzen die gedämpften Show-UI-Farben. Eigene Designs behalten ihre Farben. Schriftwahl im Design: *D-DIN (Standard)*, *IBM Plex Sans*, *IBM Plex Mono*, *Serif (System)*, *Rounded (System)*.
+- **fs-Logo:** Schriftzug „fs Event Timer“ auf der Startseite und im neuen Abschnitt *Über Event Timer* (Menü → System, mit Version, Commit und Lizenzen).
+- **Neues App-Icon** für Windows, macOS, Linux und Home-Bildschirm: die rote fs-Kachel mit einem weißen Restzeit-Ring. So bleibt Event Timer als fs-App erkennbar und ist in der Taskleiste trotzdem von anderen fs-Apps zu unterscheiden.
+- `--version`, Startbanner und *Über* zeigen den Commit mit an (`0.7.0+a1b2c3d`).
+
+### Behoben
+- Eine einzelne Anfrage mit Umlaut im Pfad brachte einen Verbindungs-Thread zum Absturz, und dessen Platz blieb belegt. Viele solcher Anfragen sperrten Geräte bis zum Neustart aus.
+- Sehr lange Kopfzeilen ohne Zeilenumbruch konnten den Speicher füllen. Sie sind jetzt auf 16 KB begrenzt.
+- Lässt sich die Speicherdatei nicht lesen (gesperrt, keine Rechte), startet Event Timer mit einer Meldung nicht, statt sie mit einer leeren Show zu überschreiben.
+- Ein fehlgeschlagenes Speichern wird wiederholt, und es schreibt immer nur einer gleichzeitig.
+- Ein Screen-Name mit HTML konnte im Menü (QR-Codes) Code in der Regie ausführen.
+- Blackout ist immer schwarz, auch bei hellen Designs und bei `?bg=transparent`.
+- „Event Timer beenden“ und Strg+C beenden das Programm nicht mehr, wenn das Speichern fehlschlägt. Die Regie meldet den Fehler, und das Programm läuft weiter. Ein dauerhafter Speicherfehler steht nur einmal im Log statt alle 2 Sekunden.
+- Der Mauszeiger verschwindet jetzt auch auf den Screens `/1` bis `/16`, `/uhr` und `/plan` nach 2,5 Sekunden.
+- Laufende Ziffern in den Schriften Rund und Serif zappeln nicht mehr (Tabellenziffern waren versehentlich abgeschaltet).
+- Helle Designs (z. B. Tageslicht): Endzeit und „Danach“ sind wieder gut lesbar, Text auf dunklem Gelb und Rot ist weiß.
+- Screens bleiben auch im hellen Theme samt Browserleiste dunkel.
+- Ein gelöschter Timer lässt auf der Moderation keine grüne „läuft“-Markierung zurück.
+- Das Logo hat im hellen Theme einen Namen für Screenreader. Englisch: „Appearance“ statt „Style“.
+- Ein abgestürzter WebSocket-Thread hinterlässt kein Geister-Gerät mehr.
+- `cargo build` baut nicht mehr bei jedem Aufruf alles neu, wenn `.git/packed-refs` fehlt.
+
+### Intern
+- Repo nach Projektstandard: `scripts/` (Build, Standalone, Icons), `tests/`, `deploy/systemd/`, Issue- und PR-Vorlagen, `.gitattributes`, `.editorconfig`, `docs/` mit Architektur, Testcheckliste und Entscheidungen (ADRs), `CLAUDE.md`.
+- Ein Befehl für alles: `scripts/build.sh` bzw. `scripts\build.ps1` (Format, Clippy, Tests, Release-Build, Standalone, Prüfsummen).
+- `app.css` ist in Tokens, Schriften, Basis, Komponenten und je Ansicht aufgeteilt.
+
 ## 0.6.0 – 2026-10-25
 
 Erste Version mit der neuen Nummerierung: Bis 1.0 zählt Event Timer als 0.x, weil sich Datenformat und Companion-Schnittstelle noch ändern dürfen. Die bisherigen Versionen 1.0 bis 1.6 heißen jetzt 0.0 bis 0.6 (1.5.3 → 0.5.3). 0.6.0 ersetzt eine laufende 1.6 wie gewohnt, gespeicherte Shows bleiben erhalten.

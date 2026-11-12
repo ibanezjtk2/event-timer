@@ -4,7 +4,7 @@
 (function (root) {
   'use strict';
   const E = root.ETEngine, D = root.ETDisplay, Q = root.ETQR;
-  const { h, icon, toast, armed, copy, t } = root.ETUI;
+  const { h, icon, setCells, toast, armed, copy, t } = root.ETUI;
 
   const MIN = 60000;
   const QUICK_MINUTES = [1, 3, 5, 10, 15, 20, 30, 45, 60];
@@ -37,12 +37,14 @@
     const conn = h('div', { class: 'conn', 'data-status': 'connecting' }, h('i'), h('span'));
     const titleInput = h('input', { class: 'event-title', placeholder: t('Name der Veranstaltung'), maxlength: 80, 'aria-label': t('Name der Veranstaltung') });
     titleInput.addEventListener('change', () => act({ type: 'event.update', title: titleInput.value }));
-    const hdrClock = h('div', { class: 'hdr-clock num', 'aria-label': t('Uhrzeit') }, '--:--:--');
+    const hdrTime = h('span', null, '--:--:--');
+    const hdrClock = h('div', { class: 'hdr-clock num', 'aria-label': t('Uhrzeit') }, hdrTime, h('small', null, t('{hm} Uhr').replace('{hm}', '').trim()));
+    const brandVer = h('small');
     const blackoutBtn = h('button', { class: 'btn btn-stop', 'aria-pressed': 'false', onclick: () => act({ type: 'blackout.toggle' }) }, t('Blackout alle'), kbd('B'));
     const soundSlot = h('span', { class: 'sound-slot' });
-    const menuBtn = h('button', { class: 'btn btn-icon', 'aria-label': t('Menü'), title: t('Menü'), onclick: () => openDrawer() }, icon('menu'));
+    const menuBtn = h('button', { class: 'btn btn-icon', 'aria-label': t('Menü'), title: t('Menü'), onclick: () => openDrawer() }, icon('gear'));
     const topbar = h('header', { class: 'topbar' },
-      h('div', { class: 'brand', html: root.ETUI.brandSvg + '<span>Event Timer</span>' }),
+      h('div', { class: 'brand' }, h('i', { 'aria-hidden': 'true' }), h('b', null, 'Event Timer'), brandVer),
       titleInput,
       hdrClock,
       h('div', { class: 'topbar-right' }, soundSlot, conn, blackoutBtn, menuBtn));
@@ -244,7 +246,7 @@
     let kontoKey = '';
     const tlLanes = h('div', { class: 'tl-lanes' });
     const tlFold = h('button', { class: 'tl-fold', 'aria-expanded': String(tlOpen), title: t('Zeitleiste auf- oder zuklappen') + ' (T)', onclick: () => setTlOpen(!tlOpen) },
-      h('span', { class: 'tl-chev', 'aria-hidden': 'true' }, '▾'), t('Zeitleiste'), h('span', { class: 'tl-sub' }, t('Plan gegen Ist')), kbd('T'));
+      h('span', { class: 'tl-chev', 'aria-hidden': 'true' }, icon('caret-down')), t('Zeitleiste'), h('span', { class: 'tl-sub' }, t('Plan gegen Ist')), kbd('T'));
     const tlPanel = h('section', { class: 'panel tl', 'aria-label': t('Zeitleiste') },
       h('div', { class: 'tl-head' }, tlFold, h('div', { class: 'ros-summary' }, statDrift, statEnd, statTotal), kontoActs),
       tlLanes);
@@ -391,7 +393,7 @@
     const sendDsm = text => { if (text && text.trim()) act({ type: 'dsm.message', pages: dsmSendIds(), text }); };
     dsmInput.addEventListener('keydown', e => { if (e.key === 'Enter') { sendDsm(dsmInput.value); dsmInput.value = ''; } });
     const dsmPanel = h('section', { class: 'panel dsm-panel', 'aria-label': t('Einblendung') },
-      h('div', { class: 'panel-head' }, icon('screen'), h('h2', null, t('Einblendung')), h('span', { class: 'help' }, t('→ Screens · öffentlich, bleibt bis „Ausblenden“'))),
+      h('div', { class: 'panel-head' }, icon('broadcast'), h('h2', null, t('Einblendung')), h('span', { class: 'help' }, t('→ Screens · öffentlich, bleibt bis „Ausblenden“'))),
       dsmChips, dsmNow,
       h('div', { class: 'row', style: { marginTop: '10px' } }, h('div', { style: { flex: '1 1 200px' } }, dsmInput),
         h('button', { class: 'btn btn-dsm', onclick: () => { sendDsm(dsmInput.value); dsmInput.value = ''; } }, t('Senden'))),
@@ -436,7 +438,7 @@
         const state = g.visible ? 'live' : 'hidden';
         return h('div', { class: 'msg-card', 'data-state': state, 'data-flash': g.flash && g.visible ? '1' : '0' },
           h('div', { class: 'msg-card-head' },
-            h('span', { class: 'badge' }, g.visible ? t('LIVE') : t('Ausgeblendet')),
+            h('span', { class: 'badge' }, g.visible ? icon('broadcast', true) : icon('eye-off'), g.visible ? t('LIVE') : t('Ausgeblendet')),
             targets.length > 1 || g.ids.some(id => !visibleIds.includes(id)) ? h('span', { class: 'help' }, label(g.ids)) : null,
             h('span', { class: 'spacer' }),
             h('button', { class: 'btn', 'aria-pressed': String(g.flash), onclick: () => act({ type: 'dsm.message', pages: g.ids, flash: !g.flash }) }, t('Blinken')),
@@ -535,7 +537,7 @@
     }
     /** play on a click: the click itself unlocks audio, so wait for it */
     const testSound = kind => { unlockAudio(); if (actx) actx.resume().then(() => signal(kind)).catch(() => {}); };
-    const soundHint = h('button', { class: 'sound-hint', hidden: true, title: t('Browser spielen erst nach einem Klick Ton ab.'), onclick: unlockAudio }, '🔇', h('span', { class: 'sound-hint-l' }, ' ' + t('Ton aus – klicken')));
+    const soundHint = h('button', { class: 'sound-hint', hidden: true, title: t('Browser spielen erst nach einem Klick Ton ab.'), onclick: unlockAudio }, icon('mute'), h('span', { class: 'sound-hint-l' }, ' ' + t('Ton aus – klicken')));
     soundSlot.append(soundHint);
     /** reminder every 15 s while a stage message is unacknowledged; hint when the browser keeps us muted */
     function tickSound(s) {
@@ -550,7 +552,7 @@
       const key = open.map(r => r.id).join() + root.ETUI.lang;
       if (alerts.dataset.key !== key) {
         alerts.dataset.key = key;
-        const items = open.slice(-4).reverse().map(r => h('div', { class: 'alert alert-req', role: 'alert' }, icon('bell'),
+        const items = open.slice(-4).reverse().map(r => h('div', { class: 'alert alert-req', role: 'alert' }, icon('bell', true),
           h('div', { class: 'alert-text' }, h('b', null, r.text), h('span', null, t('Von Moderation') + (r.from && r.from !== t('Moderation') && r.from !== 'Moderation' ? ' · ' + r.from : '') + ' · ' + hhmm(r.at))),
           h('button', { class: 'btn', onclick: () => act({ type: 'request.ack', requestId: r.id }) }, icon('check'), t('Bestätigen'))));
         if (open.length > 1) items.push(h('button', { class: 'btn btn-quiet alert-all', onclick: () => act({ type: 'request.ackAll' }) }, t('Alle bestätigen')));
@@ -987,7 +989,9 @@
       if (s) {
         const now = tr.now();
         const clk = D.clockText(now, true);
-        if (hdrClock.textContent !== clk) hdrClock.textContent = clk;
+        setCells(hdrTime, clk);
+        const ver = (tr.meta && tr.meta.version) || root.ET_VERSION || '';
+        if (brandVer.textContent !== ver) brandVer.textContent = ver;
         tickCues(s, now);
         tickTimeline(s, now);
         tickSound(s);
@@ -1023,7 +1027,7 @@
           let phase = v.phase, prog = v.progress, state = v.state;
           let st = isTime ? t('Zeigt die Uhrzeit') : stateLabel(v) + (v.over && v.state !== 'finished' ? ' · ' + t('Überzeit') : '');
           let sub = isTime ? '' : tm.kind === 'clock' ? (tm.targetLabel ? t('bis') + ' ' + tm.targetLabel : '') : (tm.durationMs ? t('von') + ' ' + E.formatMs(tm.durationMs) : '');
-          if (readTime.textContent !== txt) readTime.textContent = txt;
+          setCells(readTime, txt);
           readout.dataset.phase = phase;
           readout.dataset.state = state;
           if (readState.firstChild.textContent !== st) readState.firstChild.textContent = st;
@@ -1036,13 +1040,13 @@
           if (playBtn.dataset.label !== label + v.state) {
             playBtn.dataset.label = label + v.state;
             playBtn.className = 'btn btn-big ' + (running ? 'btn-hold' : 'btn-go');
-            playBtn.replaceChildren(icon(running ? 'pause' : 'play'), running ? t('Pause') : (v.state === 'paused' ? t('Fortsetzen') : t('Start')), kbd(t('Leertaste')));
+            playBtn.replaceChildren(icon(running ? 'pause' : 'play', running), running ? t('Pause') : (v.state === 'paused' ? t('Fortsetzen') : t('Start')), kbd(t('Leertaste')));
             playBtn.disabled = tm.kind === 'clock' || v.state === 'finished';
             iconPlay.className = 'btn btn-big btn-square ' + (running ? 'btn-hold' : '');
             const pl = running ? t('Pause') : (v.state === 'paused' ? t('Fortsetzen') : t('Start'));
             iconPlay.title = pl + ' (' + t('Leertaste') + ')';
             iconPlay.setAttribute('aria-label', pl);
-            iconPlay.replaceChildren(icon(running ? 'pause' : 'play'));
+            iconPlay.replaceChildren(icon(running ? 'pause' : 'play', running));
             iconPlay.disabled = playBtn.disabled;
           }
         }
@@ -1355,7 +1359,7 @@
           colorField('warn', 'Warnung'), colorField('crit', 'Kritisch'), colorField('overBg', 'Überzeit Hintergrund'),
           colorField('overFg', 'Überzeit Ziffern'), colorField('msgBg', 'Einblendung Fläche'), colorField('msgFg', 'Einblendung Text')),
         h('div', { class: 'grid2' },
-          selField('font', 'Schrift', [['din', 'DIN / Bahnschrift'], ['grotesk', 'Grotesk'], ['mono', 'Monospace'], ['serif', 'Serif'], ['rounded', 'Rounded']]),
+          selField('font', 'Schrift', [['din', 'D-DIN (Standard)'], ['grotesk', 'IBM Plex Sans'], ['mono', 'IBM Plex Mono'], ['serif', 'Serif (System)'], ['rounded', 'Rounded (System)']]),
           selField('weight', 'Stärke', [[400, '400'], [500, '500'], [600, '600'], [700, '700'], [800, '800'], [900, '900']]),
           selField('bgStyle', 'Fläche', [['solid', 'Einfarbig'], ['glow', 'Leuchten'], ['transparent', 'Transparent']]),
           selField('flashStyle', 'Blinken bei Überzeit', [['off', 'Aus'], ['soft', 'Sanft'], ['hard', 'Stark']])),
@@ -1445,7 +1449,15 @@
           sw('et-ack-sound', ackSoundOn(), 'Kurzer Ton, wenn die Moderation „Verstanden“ tippt', on => { if (on) { testSound('ack'); } }),
           h('p', { class: 'help' }, t('Die Lautstärke ist durch die Systemlautstärke des Rechners begrenzt. Browser spielen erst nach einem Klick auf die Seite Ton ab.'))));
       const keys = [['Leertaste', 'Start/Pause'], ['R', 'Zurücksetzen'], ['↑ / ↓', '±1:00'], ['← / →', '±0:10'], ['⇧ ↵', 'Setzen & Start'], ['G', 'Nächster Programmpunkt'], ['C', 'Nächsten Cue auslösen (GO)'], ['B', 'Blackout alle'], ['T', 'Zeitleiste auf/zu'], ['1 … 8', 'Timer wählen']];
+      // appearance: dark is the default for the show, light for bright rooms, or follow the system
+      const themeSeg = h('div', { class: 'seg seg-wide', role: 'group', 'aria-label': t('Darstellung') },
+        [['dark', 'Dunkel'], ['light', 'Hell'], ['system', 'Wie System']].map(([v, l]) => h('button', {
+          'aria-pressed': String(root.ETUI.theme === v),
+          onclick: e => { root.ETUI.setTheme(v); e.currentTarget.parentNode.querySelectorAll('button').forEach(x => x.setAttribute('aria-pressed', String(x === e.currentTarget))); },
+        }, t(l))));
       const out = [
+        h('div', { class: 'field' }, h('span', null, t('Darstellung')), themeSeg,
+          h('span', { class: 'help' }, t('Dunkel blendet in der Regie nicht. Screens bleiben immer dunkel.'))),
         h('label', { class: 'field' }, h('span', null, t('Sprache')), langSel),
         soundBox,
         h('div', null, h('h3', { class: 'section-title' }, t('Tastenkürzel')),
@@ -1460,8 +1472,15 @@
           h('p', { class: 'help', style: { marginBottom: '8px' } }, t('Speichert die Show und beendet Event Timer auf diesem Rechner. Alle Screens verlieren die Verbindung.')),
           armed(h('button', { class: 'btn btn-stop' }, t('Event Timer beenden')), shutdown)));
       }
-      out.push(h('p', { class: 'help about' }, 'Event Timer ' + (m.version || root.ET_VERSION || '') + ' · © 2026 Felix Spindler · ',
-        h('a', { href: 'mailto:f-spindler@pm.me' }, 'f-spindler@pm.me'), ' · ' + t('Lizenz') + ': GPL-3.0-or-later'));
+      out.push(h('div', { class: 'section about' },
+        h('h3', { class: 'section-title' }, t('Über Event Timer')),
+        root.ETUI.logo('about-mark'),
+        h('p', { class: 'help' }, t('Version') + ' ' + (m.version || root.ET_VERSION || '') + (m.commit ? '+' + m.commit : '') + ' · © 2026 Felix Spindler · ',
+          h('a', { href: 'mailto:f-spindler@pm.me' }, 'f-spindler@pm.me'), ' · ' + t('Lizenz') + ': GPL-3.0-or-later'),
+        h('p', { class: 'help' }, t('Schriften: IBM Plex und D-DIN (SIL Open Font License 1.1). Icons: Phosphor (MIT).') + ' ',
+          h('a', { href: root.ETUI.asset('licenses/IBM-Plex-OFL.txt'), target: '_blank', rel: 'noopener' }, 'Plex'), ' · ',
+          h('a', { href: root.ETUI.asset('licenses/D-DIN-OFL.txt'), target: '_blank', rel: 'noopener' }, 'D-DIN'), ' · ',
+          h('a', { href: root.ETUI.asset('licenses/Phosphor-MIT.txt'), target: '_blank', rel: 'noopener' }, 'Phosphor'))));
       if (tr.mode === 'standalone') {
         out.push(h('div', { class: 'section' },
           h('p', { class: 'help', style: { marginBottom: '8px' } }, t('Löscht alle Timer, Screens, die Agenda und eigene Designs in diesem Browser.')),
@@ -1479,6 +1498,7 @@
           h('p', null, t('Die Show ist gespeichert. Zum Weitermachen das Programm erneut öffnen.'))));
       try {
         const r = await fetch('/api/shutdown', { method: 'POST' });
+        if (r.status === 500) { toast(t('Speichern fehlgeschlagen, Event Timer läuft weiter')); return; }
         if (!r.ok) throw new Error(r.status);
         document.body.appendChild(done);
         alive = false;

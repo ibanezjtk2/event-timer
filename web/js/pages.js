@@ -11,7 +11,7 @@
 (function (root) {
   'use strict';
   const E = root.ETEngine, D = root.ETDisplay;
-  const { h, icon, toast, t } = root.ETUI;
+  const { h, icon, setCells, toast, t } = root.ETUI;
   const store = root.ETTransport.store;
   const hm = ms => D.clockText(ms, false);
 
@@ -253,13 +253,13 @@
         tick(s, now) {
           const a = s.agenda;
           const tm = s.timers.find(x => x.id === m.opts.timer);
-          if (!tm) { setText(title, t('Timer gibt es nicht')); setText(time, '--:--'); return; }
+          if (!tm) { setText(title, t('Timer gibt es nicht')); setCells(time, '--:--'); setData(time, 'state', ''); setText(sub, ''); setText(next, ''); drift.hidden = true; bar.style.width = '0%'; return; }
           const v = E.timerView(tm, now);
           const seg = tm.segmentId ? a.items.find(x => x.id === tm.segmentId) : null;
           const nx = seg ? a.items[a.items.indexOf(seg) + 1] : null;
           setText(title, seg ? seg.title : tm.name);
           const txt = E.isStatic(tm.kind) ? D.clockText(now, false) : E.formatMs(v.ms, { up: tm.kind === 'countup' });
-          setText(time, txt);
+          setCells(time, txt);
           // long times (1:02:16, +12:00) must not run out of the card
           const fk = txt.length + '|' + box.clientWidth;
           if (fk !== fitKey) {
@@ -269,6 +269,7 @@
             if (avail > 0 && need > avail) time.style.fontSize = (parseFloat(getComputedStyle(time).fontSize) * avail / need).toFixed(1) + 'px';
           }
           setData(time, 'phase', v.phase || 'normal');
+          setData(time, 'state', v.state);
           const end = E.isStatic(tm.kind) ? '' : D.endText(tm, now, now, t, true);
           setText(sub, ({ running: t('Läuft'), paused: t('Pausiert'), idle: t('Bereit'), finished: t('Abgelaufen') }[v.state] || '') + (end ? ' · ' + end : ''));
           bar.style.width = ((v.progress || 0) * 100).toFixed(1) + '%';
@@ -288,7 +289,7 @@
     clock(box, m) {
       const el = h('div', { class: 'mpg-clock num' });
       box.append(el);
-      return { tick(s, now) { setText(el, D.clockText(now, m.opts.seconds !== false)); } };
+      return { tick(s, now) { setCells(el, D.clockText(now, m.opts.seconds !== false)); } };
     },
     next(box) {
       const what = h('b');
@@ -353,7 +354,7 @@
     message(box, m) {
       const txt = h('div', { class: 'mpg-dsm-text' });
       const where = h('span');
-      const head = h('div', { class: 'mpg-dsm-head' }, icon('screen'), where);
+      const head = h('div', { class: 'mpg-dsm-head' }, icon('broadcast'), where);
       box.append(head, txt);
       return {
         tick(s) {
@@ -374,7 +375,7 @@
       const meta = h('small');
       const ok = h('button', { class: 'btn btn-go mod-talk-ok', onclick: () => c.tr.talkAck() }, icon('check'), t('Verstanden'));
       const idle = h('div', { class: 'mpg-talk-idle' }, icon('talk'), h('span', null, t('Von der Regie')), h('small', null, t('kein Talkback offen')));
-      const card = h('div', { class: 'mod-talk', role: 'alert' }, h('div', { class: 'mod-talk-head' }, icon('talk'), h('b', null, t('Von der Regie')), meta), text, ok);
+      const card = h('div', { class: 'mod-talk', role: 'alert' }, h('div', { class: 'mod-talk-head' }, icon('talk', true), h('b', null, t('Von der Regie')), meta), text, ok);
       box.append(idle, card);
       const seen = new Set();
       let init = false, key = null;
@@ -514,6 +515,7 @@
       host.classList.toggle('pg-host-mod', kind === 'mod');
       if (!o.preview) {
         document.body.dataset.view = pg && pg.kind === 'mod' ? 'moderation' : 'display';
+        root.ETUI.setScreenMode(!(pg && pg.kind === 'mod'));
         document.title = (pg ? pg.name : t('Screen nicht gefunden')) + ' – Event Timer';
         if (pg && pg.kind === 'show' && params.get('bg') === 'transparent') {
           document.body.style.background = 'transparent'; document.documentElement.style.background = 'transparent'; document.documentElement.style.colorScheme = 'normal';
@@ -535,10 +537,12 @@
       }
       inst = pg.kind === 'show' ? buildDsm(host, tr, pg, params, o) : buildMod(host, tr, pg, params, o);
     }
+    // chrome and mouse pointer disappear after a moment (CSS hides the pointer on screens only)
+    const setIdle = v => { ui.dataset.idle = v; if (!o.preview) document.body.dataset.idle = v; };
     const wake = () => {
-      ui.dataset.idle = '0';
+      setIdle('0');
       clearTimeout(idle);
-      idle = setTimeout(() => { ui.dataset.idle = '1'; }, 2500);
+      idle = setTimeout(() => setIdle('1'), 2500);
       if (kind === 'show') keepAwake();
     };
     if (!o.preview) ['pointermove', 'pointerdown', 'keydown'].forEach(ev => document.addEventListener(ev, wake));
@@ -563,7 +567,10 @@
       cancelAnimationFrame(raf);
       clearTimeout(idle);
       if (inst) inst.destroy();
-      if (!o.preview) ['pointermove', 'pointerdown', 'keydown'].forEach(ev => document.removeEventListener(ev, wake));
+      if (!o.preview) {
+        ['pointermove', 'pointerdown', 'keydown'].forEach(ev => document.removeEventListener(ev, wake));
+        delete document.body.dataset.idle;
+      }
     };
   }
 

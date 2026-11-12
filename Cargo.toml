@@ -1,8 +1,8 @@
 [package]
 name = "event-timer"
-version = "0.6.0"
+version = "0.7.0"
 edition = "2021"
-description = "Event Timer – Countdown, Redezeit und Ablaufplan für Bühne und Regie"
+description = "Event Timer – Countdown, Redezeit und Agenda für Bühne und Regie"
 license = "GPL-3.0-or-later"
 authors = ["Felix Spindler <f-spindler@pm.me>"]
 build = "build.rs"

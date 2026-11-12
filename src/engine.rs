@@ -635,7 +635,8 @@ fn migrate_screens(s: &mut State, j: &Json) {
         for tj in list {
             if let Some(id) = tj.get("id").as_str() {
                 old.push((
-                    format!("d{}", &id[1.min(id.len())..]),
+                    // drop the first character, like the JS engine ('d' + id.slice(1))
+                    format!("d{}", id.chars().skip(1).collect::<String>()),
                     msg(tj.get("message")),
                 ));
             }
@@ -775,8 +776,8 @@ pub fn builtin_presets() -> Vec<Preset> {
             "stage",
             "Bühne",
             [
-                "#000000", "#f4f6f8", "#2fd47a", "#ffb020", "#ff4757", "#4a0710", "#ffffff",
-                "#000000", "#ffd84d",
+                "#000000", "#ffffff", "#4cc07f", "#e3ab45", "#e5534b", "#4a0710", "#ffffff",
+                "#000000", "#e3ab45",
             ],
             "solid",
             "din",
@@ -789,8 +790,8 @@ pub fn builtin_presets() -> Vec<Preset> {
             "daylight",
             "Daylight",
             [
-                "#eef1f4", "#0d1620", "#0f9d58", "#c77700", "#d0192e", "#d0192e", "#ffffff",
-                "#ffffff", "#0d1620",
+                "#eceef1", "#111418", "#1b6e42", "#835509", "#b8342b", "#b8342b", "#ffffff",
+                "#ffffff", "#111418",
             ],
             "solid",
             "grotesk",
@@ -803,8 +804,8 @@ pub fn builtin_presets() -> Vec<Preset> {
             "overlay",
             "Overlay (Keying)",
             [
-                "#000000", "#ffffff", "#2fd47a", "#ffb020", "#ff4757", "#c4122b", "#ffffff",
-                "#000000", "#ffd84d",
+                "#000000", "#ffffff", "#4cc07f", "#e3ab45", "#e5534b", "#b8342b", "#ffffff",
+                "#000000", "#e3ab45",
             ],
             "transparent",
             "din",
@@ -817,7 +818,7 @@ pub fn builtin_presets() -> Vec<Preset> {
             "minimal",
             "Nur Ziffern",
             [
-                "#000000", "#ffffff", "#2fd47a", "#ffb020", "#ff4757", "#000000", "#ff4757",
+                "#000000", "#ffffff", "#4cc07f", "#e3ab45", "#e5534b", "#000000", "#e5534b",
                 "#000000", "#ffffff",
             ],
             "solid",

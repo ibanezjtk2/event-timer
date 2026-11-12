@@ -7,6 +7,13 @@
   // ---------------------------------------------------------------- i18n
   // German is the source language; English translations below.
   const EN = {
+    "Darstellung": "Appearance",
+    "Dunkel": "Dark",
+    "Hell": "Light",
+    "Wie System": "Match system",
+    "Dunkel blendet in der Regie nicht. Screens bleiben immer dunkel.": "Dark does not glare in the control room. Screens always stay dark.",
+    "Über Event Timer": "About Event Timer",
+    "Schriften: IBM Plex und D-DIN (SIL Open Font License 1.1). Icons: Phosphor (MIT).": "Fonts: IBM Plex and D-DIN (SIL Open Font License 1.1). Icons: Phosphor (MIT).",
     "{hm} Uhr": "{hm}",
     "Zurück zum vorigen Programmpunkt": "Back to the previous item",
     "Zeitleiste auf- oder zuklappen": "Show or hide the timeline",
@@ -152,7 +159,6 @@
     "Ungespeichert – nochmal tippen": "Not applied – tap again",
     "Nicht übernommen – nochmal tippen": "Not applied – tap again",
     "Timer": "Timer",
-    "Darstellung": "Style",
     "Sekunden anzeigen": "Show seconds",
     "Automatisch (DSM des Ablauf-Timers)": "Automatic (DSM of the run-of-show timer)",
     "Welcher DSM": "Which DSM",
@@ -478,6 +484,7 @@
     "Event Timer wurde beendet": "Event Timer has been closed",
     "Die Show ist gespeichert. Zum Weitermachen das Programm erneut öffnen.": "The show is saved. Open the program again to continue.",
     "Beenden nicht möglich": "Could not quit",
+    "Speichern fehlgeschlagen, Event Timer läuft weiter": "Saving failed, Event Timer keeps running",
   };
 
   let lang = 'de';
@@ -505,40 +512,103 @@
     return e;
   }
 
-  const P = {
-    play: '<path d="M7 4.5v15l12.5-7.5z" fill="currentColor"/>',
-    pause: '<path d="M7 4.5h3.5v15H7zM13.5 4.5H17v15h-3.5z" fill="currentColor"/>',
-    reset: '<path d="M4.5 12a7.5 7.5 0 1 0 2.2-5.3M4.5 4v4h4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>',
-    gear: '<circle cx="12" cy="12" r="3" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 2.8v2.4M12 18.8v2.4M2.8 12h2.4M18.8 12h2.4M5.5 5.5l1.7 1.7M16.8 16.8l1.7 1.7M5.5 18.5l1.7-1.7M16.8 7.2l1.7-1.7" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>',
-    plus: '<path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/>',
-    up: '<path d="M6 14l6-6 6 6" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>',
-    down: '<path d="M6 10l6 6 6-6" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>',
-    trash: '<path d="M5 7h14M10 7V4.5h4V7M7 7l1 13h8l1-13" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>',
-    edit: '<path d="M4 20h4L19 9l-4-4L4 16z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>',
-    open: '<path d="M14 4h6v6M20 4l-9 9M18 14v6H4V6h6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>',
-    copy: '<rect x="8" y="8" width="12" height="12" rx="2" fill="none" stroke="currentColor" stroke-width="2"/><path d="M16 8V4H4v12h4" fill="none" stroke="currentColor" stroke-width="2"/>',
-    next: '<path d="M5 5v14l10-7zM17 5h2.5v14H17z" fill="currentColor"/>',
-    prev: '<path d="M19 5v14L9 12zM4.5 5H7v14H4.5z" fill="currentColor"/>',
-    go: '<path d="M6 12h12M13 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>',
-    full: '<path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>',
-    close: '<path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/>',
-    bell: '<path d="M6 16v-5a6 6 0 0 1 12 0v5l2 2H4zM10 21h4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>',
-    menu: '<path d="M4 7h16M4 12h16M4 17h16" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/>',
-    screen: '<rect x="3" y="4" width="18" height="12" rx="1.5" fill="none" stroke="currentColor" stroke-width="2"/><path d="M8 20h8M12 16v4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>',
-    talk: '<path d="M4 5h16v11H9l-5 4z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>',
-    check: '<path d="M5 12.5l4.5 4.5L19 7.5" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>',
-    back: '<path d="M15 5l-7 7 7 7" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>',
-  };
-  const icon = name => {
-    const s = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-    s.setAttribute('viewBox', '0 0 24 24');
+  // Icons: Phosphor (web/js/icons.js), Bold by default, Fill for the active state.
+  const SVG_NS = 'http://www.w3.org/2000/svg';
+  const icon = (name, fill) => {
+    const I = root.ETIcons || {};
+    const s = document.createElementNS(SVG_NS, 'svg');
+    s.setAttribute('viewBox', '0 0 256 256');
+    s.setAttribute('fill', 'currentColor');
     s.setAttribute('aria-hidden', 'true');
-    s.innerHTML = P[name] || '';
+    s.innerHTML = (fill && I[name + ':fill']) || I[name] || '';
     return s;
   };
 
-  // Brand mark = the app icon (packaging/icon/event-timer.svg): a stopwatch whose ring runs green into amber.
-  const brandSvg = '<svg class="brand-mark" viewBox="0 0 512 512" aria-hidden="true"><defs><linearGradient id="etg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2a3039"/><stop offset="1" stop-color="#14171b"/></linearGradient></defs><rect x="16" y="16" width="480" height="480" rx="108" fill="url(#etg)"/><rect x="222" y="70" width="68" height="30" rx="10" fill="#e9ecf0"/><rect x="244" y="96" width="24" height="20" fill="#e9ecf0"/><rect x="364" y="112" width="40" height="22" rx="8" fill="#e9ecf0" transform="rotate(45 384 123)"/><circle cx="256" cy="282" r="148" fill="none" stroke="#3b434e" stroke-width="42"/><path d="M256.0 134.0 A148 148 0 1 1 171.1 403.2" fill="none" stroke="#2fd47a" stroke-width="42" stroke-linecap="round"/><path d="M139.4 373.1 A148 148 0 0 1 111.2 251.2" fill="none" stroke="#ffb020" stroke-width="42" stroke-linecap="round"/><path d="M256 282 L256 176" stroke="#e9ecf0" stroke-width="24" stroke-linecap="round"/><circle cx="256" cy="282" r="26" fill="#e9ecf0"/></svg>';
+  /**
+   * Running times in D-DIN sit in fixed cells (the digits are proportional), so nothing
+   * jumps when a digit changes. Only touches the DOM when the text changes.
+   */
+  function setCells(node, txt) {
+    if (node._cells === txt) return;
+    const prev = node._cells;
+    node._cells = txt;
+    const wrap = node.firstElementChild && node.firstElementChild.classList.contains('cells') ? node.firstElementChild : null;
+    const kind = ch => (ch === ':' ? 'c' : /[0-9+\-−]/.test(ch) ? '' : 'w');
+    if (wrap && prev != null && prev.length === txt.length) {
+      for (let i = 0; i < txt.length; i++) {
+        const sp = wrap.children[i];
+        if (sp.textContent !== txt[i]) { sp.textContent = txt[i]; sp.className = kind(txt[i]); }
+      }
+      return;
+    }
+    const w = document.createElement('span');
+    w.className = 'cells';
+    for (const ch of txt) {
+      const sp = document.createElement('span');
+      const k = kind(ch);
+      if (k) sp.className = k;
+      sp.textContent = ch;
+      w.appendChild(sp);
+    }
+    node.replaceChildren(w);
+  }
+
+  // ------------------------------------------------------------- theme
+  // Dark is the default (the control room must not glare); light for bright rooms; or follow the system.
+  const THEMES = ['dark', 'light', 'system'];
+  const themeMq = root.matchMedia ? root.matchMedia('(prefers-color-scheme: light)') : null;
+  let themePref = 'dark';
+  try { themePref = THEMES.includes(localStorage.getItem('et-theme')) ? localStorage.getItem('et-theme') : 'dark'; } catch { /* ignore */ }
+  let screenMode = false;  // stage screens are always dark, browser chrome included
+  function applyTheme() {
+    const eff = screenMode ? 'dark' : themePref === 'system' ? (themeMq && themeMq.matches ? 'light' : 'dark') : themePref;
+    if (typeof document !== 'undefined') {
+      document.documentElement.dataset.theme = eff;
+      const meta = document.querySelector('meta[name="theme-color"]');
+      // browser bar in the page colour, read from the tokens (no colour values in JS)
+      const bg = getComputedStyle(document.documentElement).getPropertyValue(screenMode ? '--d-bg' : '--bg').trim();
+      if (meta && bg) meta.setAttribute('content', bg);
+    }
+    return eff;
+  }
+  /** Stage screens call this with true: dark page and browser chrome, whatever the theme setting. */
+  function setScreenMode(on) {
+    if (screenMode === Boolean(on)) return;
+    screenMode = Boolean(on);
+    applyTheme();
+  }
+  function setTheme(v) {
+    themePref = THEMES.includes(v) ? v : 'dark';
+    try { localStorage.setItem('et-theme', themePref); } catch { /* ignore */ }
+    applyTheme();
+  }
+  if (themeMq && themeMq.addEventListener) themeMq.addEventListener('change', () => { if (themePref === 'system') applyTheme(); });
+  applyTheme();
+
+  /** Wordmark "fs Event Timer" (Show-UI logo, never redrawn) in the variant for the current theme. */
+  // the standalone file carries the logo inline (root.ET_ASSETS), the server serves /brand/
+  // both variants are in the page, CSS shows the one for the current theme (switches live)
+  const logo = cls => {
+    // the wrapper carries the name, so it is announced in both themes
+    const img = (variant, extra) => h('img', { class: 'logo-' + variant + extra, alt: '', 'aria-hidden': 'true', width: 175, height: 40, src: asset('brand/fs-event-timer-' + variant + '.svg') });
+    return h('span', { class: 'logo ' + (cls || ''), role: 'img', 'aria-label': 'fs Event Timer' }, img('dunkel', ''), img('hell', ' logo-alt'));
+  };
+  /** URL of a bundled file: inline in the standalone file (root.ET_ASSETS), otherwise from the server. */
+  // browsers refuse to open data: URLs as a page, so inlined texts become blob: URLs (licence links)
+  const blobs = {};
+  const asset = path => {
+    const v = root.ET_ASSETS && root.ET_ASSETS[path];
+    if (!v) return '/' + path;
+    if (!v.startsWith('data:text/')) return v;
+    if (!blobs[path]) {
+      const [head, b64] = v.split(',');
+      const bin = atob(b64);
+      const bytes = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+      blobs[path] = URL.createObjectURL(new Blob([bytes], { type: head.slice(5).replace(';base64', '') }));
+    }
+    return blobs[path];
+  };
 
   let toastTimer = null;
   function toast(text) {
@@ -574,5 +644,5 @@
     toast(t('Kopiert'));
   }
 
-  root.ETUI = { h, icon, toast, armed, copy, t, setLang, get lang() { return lang; }, brandSvg, EN };
+  root.ETUI = { h, icon, setCells, toast, armed, copy, t, setLang, get lang() { return lang; }, setTheme, setScreenMode, get theme() { return themePref; }, logo, asset, EN };
 })(globalThis);

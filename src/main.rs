@@ -31,7 +31,11 @@ use std::time::Duration;
 
 pub const APP_ID: &str = "event-timer";
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
+/// Commit the binary was built from (set by build.rs).
+pub const COMMIT: &str = env!("ET_COMMIT");
 const DEFAULT_PORT: u16 = 2468;
+/// Save attempts when the system asks the program to stop (Ctrl+C, logout, kill).
+const STOP_SAVE_TRIES: u32 = 3;
 
 struct Options {
     port: u16,
@@ -96,7 +100,7 @@ fn parse_args() -> Options {
             "--port80" => o.port80 = Some(true),
             "--no-port80" => o.port80 = Some(false),
             "--version" | "-V" => {
-                println!("{VERSION}");
+                println!("{VERSION}+{COMMIT}");
                 std::process::exit(0)
             }
             _ => usage(),
@@ -149,7 +153,17 @@ fn main() {
     }
     platform::install_stop_handlers();
 
-    let (state, cfg, load_error) = store::load(&data_path);
+    let (state, cfg, load_error) = match store::load(&data_path) {
+        Ok(loaded) => loaded,
+        Err(e) => {
+            let msg = format!(
+                "Event Timer kann die Speicherdatei nicht lesen und startet nicht, damit die Show nicht überschrieben wird.\n{e}\nIst die Datei in einem anderen Programm geöffnet?"
+            );
+            error!("{msg}");
+            platform::alert(&msg, true);
+            std::process::exit(1);
+        }
+    };
     let app = Arc::new(App::new(state, cfg, data_path, opts.host.clone()));
     if let Some(e) = load_error {
         let msg = format!("Die Speicherdatei war beschädigt und wurde zurückgesetzt.\n{e}");
@@ -200,9 +214,21 @@ fn main() {
         std::thread::spawn(move || loop {
             std::thread::sleep(Duration::from_millis(100));
             if platform::stop_requested() {
-                app.save_now();
-                info!("Event Timer beendet.");
-                std::process::exit(0);
+                // the system wants us gone: a few quick retries, then exit with an error
+                let saved = (0..STOP_SAVE_TRIES).any(|i| {
+                    if i > 0 {
+                        std::thread::sleep(Duration::from_millis(500));
+                    }
+                    app.save_now()
+                });
+                if saved {
+                    info!("Event Timer beendet.");
+                    std::process::exit(0);
+                }
+                error!(
+                    "Event Timer beendet, die letzten Änderungen konnten nicht gespeichert werden."
+                );
+                std::process::exit(1);
             }
             app.save_if_due(util::now_ms());
         });
@@ -261,7 +287,7 @@ fn print_banner(app: &App, port: u16, wanted: u16) {
     let mut out = vec![
         String::new(),
         line.clone(),
-        format!("  Event Timer {VERSION}"),
+        format!("  Event Timer {VERSION}+{COMMIT}"),
         line,
     ];
     if port != wanted {
