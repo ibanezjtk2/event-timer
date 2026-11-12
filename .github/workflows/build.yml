@@ -110,7 +110,7 @@ jobs:
           tar -czf "out/$D.tar.gz" "$D"
           tar -tzvf "out/$D.tar.gz"
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: event-timer-${{ env.V }}-${{ matrix.name }}
           path: out/*
@@ -127,7 +127,7 @@ jobs:
           echo "V=$V" >> "$GITHUB_ENV"
           node scripts/build-standalone.js
           mkdir -p out && cp dist/event-timer-standalone.html "out/event-timer-$V-standalone.html"
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: event-timer-${{ env.V }}-standalone
           path: out/*
