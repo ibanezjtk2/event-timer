@@ -19,7 +19,7 @@ jobs:
         with:
           toolchain: "1.97.0"
           components: rustfmt, clippy
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with: { node-version: 22 }
       - run: cargo fmt --check
       - run: cargo clippy --all-targets --locked -- -D warnings
@@ -31,7 +31,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with: { node-version: 22 }
       - run: cargo test --locked
       - run: node tests/engine.test.js
@@ -120,7 +120,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with: { node-version: 22 }
       - run: |
           V=$(grep -m1 '^version' Cargo.toml | cut -d'"' -f2)
