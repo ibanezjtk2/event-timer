@@ -30,7 +30,7 @@ event-timer [--port 2468] [--host 0.0.0.0] [--data datei.json] [--pin 1234]
             [--name saal1] [--port80 | --no-port80] [--no-browser]
 ```
 
-- **Port 2468** (früher 3000, damit nichts mit NDPro & Co. kollidiert). Ist er belegt, nimmt das Programm automatisch den nächsten freien und zeigt ihn an. Mit `--port` ist der Port fest.
+- **Port 2468** (früher 3000, damit nichts mit anderer Show-Software kollidiert). Ist er belegt, nimmt das Programm automatisch den nächsten freien und zeigt ihn an. Mit `--port` ist der Port fest.
 - Startest du das Programm ein zweites Mal, öffnet es nur die Regie der laufenden Instanz. Eine andere Version wird automatisch ersetzt.
 - **Windows-Firewall:** Beim ersten Start „Private Netzwerke“ erlauben, sonst kommen Handys nicht ran.
 - **Daten:** `event-timer-data.json` liegt neben dem Programm (bzw. neben der *Event Timer.app*) – also auch auf einem USB-Stick. Ist der Ort nicht beschreibbar, nimmt das Programm den Benutzerordner; der Pfad steht unter *System*.

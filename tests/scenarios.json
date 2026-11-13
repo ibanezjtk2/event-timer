@@ -998,7 +998,7 @@
         "at": 0,
         "do": {
           "type": "event.update",
-          "title": "KOM27 Fachtag"
+          "title": "Fachtag Saal A"
         }
       },
       {
@@ -1015,7 +1015,7 @@
       {
         "at": 0,
         "expect": {
-          "event.title": "KOM27 Fachtag",
+          "event.title": "Fachtag Saal A",
           "quickMessages.1": "B",
           "quickMessages.length": 2
         }
