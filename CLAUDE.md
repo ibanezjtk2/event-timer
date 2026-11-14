@@ -25,7 +25,7 @@ Event Timer: Countdown, Redezeit und Agenda für Bühne und Regie. Ein Rust-Prog
 
 ## Sprache und Begriffe
 - Oberfläche, Doku und Commits auf Deutsch, neue Bezeichner auf Englisch. EN-Übersetzung in `ui.js` (`EN`).
-- Begriffe laut README → Begriffe: Agenda, Programmpunkt, Screen, Einblendung, Talkback, Meldung, Puffer, Zeitkonto.
+- Begriffe laut docs/ANLEITUNG.md → Begriffe: Agenda, Programmpunkt, Screen, Einblendung, Talkback, Meldung, Puffer, Zeitkonto.
 - Uhrzeiten tragen „Uhr“ („Ende 14:32 Uhr“), Screens bleiben kurz.
 - Nie „Foyer-Uhr“ schreiben. Die Seite heißt „Uhr“ (`/uhr`).
 
