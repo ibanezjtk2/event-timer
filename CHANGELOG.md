@@ -2,6 +2,11 @@
 
 Alle Änderungen an Event Timer, neueste zuerst. Versionen nach [Semantic Versioning](https://semver.org/lang/de/): PATCH = Fehlerbehebung, MINOR = neue Funktionen (Bestehendes läuft weiter), MAJOR = etwas Bestehendes ändert sich.
 
+## Unveröffentlicht
+
+### Geändert
+- README auf einen kurzen Überblick gekürzt. Die ausführliche Anleitung steht jetzt in `docs/ANLEITUNG.md`, veraltete Farbangaben (Einblendung, Talkback) sind dort korrigiert.
+
 ## 0.7.0 – 2026-11-05
 
 Neues Aussehen, gleiche Funktionen. Gespeicherte Shows, Designs, PIN und Companion-Befehle aus 0.6 laufen unverändert weiter.
