@@ -40,7 +40,7 @@ event-timer [--port 2468] [--host 0.0.0.0] [--data datei.json] [--pin 1234]
 
 ## Kurze Adressen statt IP
 
-Das Programm meldet sich per mDNS (Bonjour) selbst im Netzwerk an. Statt `192.168.178.42:2468/timer1` tippst du einfach:
+Das Programm meldet sich per mDNS (Bonjour) selbst im Netzwerk an. Statt `192.0.2.42:2468/timer1` tippst du einfach:
 
 ```
 event-timer.local:2468/1          # Display Timer 1
